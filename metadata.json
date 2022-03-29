@@ -1,0 +1,8 @@
+{
+  "description": "Makes the topbar's background gradient.",
+  "name": "Gradient Top Bar",
+  "shell-version": ["40", "40.0", "41.0", "42"],
+  "url": "https:/pshow.org",
+  "uuid": "gradienttopbar@pshow.org",
+  "version": 42
+}
