@@ -3,8 +3,6 @@
 const Main = imports.ui.main;
 const GRADIENT_CLASS = "panel-gradient";
 
-function init() {}
-
 function enable() {
 	Main.panel.actor.add_style_class_name(GRADIENT_CLASS);
 }
