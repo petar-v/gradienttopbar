@@ -1,8 +1,8 @@
 {
-  "description": "Makes the topbar's background gradient.",
-  "name": "Gradient Top Bar",
-  "shell-version": ["40", "41", "42"],
-  "url": "https:/pshow.org",
   "uuid": "gradienttopbar@pshow.org",
-  "version": 42
+  "name": "Gradient Top Bar",
+  "description": "Makes GNOME's topbar's background gradient.",
+  "version": 42,
+  "shell-version": ["3.38", "40", "41.alpha", "41", "42"],
+  "url": "https://github.com/petar-v/gradienttopbar"
 }
