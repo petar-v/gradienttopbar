@@ -20,18 +20,28 @@
   "scripts": {
     "package": "zip -r gradienttopbar@pshow.org.zip src",
     "prettify": "prettier --write 'src/**/*.{js,css,json}'",
-    "lint": "eslint 'src/**/*.{js,css,json}'"
+    "lint": "eslint 'src/**/*.{js,css,json}'",
+    "precommit": "lint-staged"
   },
   "devDependencies": {
-    "eslint": "^8.39.0",
+    "eslint": "^7.32.0 || ^8.2.0",
+    "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import": "^2.25.2",
     "eslint-plugin-prettier": "^4.0.0",
-    "prettier": "^2.8.8",
-    "husky": "^8.0.3"
+    "husky": "^8.0.3",
+    "prettier": "^2.8.8"
   },
   "husky": {
     "hooks": {
       "pre-commit": "yarn prettify && yarn lint"
     }
+  },
+  "lint-staged": {
+    "src/**/*.{js,css,json}": [
+      "yarn prettify",
+      "yarn lint",
+      "git add"
+    ]
   }
 }
