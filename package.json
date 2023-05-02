@@ -1,0 +1,14 @@
+{
+  "name": "gnome-gradienttopbar@pshow.org",
+  "title": "Gradient Top Bar",
+  "description": "Makes GNOME's topbar's background gradient.",
+  "version": "44.0.0",
+  "shell-version": ["40", "41", "42", "43", "44"],
+  "uuid": "gradienttopbar@pshow.org",
+  "url": "https://github.com/petar-v/gradienttopbar",
+  "license": "WTFPL",
+  "author": "Petar Vasilev <petar@pshow.org>",
+  "scripts": {
+    "package": "zip -r gnome-gradienttopbar.zip src",
+  },
+}

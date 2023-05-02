@@ -3,6 +3,6 @@
   "name": "Gradient Top Bar",
   "description": "Makes GNOME's topbar's background gradient.",
   "version": "43.0",
-  "shell-version": ["3.38", "40", "41", "42", "43", "44"],
+  "shell-version": ["40", "41", "42", "43", "44"],
   "url": "https://github.com/petar-v/gradienttopbar"
 }
