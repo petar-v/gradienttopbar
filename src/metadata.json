@@ -2,7 +2,6 @@
   "uuid": "gradienttopbar@pshow.org",
   "name": "Gradient Top Bar",
   "description": "Makes GNOME's topbar's background gradient.",
-  "version": "44.0",
   "shell-version": ["40", "41", "42", "43", "44"],
   "url": "https://github.com/petar-v/gradienttopbar",
   "version": 5
