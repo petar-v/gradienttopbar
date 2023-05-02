@@ -24,6 +24,22 @@ const { HORIZONTAL, VERTICAL, BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
 const maximizedWindows = new Set();
+let workspaceIndex = 0;
+
+const modifyTopBar = () => {
+  const workspaceManager = global.get_workspace_manager();
+  const workspace = workspaceManager.get_active_workspace();
+  const workspaceWindowIds = workspace
+    .list_windows()
+    .map((win) => win.get_id());
+
+  const lacksWorkspaceMaximizedWindow =
+    workspaceWindowIds.find((workspaceWindowId) =>
+      maximizedWindows.has(workspaceWindowId)
+    ) === undefined;
+
+  toggleGradient(lacksWorkspaceMaximizedWindow);
+};
 
 const onWindowSizeChange = (window) => {
   if (isMaximized(window)) {
@@ -31,20 +47,37 @@ const onWindowSizeChange = (window) => {
   } else {
     maximizedWindows.delete(window.get_id());
   }
-  toggleGradient(maximizedWindows.size === 0);
+  modifyTopBar();
+};
+
+const onWorkspaceChanged = (workspaceManager) => {
+  //const workspace = workspaceManager.get_active_workspace();
+  // const prevWorkspace = workspaceManager.get_workspace_by_index(workspaceIndex);
+  workspaceIndex = workspaceManager.get_active_workspace_index();
+  modifyTopBar();
 };
 
 let windowCreatedId;
+let workspaceSwitchId;
 function enable() {
+  // listen for window created events and attach a size change event listener
   windowCreatedId = global.display.connect("window-created", (_, win) => {
     if (win.can_maximize()) {
       win.connect("size-changed", onWindowSizeChange);
     }
   });
+
+  workspaceSwitchId = global
+    .get_workspace_manager()
+    .connect("workspace-switched", onWorkspaceChanged);
+
+  // initially set up the gradient
   toggleGradient(true);
 }
 
 function disable() {
   global.display.disconnect(windowCreatedId);
+  global.get_workspace_manager().disconnect(workspaceSwitchId);
+
   toggleGradient(false);
 }
