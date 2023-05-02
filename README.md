@@ -1,6 +1,6 @@
 # Gradient Top Bar
 
-Makes the topbar's background gradient. 
+Makes the topbar's background gradient.
 
 This extension works for Gnome 40 and above.
 
@@ -11,8 +11,9 @@ This extension works for Gnome 40 and above.
 # To Do
 
 - [ ] Add gradient settings
+- [ ] Make it work with something like tiling when the window occupies the whole top horizontally (to test with Tiling Assistant)
 
 # Credits
-This extension is a fork of [the Original Gradient Top Bar extension](https://extensions.gnome.org/extension/1264/gradient-top-bar/) by [Julien/jpec](https://peclu.net/). 
+This extension is a fork of [the Original Gradient Top Bar extension](https://extensions.gnome.org/extension/1264/gradient-top-bar/) by [Julien/jpec](https://peclu.net/).
 
-I could not find the original repository and could not reach the person via the email provided. 
+I could not find the original repository and could not reach the person via the email provided.
