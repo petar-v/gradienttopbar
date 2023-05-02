@@ -6,9 +6,7 @@ const CORNER_GRADIENT_CLASS = "corner-gradient";
 
 let isFaded = false;
 const toggleGradient = (enabled) => {
-  if (enabled === isFaded) {
-    return;
-  }
+  if (enabled === isFaded) return;
   const actionCall = enabled
     ? "add_style_class_name"
     : "remove_style_class_name";
@@ -20,7 +18,7 @@ const toggleGradient = (enabled) => {
   isFaded = enabled;
 };
 
-const { HORIZONTAL, VERTICAL, BOTH } = Meta.MaximizeFlags;
+const { BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
 const maximizedWindows = new Set();
@@ -63,10 +61,13 @@ function enable() {
   // listen for window created events and attach a size change event listener
   windowCreatedId = global.display.connect("window-created", (_, win) => {
     if (win.can_maximize()) {
+      // this is probably not the proper event to listen to but there was no "maximize" event
+      // so this gets triggered every time there is a window resize. This is NOT optimal :(
       win.connect("size-changed", onWindowSizeChange);
     }
   });
 
+  // keep a reference to the current workspace
   workspaceSwitchId = global
     .get_workspace_manager()
     .connect("workspace-switched", onWorkspaceChanged);
