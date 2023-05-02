@@ -6,7 +6,6 @@
     "webextensions": true
   },
   "extends": [
-    "airbnb-base",
     "eslint:recommended"
   ],
   "overrides": [],
@@ -17,12 +16,7 @@
   "rules": {
     "no-console": "off",
     "no-undef": "off",
-    "no-underscore-dangle": "off",
-    "no-unused-vars": [
-      "error",
-      {
-        "argsIgnorePattern": "^_"
-      }
-    ]
+    "no-unused-vars": "off",
+    "no-underscore-dangle": "off"
   }
 }
