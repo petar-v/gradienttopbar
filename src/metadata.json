@@ -1,8 +1,12 @@
 {
   "uuid": "gradienttopbar@pshow.org",
+  "icon": "",
   "name": "Gradient Top Bar",
   "description": "Makes GNOME's topbar's background gradient.",
   "shell-version": ["40", "41", "42", "43", "44"],
   "url": "https://github.com/petar-v/gradienttopbar",
-  "version": 5
+  "version": 5,
+  "gettext-domain": "org.pshow.gradienttopbar",
+  "settings-schema": "org.gnome.shell.extensions.org.pshow.gradienttopbar",
+  "hasPrefs": true
 }
