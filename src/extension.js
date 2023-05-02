@@ -24,11 +24,9 @@ const { HORIZONTAL, VERTICAL, BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
 const maximizedWindows = new Set();
-let workspaceIndex = 0;
+let workspace = null;
 
 const modifyTopBar = () => {
-  const workspaceManager = global.get_workspace_manager();
-  const workspace = workspaceManager.get_active_workspace();
   const workspaceWindowIds = workspace
     .list_windows()
     .map((win) => win.get_id());
@@ -51,11 +49,13 @@ const onWindowSizeChange = (window) => {
 };
 
 const onWorkspaceChanged = (workspaceManager) => {
-  //const workspace = workspaceManager.get_active_workspace();
-  // const prevWorkspace = workspaceManager.get_workspace_by_index(workspaceIndex);
-  workspaceIndex = workspaceManager.get_active_workspace_index();
+  workspace = workspaceManager.get_active_workspace();
   modifyTopBar();
 };
+
+function init() {
+  workspace = global.get_workspace_manager().get_active_workspace();
+}
 
 let windowCreatedId;
 let workspaceSwitchId;
