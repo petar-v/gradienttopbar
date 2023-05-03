@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<schemalist xmlns="http://www.gtk.org/introspection/core/1.0">
-  <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
+<?xml version="1.0" encoding="UTF-8" xmlns="http://www.gtk.org/introspection/core/1.0"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/gradienttopbar/">
     <key name="my-toggle-switch" type="b">
       <default>false</default>
       <summary>My Toggle Switch</summary>

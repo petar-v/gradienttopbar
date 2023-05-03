@@ -1,44 +1,43 @@
-const { Gio, Gtk, GLib } = imports.gi;
-
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
-// const Settings = Me.imports.settings;
 
-let settings;
+const { Adw, Gdk, Gio, GLib, GObject, Gtk } = imports.gi;
+const Gettext = imports.gettext.domain(Me.metadata["gettext-domain"]);
+const { gettext } = Gettext;
+
+const { AboutPage } = Me.imports.settings.aboutPage;
 
 function init() {
-  // Initialize your extension here
-  // Create your settings object
-  // settings = new Settings.ExtensionSettings();
+  ExtensionUtils.initTranslations();
 }
 
-function buildPrefsWidget() {
-  const prefsWidget = new Gtk.Box({
-    orientation: Gtk.Orientation.VERTICAL,
-    margin_top: 12,
-    margin_bottom: 12,
-    margin_start: 24,
-    margin_end: 24,
-    spacing: 6,
-  });
+function fillPreferencesWindow(window) {
+  const iconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+  if (!iconTheme.get_search_path().includes(`${Me.path}/assets`))
+    iconTheme.add_search_path(`${Me.path}/assets`);
 
-  const toggleLabel = new Gtk.Label({
-    label: "Toggle Switch",
-    use_markup: true,
-  });
+  const settings = {}; // ExtensionUtils.getSettings();
 
-  const toggleSwitch = new Gtk.Switch();
+  window.can_navigate_back = true;
 
-  // toggleSwitch.set_active(settings.get_boolean("toggle-switch"));
-  toggleSwitch.set_active(true);
+  const homePage = new HomePage(settings);
+  window.add(homePage);
 
-  toggleSwitch.connect("notify::active", (button) => {
-    global.log("nigger toggle", button.active);
-    // settings.set_boolean("toggle-switch", button.active);
-  });
-
-  prefsWidget.append(toggleLabel);
-  prefsWidget.append(toggleSwitch);
-
-  return prefsWidget;
+  const aboutPage = new AboutPage();
+  window.add(aboutPage);
 }
+
+var HomePage = GObject.registerClass(
+  class Behaviour extends Adw.PreferencesPage {
+    _init(settings) {
+      super._init({
+        title: gettext("Behaviour"),
+        icon_name: "preferences-system-symbolic",
+        name: "Behaviour",
+      });
+
+      this._settings = settings;
+      this.widgetRows = [];
+    }
+  }
+);
