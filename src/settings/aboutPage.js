@@ -5,11 +5,29 @@ const { Adw, Gdk, Gio, GLib, GObject, Gtk } = imports.gi;
 const Gettext = imports.gettext.domain(Me.metadata["gettext-domain"]);
 const { gettext } = Gettext;
 
-const PROJECT_DESCRIPTION = gettext(
-  `Makes GNOME's topbar's background gradient.`
-);
-const PROJECT_IMAGE = "help-about-symbolic";
-const SCHEMA_PATH = "";
+var LICENSE =
+  '<span size="small">' +
+  "This program comes with absolutely no warranty.\n" +
+  'See the <a href="https://www.wtfpl.net">' +
+  "DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE</a> for details." +
+  "</span>";
+
+const createLinkRow = (title, uri) => {
+  const image = new Gtk.Image({
+    icon_name: "adw-external-link-symbolic",
+    valign: Gtk.Align.CENTER,
+  });
+  const linkRow = new Adw.ActionRow({
+    title: gettext(title),
+    activatable: true,
+  });
+  linkRow.connect("activated", () => {
+    Gtk.show_uri(this.get_root(), uri, Gdk.CURRENT_TIME);
+  });
+  linkRow.add_suffix(image);
+
+  return linkRow;
+};
 
 var AboutPage = GObject.registerClass(
   class AboutPage extends Adw.PreferencesPage {
@@ -28,9 +46,8 @@ var AboutPage = GObject.registerClass(
       });
 
       const projectImage = new Gtk.Image({
-        margin_bottom: 5,
-        icon_name: PROJECT_IMAGE,
-        pixel_size: 100,
+        icon_name: "logo",
+        pixel_size: 300,
       });
 
       const projectTitleLabel = new Gtk.Label({
@@ -41,7 +58,7 @@ var AboutPage = GObject.registerClass(
       });
 
       const projectDescriptionLabel = new Gtk.Label({
-        label: gettext(PROJECT_DESCRIPTION),
+        label: gettext(`Makes GNOME's topbar's background gradient.`),
         hexpand: false,
         vexpand: false,
       });
@@ -78,7 +95,7 @@ var AboutPage = GObject.registerClass(
         infoGroup.add(commitRow);
       }
 
-      const issuesRow = this._createLinkRow(
+      const issuesRow = createLinkRow(
         gettext("Report an Issue"),
         Me.metadata.url
       );
@@ -87,7 +104,7 @@ var AboutPage = GObject.registerClass(
 
       const licenseGroup = new Adw.PreferencesGroup();
       const licenseLabel = new Gtk.Label({
-        label: gettext(GNU_SOFTWARE),
+        label: gettext(LICENSE),
         use_markup: true,
         justify: Gtk.Justification.CENTER,
       });
@@ -100,29 +117,5 @@ var AboutPage = GObject.registerClass(
       licenseGroup.add(licenseLabelBox);
       this.add(licenseGroup);
     }
-
-    _createLinkRow(title, uri) {
-      const image = new Gtk.Image({
-        icon_name: "adw-external-link-symbolic",
-        valign: Gtk.Align.CENTER,
-      });
-      const linkRow = new Adw.ActionRow({
-        title: gettext(title),
-        activatable: true,
-      });
-      linkRow.connect("activated", () => {
-        Gtk.show_uri(this.get_root(), uri, Gdk.CURRENT_TIME);
-      });
-      linkRow.add_suffix(image);
-
-      return linkRow;
-    }
   }
 );
-
-var GNU_SOFTWARE =
-  '<span size="small">' +
-  "This program comes with absolutely no warranty.\n" +
-  'See the <a href="https://www.wtfpl.net">' +
-  "DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE</a> for details." +
-  "</span>";
