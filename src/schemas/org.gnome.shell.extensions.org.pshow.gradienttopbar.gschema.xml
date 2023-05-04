@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" xmlns="http://www.gtk.org/introspection/core/1.0"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/gradienttopbar/">
-    <key name="my-toggle-switch" type="b">
+  <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
+    <key name="opaque-on-maximized" type="b">
       <default>false</default>
-      <summary>My Toggle Switch</summary>
-      <description>Enable or disable my extension's toggle switch.</description>
+      <summary>Opaque on maximized window</summary>
+      <description>Removes the gradient effect whenever there is a maximized window on the current workspace.</description>
     </key>
   </schema>
 </schemalist>
