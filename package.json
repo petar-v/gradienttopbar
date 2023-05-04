@@ -18,6 +18,8 @@
   "license": "WTFPL",
   "author": "Petar Vasilev <petar@pshow.org>",
   "scripts": {
+    "pref-debug": "journalctl -f -o cat /usr/bin/gjs",
+    "open-prefs": "gnome-extensions prefs gradienttopbar@pshow.org",
     "local-install": "yarn compile-schemas && yarn zip && gnome-extensions install gradienttopbar@pshow.org.shell-extension.zip --force && gnome-extensions enable gradienttopbar@pshow.org",
     "zip-extension": "gnome-extensions pack src --force",
     "compile-schemas": "glib-compile-schemas ./src/schemas/",
