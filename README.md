@@ -22,6 +22,10 @@ Beta-testing on newer releases is much appreciated as I usually use the latest G
 
 # To Do
 
+- [ ] Refactor
+- [ ] Add a contributions and run from source guides
+- [ ] Add a demo video
+- [ ] Figure out reliable testing methods or at least unit tests 
 - [ ] Add gradient settings
 - [ ] Make it work with something like tiling when the window occupies the whole top horizontally (to test with Tiling Assistant)
 
