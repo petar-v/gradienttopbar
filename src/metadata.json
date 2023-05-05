@@ -1,6 +1,6 @@
 {
   "uuid": "gradienttopbar@pshow.org",
-  "icon": "",
+  "icon": "./assets/logo.png",
   "name": "Gradient Top Bar",
   "description": "Makes GNOME's topbar's background gradient.",
   "shell-version": ["43", "44"],
