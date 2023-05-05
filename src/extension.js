@@ -54,10 +54,6 @@ const onWorkspaceChanged = (workspaceManager) => {
 let settings;
 function init() {
   workspace = global.get_workspace_manager().get_active_workspace();
-  settings = ExtensionUtils.getSettings(
-    "org.gnome.shell.extensions.org.pshow.gradienttopbar"
-  );
-  settings.connect("changed::opaque-on-maximized", onSettingsChanged);
 }
 
 // TODO: refucktor all of that.
@@ -144,6 +140,10 @@ const onSettingsChanged = (settings, key) => {
 };
 
 function enable() {
+  settings = ExtensionUtils.getSettings(
+    "org.gnome.shell.extensions.org.pshow.gradienttopbar"
+  );
+  settings.connect("changed::opaque-on-maximized", onSettingsChanged);
   const opaqueOnMaximized = settings.get_boolean("opaque-on-maximized");
   if (opaqueOnMaximized) {
     enableMaximizedListeners();
@@ -155,4 +155,6 @@ function enable() {
 function disable() {
   disableMaximizedListeners();
   toggleGradient(false);
+  settings.disconnect("changed::opaque-on-maximized", onSettingsChanged);
+  settings = null;
 }
