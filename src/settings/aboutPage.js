@@ -47,7 +47,7 @@ var AboutPage = GObject.registerClass(
 
       const projectImage = new Gtk.Image({
         icon_name: "logo",
-        pixel_size: 300,
+        pixel_size: 320,
       });
 
       const projectTitleLabel = new Gtk.Label({
