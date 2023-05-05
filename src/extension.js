@@ -123,7 +123,7 @@ const disableMaximizedListeners = () => {
     global.get_workspace_manager().disconnect(workspaceSwitchId);
     workspaceSwitchId = null;
   }
-  if (!windowDestroyedId) {
+  if (windowDestroyedId) {
     global.window_manager.disconnect(windowDestroyedId);
     windowDestroyedId = null;
   }
