@@ -2,14 +2,11 @@
   "name": "gnome-gradienttopbar",
   "title": "Gradient Top Bar",
   "description": "Makes GNOME's topbar's background gradient.",
-  "version": "44.0.0",
+  "version": "6",
   "engines": {
-    "gnome": ">=40"
+    "gnome": ">=43"
   },
   "shell-version": [
-    "40",
-    "41",
-    "42",
     "43",
     "44"
   ],
