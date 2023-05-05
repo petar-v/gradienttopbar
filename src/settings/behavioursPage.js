@@ -35,7 +35,7 @@ var BehaviourPage = GObject.registerClass(
         settings.set_boolean("opaque-on-maximized", widget.get_active());
       });
       let opaqueOnMaximizedRow = new Adw.ActionRow({
-        title: gettext("Opaque on maximized window"),
+        title: gettext("Opaque on maximized window (Experimental)"),
         subtitle: gettext(
           "Removes the gradient effect whenever there is a maximized window on the current workspace."
         ),
