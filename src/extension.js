@@ -63,14 +63,20 @@ function init() {
 // TODO: refucktor all of that.
 let windowCreatedId;
 let workspaceSwitchId;
+let windowDestroyedId;
 let monitoredWindows = {};
+
+const onWindowDestroy = (_, windowActor) => {
+  const windowId = windowActor.get_meta_window().get_id();
+  maximizedWindows.delete(windowId);
+  delete monitoredWindows[windowId];
+  modifyTopBar();
+};
+
 const addWindowEventListeners = (window) => {
-  const onResize = window.connect(
-    "size-changed",
-    onWindowSizeChange
-  );
+  const onResize = window.connect("size-changed", onWindowSizeChange);
   monitoredWindows[window.get_id()] = [onResize, onClose];
-}
+};
 const enableMaximizedListeners = () => {
   if (!windowCreatedId) {
     // listen for window created events and attach a size change event listener
@@ -84,6 +90,12 @@ const enableMaximizedListeners = () => {
         );
       }
     });
+  }
+  if (!windowDestroyedId) {
+    windowDestroyedId = global.window_manager.connect(
+      "destroy",
+      onWindowDestroy
+    );
   }
   global.display
     .list_all_windows()
@@ -110,6 +122,10 @@ const disableMaximizedListeners = () => {
   if (workspaceSwitchId) {
     global.get_workspace_manager().disconnect(workspaceSwitchId);
     workspaceSwitchId = null;
+  }
+  if (!windowDestroyedId) {
+    global.window_manager.disconnect(windowDestroyedId);
+    windowDestroyedId = null;
   }
   global.display.list_all_windows().forEach((window) => {
     window.disconnect(monitoredWindows[window.get_id()]);
