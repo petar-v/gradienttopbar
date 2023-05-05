@@ -10,7 +10,7 @@ var BehaviourPage = GObject.registerClass(
     _init(settings) {
       super._init({
         title: gettext("Behaviour"),
-        icon_name: 'system-run-symbolic',
+        icon_name: "system-run-symbolic",
         name: "Behaviour",
       });
 
@@ -31,6 +31,9 @@ var BehaviourPage = GObject.registerClass(
         "active",
         Gio.SettingsBindFlags.DEFAULT
       );
+      opaqueOnMaximizedSwitch.connect("notify::active", (widget) => {
+        settings.set_boolean("opaque-on-maximized", widget.get_active());
+      });
       let opaqueOnMaximizedRow = new Adw.ActionRow({
         title: gettext("Opaque on maximized window"),
         subtitle: gettext(
@@ -38,6 +41,7 @@ var BehaviourPage = GObject.registerClass(
         ),
         activatable_widget: opaqueOnMaximizedSwitch,
       });
+
       opaqueOnMaximizedRow.add_suffix(opaqueOnMaximizedSwitch);
       opaqueOnMaximizedRow.activatable_widget = opaqueOnMaximizedSwitch;
 

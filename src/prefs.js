@@ -16,7 +16,9 @@ function init() {
 }
 
 function fillPreferencesWindow(window) {
-  const settings = ExtensionUtils.getSettings();
+  const settings = ExtensionUtils.getSettings(
+    "org.gnome.shell.extensions.org.pshow.gradienttopbar"
+  );
 
   window.can_navigate_back = true;
 
