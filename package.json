@@ -18,6 +18,7 @@
   "license": "WTFPL",
   "author": "Petar Vasilev <petar@pshow.org>",
   "scripts": {
+    "restart-gnome-shell": "DISPLAY=:0 XAUTHORITY=/var/run/gdm/auth-for-gdm-*/database gnome-shell --replace",
     "pref-debug": "journalctl -f -o cat /usr/bin/gjs",
     "open-prefs": "gnome-extensions prefs gradienttopbar@pshow.org",
     "local-install": "yarn compile-schemas && yarn zip && gnome-extensions install gradienttopbar@pshow.org.shell-extension.zip --force && gnome-extensions enable gradienttopbar@pshow.org",
