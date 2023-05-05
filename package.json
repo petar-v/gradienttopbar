@@ -2,14 +2,11 @@
   "name": "gnome-gradienttopbar",
   "title": "Gradient Top Bar",
   "description": "Makes GNOME's topbar's background gradient.",
-  "version": "44.0.0",
+  "version": "6",
   "engines": {
-    "gnome": ">=40"
+    "gnome": ">=43"
   },
   "shell-version": [
-    "40",
-    "41",
-    "42",
     "43",
     "44"
   ],
@@ -18,8 +15,13 @@
   "license": "WTFPL",
   "author": "Petar Vasilev <petar@pshow.org>",
   "scripts": {
-    "local-install": "yarn zip && gnome-extensions install gradienttopbar@pshow.org.shell-extension.zip --force && gnome-extensions enable gradienttopbar@pshow.org",
-    "zip": "gnome-extensions pack src --force",
+    "restart-gnome-shell": "DISPLAY=:0 XAUTHORITY=/var/run/gdm/auth-for-gdm-*/database gnome-shell --replace",
+    "pref-debug": "journalctl -f -o cat /usr/bin/gjs",
+    "open-prefs": "gnome-extensions prefs gradienttopbar@pshow.org",
+    "local-install": "yarn compile-schemas && yarn zip && gnome-extensions install gradienttopbar@pshow.org.shell-extension.zip --force && gnome-extensions enable gradienttopbar@pshow.org",
+    "zip-extension": "gnome-extensions pack src --force",
+    "compile-schemas": "glib-compile-schemas ./src/schemas/",
+    "zip": "cd src && zip -r ../gradienttopbar@pshow.org.shell-extension.zip .",
     "prettify": "prettier --write 'src/**/*.{js,css,json}'",
     "lint": "eslint 'src/**/*.{js,json}'",
     "precommit": "lint-staged"
