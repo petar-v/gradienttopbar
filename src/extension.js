@@ -7,6 +7,12 @@ const { BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
 const { toggleGradient } = Extension.imports.gradient;
+const {
+  SETTINGS_GSCHEMA,
+  getConfig,
+  attachSettingsListeners,
+  detachSettingsListeners,
+} = Extension.imports.config;
 
 const maximizedWindows = new Set();
 let workspace = null;
@@ -116,9 +122,11 @@ const disableMaximizedListeners = () => {
   monitoredWindows = {};
 };
 
-const onSettingsChanged = (settings, key) => {
-  const opaqueOnMaximized = settings.get_boolean(key);
-  if (opaqueOnMaximized) {
+const onSettingsChanged = (settings) => {
+  const config = getConfig(settings);
+  const { isOpaqueOnMaximized } = config;
+
+  if (isOpaqueOnMaximized) {
     enableMaximizedListeners();
   } else {
     disableMaximizedListeners();
@@ -127,12 +135,13 @@ const onSettingsChanged = (settings, key) => {
 };
 
 function enable() {
-  settings = ExtensionUtils.getSettings(
-    "org.gnome.shell.extensions.org.pshow.gradienttopbar"
-  );
-  settings.connect("changed::opaque-on-maximized", onSettingsChanged);
-  const opaqueOnMaximized = settings.get_boolean("opaque-on-maximized");
-  if (opaqueOnMaximized) {
+  settings = ExtensionUtils.getSettings(SETTINGS_GSCHEMA);
+
+  attachSettingsListeners(settings, onSettingsChanged);
+
+  const config = getConfig(settings);
+  const { isOpaqueOnMaximized } = config;
+  if (isOpaqueOnMaximized) {
     enableMaximizedListeners();
   }
   // initially set up the gradient
@@ -142,6 +151,6 @@ function enable() {
 function disable() {
   disableMaximizedListeners();
   toggleGradient(false);
-  settings.disconnect("changed::opaque-on-maximized", onSettingsChanged);
+  detachSettingsListeners(settings, onSettingsChanged);
   settings = null;
 }
