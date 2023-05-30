@@ -5,7 +5,7 @@ const { Adw, Gdk, Gio, GLib, GObject, Gtk } = imports.gi;
 const Gettext = imports.gettext.domain(Me.metadata["gettext-domain"]);
 const { gettext } = Gettext;
 
-var LICENSE =
+const LICENSE =
   '<span size="small">' +
   "This program comes with absolutely no warranty.\n" +
   'See the <a href="https://www.wtfpl.net">' +
