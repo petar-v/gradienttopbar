@@ -4,7 +4,8 @@ const GRADIENT_CLASS = "panel-gradient";
 const CORNER_GRADIENT_CLASS = "corner-gradient";
 
 let isFaded = false;
-export const toggleGradient = (enabled) => {
+
+function toggleGradient(enabled) {
   if (enabled === isFaded) return;
   const actionCall = enabled
     ? "add_style_class_name"

@@ -1,11 +1,12 @@
 const Main = imports.ui.main;
 const { Meta } = imports.gi;
 const ExtensionUtils = imports.misc.extensionUtils;
+const Extension = ExtensionUtils.getCurrentExtension();
 
 const { BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
-const { toggleGradient } = imports.gradient;
+const { toggleGradient } = Extension.imports.gradient;
 
 const maximizedWindows = new Set();
 let workspace = null;
