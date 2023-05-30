@@ -1,6 +1,6 @@
 .panel-gradient {
   background-color: transparent;
-  background-gradient-start: rgba(0, 0, 0, 0.9);
+  background-gradient-start: rgba(0, 0, 0, 1);
   background-gradient-end: rgba(0, 0, 0, 0);
   background-gradient-direction: vertical;
   box-shadow: none;
