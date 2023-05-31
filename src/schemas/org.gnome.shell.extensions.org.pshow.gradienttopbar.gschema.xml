@@ -10,10 +10,10 @@
       <summary>Opaque on maximized window</summary>
       <description>Removes the gradient effect whenever there is a maximized window on the current workspace.</description>
     </key>
-    <key name="colors" type="a(sii)">
-      <default>[("0, 0, 0", 1, 0), ("0, 0, 0", 0, 1)]</default>
+    <key name="colors" type="as">
+      <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
       <summary>Array of the gradient colours</summary>
-      <description>Lists all of the colours that are saved for the gradient of the top bar, along with the opacity, and the position.</description>
+      <description>Lists all of the colours that are saved for the gradient of the top bar in a serialized rgba() format.</description>
     </key>
     <key name="gradient-direction" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.GradientOrientation">
       <default>'vertical'</default>
