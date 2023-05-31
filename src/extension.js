@@ -1,28 +1,22 @@
 const Main = imports.ui.main;
 const { Meta } = imports.gi;
 const ExtensionUtils = imports.misc.extensionUtils;
-
-const GRADIENT_CLASS = "panel-gradient";
-const CORNER_GRADIENT_CLASS = "corner-gradient";
-
-let isFaded = false;
-const toggleGradient = (enabled) => {
-  if (enabled === isFaded) return;
-  const actionCall = enabled
-    ? "add_style_class_name"
-    : "remove_style_class_name";
-  Main.panel.actor[actionCall](GRADIENT_CLASS); // fIXME: this is deprecated
-  [Main.panel._leftCorner, Main.panel._rightCorner].forEach(
-    (corner) => corner && corner[actionCall](CORNER_GRADIENT_CLASS)
-  );
-  isFaded = enabled;
-};
+const Extension = ExtensionUtils.getCurrentExtension();
 
 const { BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
+const { createGradient } = Extension.imports.gradient;
+const {
+  SETTINGS_GSCHEMA,
+  getConfig,
+  attachSettingsListeners,
+  detachSettingsListeners,
+} = Extension.imports.config;
+
 const maximizedWindows = new Set();
 let workspace = null;
+let gradient = null;
 
 const modifyTopBar = () => {
   const workspaceWindowIds = workspace
@@ -34,7 +28,7 @@ const modifyTopBar = () => {
       maximizedWindows.has(workspaceWindowId)
     ) === undefined;
 
-  toggleGradient(lacksWorkspaceMaximizedWindow);
+  gradient(lacksWorkspaceMaximizedWindow);
 };
 
 const onWindowSizeChange = (window) => {
@@ -129,32 +123,39 @@ const disableMaximizedListeners = () => {
   monitoredWindows = {};
 };
 
-const onSettingsChanged = (settings, key) => {
-  const opaqueOnMaximized = settings.get_boolean(key);
-  if (opaqueOnMaximized) {
+const onSettingsChanged = (settings) => {
+  const config = getConfig(settings);
+  gradient = createGradient(config);
+  global.log("Gradient with " + config.gradientDirection + " dir created");
+  const { isOpaqueOnMaximized } = config;
+
+  if (isOpaqueOnMaximized) {
     enableMaximizedListeners();
   } else {
     disableMaximizedListeners();
-    toggleGradient(true);
+    gradient(true);
   }
 };
 
 function enable() {
-  settings = ExtensionUtils.getSettings(
-    "org.gnome.shell.extensions.org.pshow.gradienttopbar"
-  );
-  settings.connect("changed::opaque-on-maximized", onSettingsChanged);
-  const opaqueOnMaximized = settings.get_boolean("opaque-on-maximized");
-  if (opaqueOnMaximized) {
+  settings = ExtensionUtils.getSettings(SETTINGS_GSCHEMA);
+
+  attachSettingsListeners(settings, onSettingsChanged);
+
+  const config = getConfig(settings);
+  const { isOpaqueOnMaximized } = config;
+  if (isOpaqueOnMaximized) {
     enableMaximizedListeners();
   }
   // initially set up the gradient
-  toggleGradient(true);
+  gradient = createGradient(config);
+  gradient(true);
 }
 
 function disable() {
   disableMaximizedListeners();
-  toggleGradient(false);
-  settings.disconnect("changed::opaque-on-maximized", onSettingsChanged);
+  gradient(false);
+  detachSettingsListeners(settings, onSettingsChanged);
   settings = null;
+  gradient = null;
 }

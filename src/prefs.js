@@ -5,8 +5,9 @@ const { Adw, Gdk, Gio, GLib, GObject, Gtk } = imports.gi;
 const Gettext = imports.gettext.domain(Me.metadata["gettext-domain"]);
 const { gettext } = Gettext;
 
-const { AboutPage } = Me.imports.settings.aboutPage;
+const { AppearancePage } = Me.imports.settings.appearancePage;
 const { BehaviourPage } = Me.imports.settings.behavioursPage;
+const { AboutPage } = Me.imports.settings.aboutPage;
 
 function init() {
   ExtensionUtils.initTranslations();
@@ -22,8 +23,11 @@ function fillPreferencesWindow(window) {
 
   window.can_navigate_back = true;
 
-  const homePage = new BehaviourPage(settings);
-  window.add(homePage);
+  const appearancePage = new AppearancePage(settings);
+  window.add(appearancePage);
+
+  const behaviourPage = new BehaviourPage(settings);
+  window.add(behaviourPage);
 
   const aboutPage = new AboutPage();
   window.add(aboutPage);

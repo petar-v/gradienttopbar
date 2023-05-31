@@ -5,7 +5,7 @@
   "description": "Makes GNOME's topbar's background gradient.",
   "shell-version": ["43", "44"],
   "url": "https://github.com/petar-v/gradienttopbar",
-  "version": 8,
+  "version": 9,
   "gettext-domain": "org.pshow.gradienttopbar",
   "settings-schema": "org.gnome.shell.extensions.org.pshow.gradienttopbar",
   "hasPrefs": true
