@@ -33,7 +33,12 @@ const GradientDirection = GObject.registerClass(
   }
 );
 
-const createColorChooser = (pickerTitle, colroString, callback) => {
+const createColorChooserRow = (
+  pickerTitle,
+  rowTitle,
+  colroString,
+  callback
+) => {
   const colorDialog = Gtk.ColorDialog.new();
   colorDialog.set_title(pickerTitle);
   colorDialog.set_modal(true);
@@ -48,7 +53,14 @@ const createColorChooser = (pickerTitle, colroString, callback) => {
     callback(chooserBtn.get_rgba().to_string());
   });
 
-  return chooserBtn;
+  const row = new Adw.ActionRow({
+    title: rowTitle,
+    activatable_widget: chooserBtn,
+  });
+
+  row.add_suffix(chooserBtn);
+  row.activatable_widget = chooserBtn;
+  return row;
 };
 
 var AppearancePage = GObject.registerClass(
@@ -77,9 +89,8 @@ var AppearancePage = GObject.registerClass(
       ].forEach((d) => gradientDirectionModel.append(d));
 
       const directionRow = new Adw.ComboRow({
-        title: "Gradient Direction",
-        subtitle:
-          'The orientation of the gradient. Most likely, you want "vertical".',
+        title: gettext("Gradient Direction"),
+        subtitle: gettext("The orientation of the gradient."),
         model: gradientDirectionModel,
         expression: new Gtk.PropertyExpression(GradientDirection, null, "name"),
       });
@@ -103,37 +114,29 @@ var AppearancePage = GObject.registerClass(
         title: gettext("Colors"),
       });
 
-      const startColorChooser = createColorChooser(
-        "Gradient Start Colour",
+      const startColorChooserRow = createColorChooserRow(
+        gettext("Gradient Start Colour"),
+        gettext("The start color of the gradient"),
         colors.start,
-        (rgba) => {saveColors(this._settings, rgba, colors.end)}
+        (rgba) => {
+          colors.start = rgba;
+          saveColors(this._settings, rgba, colors.end);
+        }
       );
 
-      const startColorRow = new Adw.ActionRow({
-        title: gettext("The start color of the gradient"),
-        activatable_widget: startColorChooser,
-      });
+      colorsGroup.add(startColorChooserRow);
 
-      startColorRow.add_suffix(startColorChooser);
-      startColorRow.activatable_widget = startColorChooser;
-
-      colorsGroup.add(startColorRow);
-
-      const endColorChooser = createColorChooser(
-        "Gradient End Colour",
+      const endColorChooserRow = createColorChooserRow(
+        gettext("Gradient End Colour"),
+        gettext("The end color of the gradient"),
         colors.end,
-        (rgba) => {saveColors(this._settings, colors.start, rgba)}
+        (rgba) => {
+          colors.end = rgba;
+          saveColors(this._settings, colors.start, rgba);
+        }
       );
 
-      const endColorRow = new Adw.ActionRow({
-        title: gettext("The end color of the gradient"),
-        activatable_widget: endColorChooser,
-      });
-
-      endColorRow.add_suffix(endColorChooser);
-      endColorRow.activatable_widget = endColorChooser;
-
-      colorsGroup.add(endColorRow);
+      colorsGroup.add(endColorChooserRow);
 
       this.add(colorsGroup);
     }

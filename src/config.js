@@ -16,7 +16,7 @@ function getConfig(settings) {
 }
 
 function saveColors(settings, startRgba, endRgba) {
-  settings.set_strv('colors', [startRgba, endRgba]);
+  settings.set_strv("colors", [startRgba, endRgba]);
 }
 
 function attachSettingsListeners(settings, listener) {
