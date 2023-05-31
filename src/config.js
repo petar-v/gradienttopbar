@@ -1,4 +1,4 @@
-const SETTINGS_GSCHEMA = "org.gnome.shell.extensions.org.pshow.gradienttopbar";
+var SETTINGS_GSCHEMA = "org.gnome.shell.extensions.org.pshow.gradienttopbar";
 
 const parseColor = (color) => ({
   color: color[0],
@@ -9,9 +9,11 @@ const parseColor = (color) => ({
 function getConfig(settings) {
   const isOpaqueOnMaximized = settings.get_boolean("opaque-on-maximized");
   const colors = settings.get_value("colors").deep_unpack();
+  const gradientDirection = settings.get_string("gradient-direction");
 
   return {
     isOpaqueOnMaximized,
+    gradientDirection,
     colors: {
       start: parseColor(colors[0]),
       end: parseColor(colors[1]),

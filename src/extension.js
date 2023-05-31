@@ -6,7 +6,7 @@ const Extension = ExtensionUtils.getCurrentExtension();
 const { BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
-const { toggleGradient } = Extension.imports.gradient;
+const { createGradient } = Extension.imports.gradient;
 const {
   SETTINGS_GSCHEMA,
   getConfig,
@@ -16,6 +16,7 @@ const {
 
 const maximizedWindows = new Set();
 let workspace = null;
+let gradient = null;
 
 const modifyTopBar = () => {
   const workspaceWindowIds = workspace
@@ -27,7 +28,7 @@ const modifyTopBar = () => {
       maximizedWindows.has(workspaceWindowId)
     ) === undefined;
 
-  toggleGradient(lacksWorkspaceMaximizedWindow);
+  gradient(lacksWorkspaceMaximizedWindow);
 };
 
 const onWindowSizeChange = (window) => {
@@ -124,13 +125,14 @@ const disableMaximizedListeners = () => {
 
 const onSettingsChanged = (settings) => {
   const config = getConfig(settings);
+  gradient = new Gradient(config);
   const { isOpaqueOnMaximized } = config;
 
   if (isOpaqueOnMaximized) {
     enableMaximizedListeners();
   } else {
     disableMaximizedListeners();
-    toggleGradient(true);
+    gradient(true);
   }
 };
 
@@ -145,12 +147,14 @@ function enable() {
     enableMaximizedListeners();
   }
   // initially set up the gradient
-  toggleGradient(true);
+  gradient = createGradient(config);
+  gradient(true);
 }
 
 function disable() {
   disableMaximizedListeners();
-  toggleGradient(false);
+  gradient(false);
   detachSettingsListeners(settings, onSettingsChanged);
   settings = null;
+  gradient = null;
 }
