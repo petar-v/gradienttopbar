@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" xmlns="http://www.gtk.org/introspection/core/1.0"?>
 <schemalist>
+  <enum id="org.gnome.shell.extensions.org.pshow.gradienttopbar.GradientOrientation">
+    <value nick="vertical" value="0"/>
+    <value nick="horizontal" value="1"/>
+  </enum>
   <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
     <key name="opaque-on-maximized" type="b">
       <default>false</default>
@@ -7,9 +11,14 @@
       <description>Removes the gradient effect whenever there is a maximized window on the current workspace.</description>
     </key>
     <key name="colors" type="a(sii)">
-      <default>[("0,0,0", 1, 0), ("0,0,0", 0, 1)]</default>
+      <default>[("0, 0, 0", 1, 0), ("0, 0, 0", 0, 1)]</default>
       <summary>Array of the gradient colours</summary>
       <description>Lists all of the colours that are saved for the gradient of the top bar, along with the opacity, and the position.</description>
+    </key>
+    <key name="gradient-direction" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.GradientOrientation">
+      <default>'vertical'</default>
+      <summary>The orientation of the gradient</summary>
+      <description>The orientation of the gradient can either be "vertical" or "horizontal"</description>
     </key>
   </schema>
 </schemalist>
