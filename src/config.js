@@ -22,8 +22,10 @@ function getConfig(settings) {
 }
 
 function attachSettingsListeners(settings, listener) {
+  settings.connect("changed::gradient-direction", listener);
   settings.connect("changed::opaque-on-maximized", listener);
 }
 function detachSettingsListeners(settings, listener) {
+  settings.disconnect("changed::gradient-direction", listener);
   settings.disconnect("changed::opaque-on-maximized", listener);
 }
