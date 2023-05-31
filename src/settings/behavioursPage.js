@@ -15,7 +15,6 @@ var BehaviourPage = GObject.registerClass(
       });
 
       this._settings = settings;
-      this.widgetRows = [];
 
       const behaviorGroup = new Adw.PreferencesGroup({
         title: gettext("Behavior"),

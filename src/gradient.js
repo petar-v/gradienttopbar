@@ -34,8 +34,14 @@ let isFaded = false;
 function createGradient(config) {
   const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
 
+  // generate a stylesheet based on the user preferences. note: this is somewhat of a hack.
+  // I couldn't figure out how to dynamically alter classes. I could have used Main.panel.set_style
+  // but I found this interferes with other extensions and becomes a mess to maintian.
+  // unload the previous version
   theme.unload_stylesheet(USER_STYLESHEET);
+  // save the current version
   saveUserCss(USER_STYLESHEET, generateCss(config));
+  // load again
   theme.load_stylesheet(USER_STYLESHEET);
 
   return (enabled) => {

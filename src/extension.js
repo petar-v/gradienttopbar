@@ -125,7 +125,7 @@ const disableMaximizedListeners = () => {
 
 const onSettingsChanged = (settings) => {
   const config = getConfig(settings);
-  gradient = new Gradient(config);
+  gradient = createGradient(config);
   const { isOpaqueOnMaximized } = config;
 
   if (isOpaqueOnMaximized) {
