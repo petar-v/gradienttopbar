@@ -6,6 +6,7 @@ const Gettext = imports.gettext.domain(Me.metadata["gettext-domain"]);
 const { gettext } = Gettext;
 
 const { getConfig, saveColors } = Me.imports.config;
+const { createColorDialog } = Me.imports.settings.components.colorDialog;
 
 const GradientDirection = GObject.registerClass(
   {
@@ -39,19 +40,7 @@ const createColorChooserRow = (
   colroString,
   callback
 ) => {
-  const colorDialog = Gtk.ColorDialog.new();
-  colorDialog.set_title(pickerTitle);
-  colorDialog.set_modal(true);
-  colorDialog.set_with_alpha(true);
-
-  const rgba = new Gdk.RGBA();
-  rgba.parse(colroString);
-
-  const chooserBtn = Gtk.ColorDialogButton.new(colorDialog);
-  chooserBtn.set_rgba(rgba);
-  chooserBtn.connect("notify::rgba", () => {
-    callback(chooserBtn.get_rgba().to_string());
-  });
+  const chooserBtn = createColorDialog(pickerTitle, colroString, callback);
 
   const row = new Adw.ActionRow({
     title: rowTitle,
