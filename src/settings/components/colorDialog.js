@@ -1,7 +1,7 @@
 const { Adw, Gdk, Gio, GLib, GObject, Gtk } = imports.gi;
 
 const createColorDialogBtn = (pickerTitle, colroString, callback) => {
-  if ([Gtk.ColorDialog, Gtk.ColorDialogButton].includes(null)) {
+  if ([Gtk.ColorDialog, Gtk.ColorDialogButton].includes(undefined)) {
     return null;
   }
   const colorDialog = Gtk.ColorDialog.new();
