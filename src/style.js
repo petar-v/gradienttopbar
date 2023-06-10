@@ -13,12 +13,14 @@ const USER_STYLESHEET = Gio.File.new_for_path(
 
 const generateCss = (config) => {
   const { gradientDirection, colors } = config;
-  return `.${GRADIENT_CLASS} {
-            background-color: transparent;
-            background-gradient-direction: ${gradientDirection};
-            background-gradient-start: ${colors.start};
-            background-gradient-end: ${colors.end};
-          }`;
+  return `
+    .${GRADIENT_CLASS} {
+      background-color: transparent;
+      background-gradient-direction: ${gradientDirection};
+      background-gradient-start: ${colors.start};
+      background-gradient-end: ${colors.end};
+    }
+  `;
 };
 
 const saveUserCss = (file, stylesheet) => {
@@ -29,7 +31,7 @@ const saveUserCss = (file, stylesheet) => {
 };
 
 let isFaded = false;
-function createGradient(config) {
+function applyStyle(config) {
   const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
 
   // generate a stylesheet based on the user preferences. note: this is somewhat of a hack.

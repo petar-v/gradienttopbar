@@ -6,7 +6,7 @@ const Extension = ExtensionUtils.getCurrentExtension();
 const { BOTH } = Meta.MaximizeFlags;
 const isMaximized = (window) => window.get_maximized() === BOTH;
 
-const { createGradient } = Extension.imports.gradient;
+const { applyStyle } = Extension.imports.style;
 const {
   SETTINGS_GSCHEMA,
   getConfig,
@@ -125,7 +125,7 @@ const disableMaximizedListeners = () => {
 
 const onSettingsChanged = (settings) => {
   const config = getConfig(settings);
-  gradient = createGradient(config);
+  gradient = applyStyle(config);
   global.log("Gradient with " + config.gradientDirection + " dir created");
   const { isOpaqueOnMaximized } = config;
 
@@ -148,7 +148,7 @@ function enable() {
     enableMaximizedListeners();
   }
   // initially set up the gradient
-  gradient = createGradient(config);
+  gradient = applyStyle(config);
   gradient(true);
 }
 
