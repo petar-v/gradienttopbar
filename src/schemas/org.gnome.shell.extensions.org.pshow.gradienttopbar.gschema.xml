@@ -20,5 +20,10 @@
       <summary>The orientation of the gradient</summary>
       <description>The orientation of the gradient can either be "vertical" or "horizontal"</description>
     </key>
+    <key name="box-shadow" type="s">
+      <default>'0px 0px 0px 0px rgba(0, 0, 0, 1)'</default>
+      <summary>CSS value of the box shadow applied</summary>
+      <description>This stores the css value of the CSS box shadow applied.</description>
+    </key>
   </schema>
 </schemalist>
