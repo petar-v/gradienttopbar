@@ -78,7 +78,7 @@ var AboutPage = GObject.registerClass(
         new Gtk.Label({
           label: Me.metadata.version.toString(),
           css_classes: ["dim-label"],
-        })
+        }),
       );
       infoGroup.add(projectVersionRow);
 
@@ -90,14 +90,14 @@ var AboutPage = GObject.registerClass(
           new Gtk.Label({
             label: Me.metadata.commit.toString(),
             css_classes: ["dim-label"],
-          })
+          }),
         );
         infoGroup.add(commitRow);
       }
 
       const issuesRow = createLinkRow(
         gettext("Report an Issue"),
-        Me.metadata.url
+        Me.metadata.url,
       );
       infoGroup.add(issuesRow);
       this.add(infoGroup);
@@ -117,5 +117,5 @@ var AboutPage = GObject.registerClass(
       licenseGroup.add(licenseLabelBox);
       this.add(licenseGroup);
     }
-  }
+  },
 );

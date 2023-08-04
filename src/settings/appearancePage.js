@@ -16,14 +16,14 @@ const GradientDirection = GObject.registerClass(
         "name",
         "name",
         GObject.ParamFlags.READWRITE,
-        null
+        null,
       ),
       value: GObject.ParamSpec.string(
         "value",
         "value",
         "value",
         GObject.ParamFlags.READWRITE,
-        null
+        null,
       ),
     },
   },
@@ -31,14 +31,14 @@ const GradientDirection = GObject.registerClass(
     _init(name, value) {
       super._init({ name, value });
     }
-  }
+  },
 );
 
 const createColorChooserRow = (
   pickerTitle,
   rowTitle,
   colroString,
-  callback
+  callback,
 ) => {
   const chooserBtn = createColorDialog(pickerTitle, colroString, callback);
 
@@ -110,7 +110,7 @@ var AppearancePage = GObject.registerClass(
         (rgba) => {
           colors.start = rgba;
           saveColors(this._settings, rgba, colors.end);
-        }
+        },
       );
 
       colorsGroup.add(startColorChooserRow);
@@ -122,12 +122,12 @@ var AppearancePage = GObject.registerClass(
         (rgba) => {
           colors.end = rgba;
           saveColors(this._settings, colors.start, rgba);
-        }
+        },
       );
 
       colorsGroup.add(endColorChooserRow);
 
       this.add(colorsGroup);
     }
-  }
+  },
 );

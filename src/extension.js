@@ -25,7 +25,7 @@ const modifyTopBar = () => {
 
   const lacksWorkspaceMaximizedWindow =
     workspaceWindowIds.find((workspaceWindowId) =>
-      maximizedWindows.has(workspaceWindowId)
+      maximizedWindows.has(workspaceWindowId),
     ) === undefined;
 
   gradient(lacksWorkspaceMaximizedWindow);
@@ -76,7 +76,7 @@ const enableMaximizedListeners = () => {
         // so this gets triggered every time there is a window resize. This is NOT optimal :(
         monitoredWindows[win.get_id()] = win.connect(
           "size-changed",
-          onWindowSizeChange
+          onWindowSizeChange,
         );
       }
     });
@@ -84,7 +84,7 @@ const enableMaximizedListeners = () => {
   if (!windowDestroyedId) {
     windowDestroyedId = global.window_manager.connect(
       "destroy",
-      onWindowDestroy
+      onWindowDestroy,
     );
   }
   global.display
@@ -93,7 +93,7 @@ const enableMaximizedListeners = () => {
     .forEach((window) => {
       monitoredWindows[window.get_id()] = window.connect(
         "size-changed",
-        onWindowSizeChange
+        onWindowSizeChange,
       );
     });
 

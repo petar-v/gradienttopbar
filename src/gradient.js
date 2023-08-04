@@ -8,7 +8,7 @@ const Extension = ExtensionUtils.getCurrentExtension();
 const GRADIENT_CLASS = "panel-gradient";
 const CORNER_GRADIENT_CLASS = "corner-gradient";
 const USER_STYLESHEET = Gio.File.new_for_path(
-  Extension.path + "/user-stylesheet.css"
+  Extension.path + "/user-stylesheet.css",
 );
 
 const generateCss = (config) => {
@@ -49,7 +49,7 @@ function createGradient(config) {
       : "remove_style_class_name";
     Main.panel.actor[actionCall](GRADIENT_CLASS); // fIXME: this is deprecated
     [Main.panel._leftCorner, Main.panel._rightCorner].forEach(
-      (corner) => corner && corner[actionCall](CORNER_GRADIENT_CLASS)
+      (corner) => corner && corner[actionCall](CORNER_GRADIENT_CLASS),
     );
     isFaded = enabled;
   };
