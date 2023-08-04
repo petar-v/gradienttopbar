@@ -12,13 +12,14 @@ const USER_STYLESHEET = Gio.File.new_for_path(
 );
 
 const generateCss = (config) => {
-  const { gradientDirection, colors } = config;
+  const { gradientDirection, colors, shadow } = config;
   return `
     .${GRADIENT_CLASS} {
       background-color: transparent;
       background-gradient-direction: ${gradientDirection};
       background-gradient-start: ${colors.start};
       background-gradient-end: ${colors.end};
+      box-shadow: none;
     }
   `;
 };
