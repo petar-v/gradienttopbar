@@ -28,7 +28,7 @@ var BehaviourPage = GObject.registerClass(
         "opaque-on-maximized",
         opaqueOnMaximizedSwitch,
         "active",
-        Gio.SettingsBindFlags.DEFAULT
+        Gio.SettingsBindFlags.DEFAULT,
       );
       opaqueOnMaximizedSwitch.connect("notify::active", (widget) => {
         settings.set_boolean("opaque-on-maximized", widget.get_active());
@@ -36,7 +36,7 @@ var BehaviourPage = GObject.registerClass(
       let opaqueOnMaximizedRow = new Adw.ActionRow({
         title: gettext("Remove style on maximized window (Experimental)"),
         subtitle: gettext(
-          "Removes the gradient effect whenever there is a maximized window on the current workspace."
+          "Removes the gradient effect whenever there is a maximized window on the current workspace.",
         ),
         activatable_widget: opaqueOnMaximizedSwitch,
       });
@@ -47,5 +47,5 @@ var BehaviourPage = GObject.registerClass(
       behaviorGroup.add(opaqueOnMaximizedRow);
       this.add(behaviorGroup);
     }
-  }
+  },
 );
