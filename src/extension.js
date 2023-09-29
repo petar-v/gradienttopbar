@@ -2,11 +2,8 @@ import Meta from 'gi://Meta';
 import {
     Extension
 } from 'resource:///org/gnome/shell/extensions/extension.js';
-
 import { applyGradientStyle, toggleGradient } from './gradient.js';
-
 import {
-    SETTINGS_GSCHEMA,
     getConfig,
     attachSettingsListeners,
     detachSettingsListeners
@@ -53,6 +50,20 @@ export default class GradientTopBar extends Extension {
             this.maximizedWindows.delete(windowId);
             delete this.monitoredWindows[windowId];
             this.modifyTopBar();
+        };
+
+        this.onSettingsChanged = settings => {
+            const config = getConfig(settings);
+            applyGradientStyle(config, this.path);
+
+            const { isOpaqueOnMaximized } = config;
+
+            if (isOpaqueOnMaximized) {
+                this.enableMaximizedListeners();
+            } else {
+                this.disableMaximizedListeners();
+                this.toggleGradient(true);
+            }
         };
 
         this.monitorSizeChange = win => {
@@ -131,21 +142,6 @@ export default class GradientTopBar extends Extension {
         this.monitoredWindows = {};
     }
 
-    onSettingsChanged(settings) {
-        const config = getConfig(settings);
-        applyGradientStyle(config, this.path);
-
-        global.log(`Gradient with ${config.gradientDirection} dir created`);
-        const { isOpaqueOnMaximized } = config;
-
-        if (isOpaqueOnMaximized) {
-            this.enableMaximizedListeners();
-        } else {
-            this.disableMaximizedListeners();
-            this.toggleGradient(true);
-        }
-    }
-
     toggleGradient(enabled) {
         if (this.isGradientEnabled === enabled)
             return;
@@ -155,11 +151,11 @@ export default class GradientTopBar extends Extension {
     }
 
     enable() {
-        const settings = this.getSettings(SETTINGS_GSCHEMA);
+        this._settings = this.getSettings();
 
-        attachSettingsListeners(settings, this.onSettingsChanged);
+        attachSettingsListeners(this._settings, this.onSettingsChanged);
 
-        const config = getConfig(settings);
+        const config = getConfig(this._settings);
         const { isOpaqueOnMaximized } = config;
         if (isOpaqueOnMaximized)
             this.enableMaximizedListeners();
@@ -167,13 +163,12 @@ export default class GradientTopBar extends Extension {
         // initially set up the gradient
         applyGradientStyle(config, this.path);
         this.toggleGradient(true);
-        console.log(_('%s is now enabled').format(this.uuid));
     }
 
     disable() {
         this.disableMaximizedListeners();
         this.toggleGradient(false);
         detachSettingsListeners(this.getSettings(), this.onSettingsChanged);
-        console.log(_('%s is now disabled.').format(this.uuid));
+        this._settings = null;
     }
 }

@@ -62,8 +62,7 @@ class Appearance extends Adw.PreferencesPage {
             name: 'Appearance'
         });
 
-        this._settings = settings;
-        const { gradientDirection, colors } = getConfig(this._settings);
+        const { gradientDirection, colors } = getConfig(settings);
 
         const gradientGroup = new Adw.PreferencesGroup({
             title: gettext('Gradient')
@@ -84,9 +83,10 @@ class Appearance extends Adw.PreferencesPage {
             model: gradientDirectionModel,
             expression: new Gtk.PropertyExpression(GradientDirection, null, 'name')
         });
+
         directionRow.connect('notify::selected', () => {
             const { selectedItem } = directionRow;
-            this._settings.set_string('gradient-direction', selectedItem.value);
+            settings.set_string('gradient-direction', selectedItem.value);
         });
 
         const { model } = directionRow;
@@ -110,7 +110,7 @@ class Appearance extends Adw.PreferencesPage {
             colors.start,
             rgba => {
                 colors.start = rgba;
-                saveColors(this._settings, rgba, colors.end);
+                saveColors(settings, rgba, colors.end);
             }
         );
 
@@ -122,7 +122,7 @@ class Appearance extends Adw.PreferencesPage {
             colors.end,
             rgba => {
                 colors.end = rgba;
-                saveColors(this._settings, colors.start, rgba);
+                saveColors(settings, colors.start, rgba);
             }
         );
 
