@@ -24,7 +24,6 @@ class GradientTopBarPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
         window._settings = settings;
-        // window.can_navigate_back = true; // FIXME: deprecated
 
         const appearancePage = new AppearancePage(settings);
         window.add(appearancePage);
