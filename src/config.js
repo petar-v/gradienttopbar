@@ -1,6 +1,6 @@
 export const SETTINGS_GSCHEMA = 'org.gnome.shell.extensions.org.pshow.gradienttopbar';
 
-export function getConfig(settings) {
+export const getConfig = settings => {
     const isOpaqueOnMaximized = settings.get_boolean('opaque-on-maximized');
     const colors = settings.get_value('colors').deep_unpack();
     const gradientDirection = settings.get_string('gradient-direction');
@@ -13,20 +13,20 @@ export function getConfig(settings) {
             end: colors[1]
         }
     };
-}
+};
 
-export function saveColors(settings, startRgba, endRgba) {
+export const saveColors = (settings, startRgba, endRgba) => {
     settings.set_strv('colors', [startRgba, endRgba]);
-}
+};
 
-export function attachSettingsListeners(settings, listener) {
+export const attachSettingsListeners = (settings, listener) => {
     settings.connect('changed::gradient-direction', listener);
     settings.connect('changed::opaque-on-maximized', listener);
     settings.connect('changed::colors', listener);
-}
+};
 
-export function detachSettingsListeners(settings, listener) {
+export const detachSettingsListeners = (settings, listener) => {
     settings.disconnect('changed::gradient-direction', listener);
     settings.disconnect('changed::opaque-on-maximized', listener);
     settings.disconnect('changed::colors', listener);
-}
+};
