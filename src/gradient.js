@@ -23,10 +23,7 @@ const saveUserCss = (file, stylesheet) => {
     outDataStream.close(null);
 };
 
-
-// FIXME: separate that function into two functions
-let isFaded = false;
-export const createGradient = (config, extensionPath) => {
+export const applyGradientStyle = (config, extensionPath) => {
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
     const userStylesheet = Gio.File.new_for_path(`${extensionPath}/user-stylesheet.css`);
 
@@ -39,17 +36,14 @@ export const createGradient = (config, extensionPath) => {
     saveUserCss(userStylesheet, generateCss(config));
     // load again
     theme.load_stylesheet(userStylesheet);
+};
 
-    return enabled => {
-        if (enabled === isFaded)
-            return;
-        const actionCall = enabled
-            ? 'add_style_class_name'
-            : 'remove_style_class_name';
-        panel.actor[actionCall](GRADIENT_CLASS); // fIXME: this is deprecated
-        [panel._leftCorner, panel._rightCorner].forEach(
-            corner => corner && corner[actionCall](CORNER_GRADIENT_CLASS)
-        );
-        isFaded = enabled;
-    };
+export const toggleGradient = enabled => {
+    const actionCall = enabled
+        ? 'add_style_class_name'
+        : 'remove_style_class_name';
+    panel.actor[actionCall](GRADIENT_CLASS); // FIXME: this is deprecated
+    [panel._leftCorner, panel._rightCorner].forEach(
+        corner => corner && corner[actionCall](CORNER_GRADIENT_CLASS)
+    );
 };

@@ -3,7 +3,7 @@ import {
     Extension
 } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import { createGradient } from './gradient.js';
+import { applyGradientStyle, toggleGradient } from './gradient.js';
 
 import {
     SETTINGS_GSCHEMA,
@@ -13,12 +13,15 @@ import {
 } from './config.js';
 
 const { BOTH } = Meta.MaximizeFlags;
-const isMaximized = window => window.get_maximized() === BOTH;
+const isMaximized = window => window.get_maximized() === BOTH; // TODO: what if the window starts as maximized dimensions but is not "snapped"?
 
 // TODO: separate the window states from the main extension
 export default class GradientTopBar extends Extension {
     constructor(metadata) {
         super(metadata);
+
+        // gradient state
+        this.isGradientEnabled = false;
 
         // window event listeners IDs
         this.windowCreatedId = null;
@@ -29,7 +32,6 @@ export default class GradientTopBar extends Extension {
         this.workspace = global.get_workspace_manager().get_active_workspace();
         this.maximizedWindows = new Set();
         this.monitoredWindows = {};
-        this.gradient = null;
 
         // event listener callbacks
         this.onWindowSizeChange = window => {
@@ -52,6 +54,25 @@ export default class GradientTopBar extends Extension {
             delete this.monitoredWindows[windowId];
             this.modifyTopBar();
         };
+
+        this.monitorSizeChange = win => {
+            // this is probably not the proper event to listen to but there was no "maximize" event
+            // so this gets triggered every time there is a window resize. This is NOT optimal :(
+            this.monitoredWindows[win.get_id()] = win.connect(
+                'size-changed',
+                this.onWindowSizeChange
+            );
+        };
+
+        this.onWindowCreate = (_, window) => {
+            if (window.can_maximize())
+                this.monitorSizeChange(window);
+
+            if (isMaximized(window))
+                this.maximizedWindows.add(window.get_id());
+
+            this.modifyTopBar();
+        };
     }
 
     modifyTopBar() {
@@ -64,25 +85,13 @@ export default class GradientTopBar extends Extension {
             this.maximizedWindows.has(workspaceWindowId)
         ) === undefined;
 
-        this.gradient(lacksWorkspaceMaximizedWindow);
+        this.toggleGradient(lacksWorkspaceMaximizedWindow);
     }
 
     enableMaximizedListeners() {
-        const monitorSizeChange = win => {
-            // this is probably not the proper event to listen to but there was no "maximize" event
-            // so this gets triggered every time there is a window resize. This is NOT optimal :(
-            this.monitoredWindows[win.get_id()] = win.connect(
-                'size-changed',
-                this.onWindowSizeChange
-            );
-        };
-
         if (!this.windowCreatedId) {
             // listen for window created events and attach a size change event listener
-            this.windowCreatedId = global.display.connect('window-created', (_, window) => {
-                if (window.can_maximize())
-                    monitorSizeChange(window);
-            });
+            this.windowCreatedId = global.display.connect('window-created', this.onWindowCreate);
         }
         if (!this.windowDestroyedId) {
             this.windowDestroyedId = global.window_manager.connect(
@@ -93,7 +102,7 @@ export default class GradientTopBar extends Extension {
         global.display
         .list_all_windows()
         .filter(window => this.monitoredWindows[window.get_id()] === undefined)
-        .forEach(monitorSizeChange);
+        .forEach(this.monitorSizeChange);
 
         if (!this.workspaceSwitchId) {
         // keep a reference to the current workspace
@@ -124,7 +133,8 @@ export default class GradientTopBar extends Extension {
 
     onSettingsChanged(settings) {
         const config = getConfig(settings);
-        this.gradient = createGradient(config, this.path);
+        applyGradientStyle(config, this.path);
+
         global.log(`Gradient with ${config.gradientDirection} dir created`);
         const { isOpaqueOnMaximized } = config;
 
@@ -132,13 +142,16 @@ export default class GradientTopBar extends Extension {
             this.enableMaximizedListeners();
         } else {
             this.disableMaximizedListeners();
-            this.gradient(true);
+            this.toggleGradient(true);
         }
     }
 
-    gradient(_) {
-        // empty function that is going to be hot-swapped. Not the best implementation but this will be fixed in the future.
-        // here should go the implementation from gradient.js
+    toggleGradient(enabled) {
+        if (this.isGradientEnabled === enabled)
+            return;
+
+        toggleGradient(enabled);
+        this.isGradientEnabled = enabled;
     }
 
     enable() {
@@ -152,14 +165,14 @@ export default class GradientTopBar extends Extension {
             this.enableMaximizedListeners();
 
         // initially set up the gradient
-        this.gradient = createGradient(config, this.path);
-        this.gradient(true);
+        applyGradientStyle(config, this.path);
+        this.toggleGradient(true);
         console.log(_('%s is now enabled').format(this.uuid));
     }
 
     disable() {
         this.disableMaximizedListeners();
-        this.gradient(false);
+        this.toggleGradient(false);
         detachSettingsListeners(this.getSettings(), this.onSettingsChanged);
         console.log(_('%s is now disabled.').format(this.uuid));
     }
