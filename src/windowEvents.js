@@ -10,6 +10,8 @@ const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
 const WINDOW_CREATE_EVENT = 'window-created';
 const WINDOW_DESTROY_EVENT = 'destroy';
+const WINDOW_MINIMIZED_EVENT = 'minimize';
+const WINDOW_RAISED_EVENT = 'unminimize';
 
 class EventManager {
     constructor() {
@@ -143,15 +145,29 @@ export default class WindowEvents {
             emitStateChange();
         };
 
+        const onWindowMinimize = (_, windowActor) => {
+            const windowId = windowActor.get_meta_window().get_id();
+            this.maximizedWindows.delete(windowId);
+            emitStateChange();
+        };
+
+        const onWindowRaise = (_, windowActor) => {
+            const window = windowActor.get_meta_window();
+            if (isMaximized(window))
+                this.maximizedWindows.add(window.get_id());
+            emitStateChange();
+        };
+
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
         // TODO: what if we have tiled windows?
 
-        // listen for window created events and attach a size change event listener
         this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, onWindowCreate);
         this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
         this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
-        // TODO: add minimized event
+        this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
+        this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
 
+        // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         this.display.list_all_windows().forEach(window => this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange));
 
         this.workspace = this.workspaceManager.get_active_workspace();
