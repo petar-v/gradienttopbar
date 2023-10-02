@@ -18,7 +18,7 @@ export default class GradientTopBar extends Extension {
         super(metadata);
 
         // gradient state
-        this.isGradientEnabled = false;
+        this.isEffectApplied = false;
 
         // window event listeners IDs
         this.windowCreatedId = null;
@@ -143,11 +143,15 @@ export default class GradientTopBar extends Extension {
     }
 
     toggleGradient(enabled) {
-        if (this.isGradientEnabled === enabled)
+        // this checks if the gradient is currently applied
+        // or not so we don't add classes multiple times.
+        // The effect is applied if there is no maximized window
+        // if the respective setting is applied.
+        if (this.isEffectApplied === enabled)
             return;
 
         toggleGradient(enabled);
-        this.isGradientEnabled = enabled;
+        this.isEffectApplied = enabled;
     }
 
     enable() {
@@ -168,7 +172,7 @@ export default class GradientTopBar extends Extension {
     disable() {
         this.disableMaximizedListeners();
         this.toggleGradient(false);
-        detachSettingsListeners(this.getSettings(), this.onSettingsChanged);
+        detachSettingsListeners(this._settings, this.onSettingsChanged);
         this._settings = null;
     }
 }
