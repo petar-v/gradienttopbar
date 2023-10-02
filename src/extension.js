@@ -17,20 +17,20 @@ export default class GradientTopBar extends Extension {
         // gradient state
         this.isEffectApplied = false;
         this.windowEvents = null;
-    }
 
-    onSettingsChanged(settings) {
-        const config = getConfig(settings);
-        applyGradientStyle(config, this.path);
+        this.onSettingsChanged = settings => {
+            const config = getConfig(settings);
+            applyGradientStyle(config, this.path);
 
-        const { isOpaqueOnMaximized } = config;
+            const { isOpaqueOnMaximized } = config;
 
-        if (isOpaqueOnMaximized) {
-            this.windowEvents.enable();
-        } else {
-            this.windowEvents.disable();
-            this.toggleGradient(true);
-        }
+            if (isOpaqueOnMaximized) {
+                this.windowEvents.enable();
+            } else {
+                this.windowEvents.disable();
+                this.toggleGradient(true);
+            }
+        };
     }
 
     toggleGradient(enabled) {
