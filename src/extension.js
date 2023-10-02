@@ -47,6 +47,7 @@ export default class GradientTopBar extends Extension {
 
     enable() {
         this._settings = this.getSettings();
+        // TODO: always apply the gradient in overview, regardless of minimized or maximized windows
 
         this.windowEvents = new WindowEvents(global.display, global.window_manager, global.get_workspace_manager());
         this.windowEvents.setStateChangeCallback(({ maximizedWindows, currentWorkspace }) => {

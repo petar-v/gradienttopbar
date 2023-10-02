@@ -1,6 +1,6 @@
 import Meta from 'gi://Meta';
 
-// I've created this file with the wish that I delete it one day.
+// I've created this file with the wish that I delete it one day (or at least make it much better).
 
 const { BOTH } = Meta.MaximizeFlags;
 
@@ -168,6 +168,8 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
 
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
+        // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
+        // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
         this.display.list_all_windows().forEach(window => this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange));
 
         this.workspace = this.workspaceManager.get_active_workspace();
