@@ -58,6 +58,28 @@ class EventManager {
     }
 }
 
+const eqSet = (as, bs) => {
+    if (as.size !== bs.size)
+        return false;
+
+    for (const a of as) {
+        if (!bs.has(a))
+            return false;
+    }
+    return true;
+};
+
+const areSameState = (state1, state2) => {
+    if ([state1, state2].includes(null))
+        return false;
+    if ([state1.workspace, state2.workspace].includes(undefined))
+        return false;
+    if (state1.workspace.index() !== state2.workspace.index())
+        return false;
+
+    return eqSet(state1.maximizedWindows, state2.maximizedWindows);
+};
+
 export default class WindowEvents {
     constructor(display, windowManager, workspaceManager) {
         this.display = display;
@@ -69,7 +91,7 @@ export default class WindowEvents {
         this.stateChangeCallback = () => {};
 
         this.workspace = null;
-        this.maximizedWindows = [];
+        this.maximizedWindows = new Set();
     }
 
     setStateChangeCallback(callback) {
@@ -77,11 +99,16 @@ export default class WindowEvents {
     }
 
     enable() {
+        let lastState = null;
         const emitStateChange = () => {
-            this.stateChangeCallback({
+            const currentState = {
                 maximizedWindows: this.maximizedWindows,
                 currentWorkspace: this.workspace
-            });
+            };
+            if (!areSameState(lastState, currentState)) {
+                lastState = currentState;
+                this.stateChangeCallback(currentState);
+            }
         };
 
         const onWindowSizeChange = window => {
@@ -99,9 +126,9 @@ export default class WindowEvents {
         };
 
         const onWindowDestroy = (_, windowActor) => {
-            const windowId = windowActor.get_meta_window().get_id();
-            this.maximizedWindows.delete(windowId);
-            delete this.monitoredWindows[windowId];
+            const window = windowActor.get_meta_window();
+            this.maximizedWindows.delete(window.get_id());
+            this.eventManager.disconnectWindowEvents(window);
 
             emitStateChange();
         };
@@ -122,13 +149,13 @@ export default class WindowEvents {
         // listen for window created events and attach a size change event listener
         this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, onWindowCreate);
         this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
-        this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.windowManager, onWorkspaceChanged);
+        this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
         // TODO: add minimized event
 
         this.display.list_all_windows().forEach(window => this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange));
 
         this.workspace = this.workspaceManager.get_active_workspace();
-        this.maximizedWindows = this.display.list_all_windows().filter(isMaximized).map(window => window.get_id());
+        this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
         emitStateChange();
     }
 
@@ -137,5 +164,7 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(window => {
             this.eventManager.disconnectWindowEvents(window);
         });
+        this.workspace = null;
+        this.maximizedWindows = new Set();
     }
 }

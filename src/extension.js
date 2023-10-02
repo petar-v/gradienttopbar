@@ -48,10 +48,9 @@ export default class GradientTopBar extends Extension {
     enable() {
         this._settings = this.getSettings();
 
-        const workspaceManager = global.get_workspace_manager();
-        this.windowEvents = new WindowEvents(global.display, global.window_manager, workspaceManager);
-        this.windowEvents.setStateChangeCallback(({ maximizedWindows }) => {
-            const workspaceWindowIds = this.workspace.list_windows().map(win => win.get_id());
+        this.windowEvents = new WindowEvents(global.display, global.window_manager, global.get_workspace_manager());
+        this.windowEvents.setStateChangeCallback(({ maximizedWindows, currentWorkspace }) => {
+            const workspaceWindowIds = currentWorkspace.list_windows().map(win => win.get_id());
 
             const lacksWorkspaceMaximizedWindow = workspaceWindowIds.find(workspaceWindowId =>
                 maximizedWindows.has(workspaceWindowId)
