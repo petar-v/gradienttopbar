@@ -42,7 +42,7 @@ export const toggleGradient = enabled => {
     const actionCall = enabled
         ? 'add_style_class_name'
         : 'remove_style_class_name';
-    panel.actor[actionCall](GRADIENT_CLASS); // FIXME: this call is deprecated
+    panel[actionCall](GRADIENT_CLASS);
     [panel._leftCorner, panel._rightCorner].forEach(
         corner => corner && corner[actionCall](CORNER_GRADIENT_CLASS)
     );
