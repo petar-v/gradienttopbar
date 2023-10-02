@@ -161,6 +161,9 @@ export default class WindowEvents {
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
         // TODO: what if we have tiled windows?
 
+        // FIXME: add events for when switching maximized windows from one workspace to another. I think in that case I only need to emit a state change
+        // https://gjs-docs.gnome.org/meta13~13/meta.workspace#signal-window-added
+        // https://github.com/AMDG2/GnomeShell_DynamicTopBar/blob/906b8e69479bd6098748752ee8842782177aa7dd/dynamicTopBar%40gnomeshell.feildel.fr/extension.js#L288
         this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, onWindowCreate);
         this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
         this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
