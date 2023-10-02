@@ -1,161 +1,178 @@
-const Main = imports.ui.main;
-const { Meta } = imports.gi;
-const ExtensionUtils = imports.misc.extensionUtils;
-const Extension = ExtensionUtils.getCurrentExtension();
+import Meta from 'gi://Meta';
+import {
+    Extension
+} from 'resource:///org/gnome/shell/extensions/extension.js';
+import { applyGradientStyle, toggleGradient } from './gradient.js';
+import {
+    getConfig,
+    attachSettingsListeners,
+    detachSettingsListeners
+} from './config.js';
 
 const { BOTH } = Meta.MaximizeFlags;
-const isMaximized = (window) => window.get_maximized() === BOTH;
+const isMaximized = window => window.get_maximized() === BOTH; // TODO: what if the window starts as maximized dimensions but is not "snapped"?
 
-const { createGradient } = Extension.imports.gradient;
-const {
-  SETTINGS_GSCHEMA,
-  getConfig,
-  attachSettingsListeners,
-  detachSettingsListeners,
-} = Extension.imports.config;
+// TODO: separate the window states from the main extension
+export default class GradientTopBar extends Extension {
+    constructor(metadata) {
+        super(metadata);
 
-const maximizedWindows = new Set();
-let workspace = null;
-let gradient = null;
+        // gradient state
+        this.isEffectApplied = false;
 
-const modifyTopBar = () => {
-  const workspaceWindowIds = workspace
-    .list_windows()
-    .map((win) => win.get_id());
+        // window event listeners IDs
+        this.windowCreatedId = null;
+        this.workspaceSwitchId = null;
+        this.windowDestroyedId = null;
 
-  const lacksWorkspaceMaximizedWindow =
-    workspaceWindowIds.find((workspaceWindowId) =>
-      maximizedWindows.has(workspaceWindowId),
-    ) === undefined;
+        // window states
+        this.workspace = global.get_workspace_manager().get_active_workspace();
+        this.maximizedWindows = new Set();
+        this.monitoredWindows = {};
 
-  gradient(lacksWorkspaceMaximizedWindow);
-};
+        // event listener callbacks
+        this.onWindowSizeChange = window => {
+            if (isMaximized(window))
+                this.maximizedWindows.add(window.get_id());
+            else
+                this.maximizedWindows.delete(window.get_id());
 
-const onWindowSizeChange = (window) => {
-  if (isMaximized(window)) {
-    maximizedWindows.add(window.get_id());
-  } else {
-    maximizedWindows.delete(window.get_id());
-  }
-  modifyTopBar();
-};
+            this.modifyTopBar();
+        };
 
-const onWorkspaceChanged = (workspaceManager) => {
-  workspace = workspaceManager.get_active_workspace();
-  modifyTopBar();
-};
+        this.onWorkspaceChanged = workspaceManager => {
+            this.workspace = workspaceManager.get_active_workspace();
+            this.modifyTopBar();
+        };
 
-let settings;
-function init() {
-  workspace = global.get_workspace_manager().get_active_workspace();
-}
+        this.onWindowDestroy = (_, windowActor) => {
+            const windowId = windowActor.get_meta_window().get_id();
+            this.maximizedWindows.delete(windowId);
+            delete this.monitoredWindows[windowId];
+            this.modifyTopBar();
+        };
 
-// TODO: refucktor all of that.
-let windowCreatedId;
-let workspaceSwitchId;
-let windowDestroyedId;
-let monitoredWindows = {};
+        this.onSettingsChanged = settings => {
+            const config = getConfig(settings);
+            applyGradientStyle(config, this.path);
 
-const onWindowDestroy = (_, windowActor) => {
-  const windowId = windowActor.get_meta_window().get_id();
-  maximizedWindows.delete(windowId);
-  delete monitoredWindows[windowId];
-  modifyTopBar();
-};
+            const { isOpaqueOnMaximized } = config;
 
-const addWindowEventListeners = (window) => {
-  const onResize = window.connect("size-changed", onWindowSizeChange);
-  monitoredWindows[window.get_id()] = [onResize, onClose];
-};
-const enableMaximizedListeners = () => {
-  if (!windowCreatedId) {
-    // listen for window created events and attach a size change event listener
-    windowCreatedId = global.display.connect("window-created", (_, win) => {
-      if (win.can_maximize()) {
-        // this is probably not the proper event to listen to but there was no "maximize" event
-        // so this gets triggered every time there is a window resize. This is NOT optimal :(
-        monitoredWindows[win.get_id()] = win.connect(
-          "size-changed",
-          onWindowSizeChange,
-        );
-      }
-    });
-  }
-  if (!windowDestroyedId) {
-    windowDestroyedId = global.window_manager.connect(
-      "destroy",
-      onWindowDestroy,
-    );
-  }
-  global.display
-    .list_all_windows()
-    .filter((window) => monitoredWindows[window.get_id()] === undefined)
-    .forEach((window) => {
-      monitoredWindows[window.get_id()] = window.connect(
-        "size-changed",
-        onWindowSizeChange,
-      );
-    });
+            if (isOpaqueOnMaximized) {
+                this.enableMaximizedListeners();
+            } else {
+                this.disableMaximizedListeners();
+                this.toggleGradient(true);
+            }
+        };
 
-  if (!workspaceSwitchId) {
-    // keep a reference to the current workspace
-    workspaceSwitchId = global
-      .get_workspace_manager()
-      .connect("workspace-switched", onWorkspaceChanged);
-  }
-};
-const disableMaximizedListeners = () => {
-  if (windowCreatedId) {
-    global.display.disconnect(windowCreatedId);
-    windowCreatedId = null;
-  }
-  if (workspaceSwitchId) {
-    global.get_workspace_manager().disconnect(workspaceSwitchId);
-    workspaceSwitchId = null;
-  }
-  if (windowDestroyedId) {
-    global.window_manager.disconnect(windowDestroyedId);
-    windowDestroyedId = null;
-  }
-  global.display.list_all_windows().forEach((window) => {
-    window.disconnect(monitoredWindows[window.get_id()]);
-  });
-  monitoredWindows = {};
-};
+        this.monitorSizeChange = win => {
+            // this is probably not the proper event to listen to but there was no "maximize" event
+            // so this gets triggered every time there is a window resize. This is NOT optimal :(
+            this.monitoredWindows[win.get_id()] = win.connect(
+                'size-changed',
+                this.onWindowSizeChange
+            );
+        };
 
-const onSettingsChanged = (settings) => {
-  const config = getConfig(settings);
-  gradient = createGradient(config);
-  global.log("Gradient with " + config.gradientDirection + " dir created");
-  const { isOpaqueOnMaximized } = config;
+        this.onWindowCreate = (_, window) => {
+            if (window.can_maximize())
+                this.monitorSizeChange(window);
 
-  if (isOpaqueOnMaximized) {
-    enableMaximizedListeners();
-  } else {
-    disableMaximizedListeners();
-    gradient(true);
-  }
-};
+            if (isMaximized(window))
+                this.maximizedWindows.add(window.get_id());
 
-function enable() {
-  settings = ExtensionUtils.getSettings(SETTINGS_GSCHEMA);
+            this.modifyTopBar();
+        };
+    }
 
-  attachSettingsListeners(settings, onSettingsChanged);
+    modifyTopBar() {
+        const workspaceWindowIds = this.workspace
+        .list_windows()
+        .map(win => win.get_id());
 
-  const config = getConfig(settings);
-  const { isOpaqueOnMaximized } = config;
-  if (isOpaqueOnMaximized) {
-    enableMaximizedListeners();
-  }
-  // initially set up the gradient
-  gradient = createGradient(config);
-  gradient(true);
-}
+        const lacksWorkspaceMaximizedWindow =
+        workspaceWindowIds.find(workspaceWindowId =>
+            this.maximizedWindows.has(workspaceWindowId)
+        ) === undefined;
 
-function disable() {
-  disableMaximizedListeners();
-  gradient(false);
-  detachSettingsListeners(settings, onSettingsChanged);
-  settings = null;
-  gradient = null;
+        this.toggleGradient(lacksWorkspaceMaximizedWindow);
+    }
+
+    enableMaximizedListeners() {
+        if (!this.windowCreatedId) {
+            // listen for window created events and attach a size change event listener
+            this.windowCreatedId = global.display.connect('window-created', this.onWindowCreate);
+        }
+        if (!this.windowDestroyedId) {
+            this.windowDestroyedId = global.window_manager.connect(
+                'destroy',
+                this.onWindowDestroy
+            );
+        }
+        global.display
+        .list_all_windows()
+        .filter(window => this.monitoredWindows[window.get_id()] === undefined)
+        .forEach(this.monitorSizeChange);
+
+        if (!this.workspaceSwitchId) {
+        // keep a reference to the current workspace
+            this.workspaceSwitchId = global
+          .get_workspace_manager()
+          .connect('workspace-switched', this.onWorkspaceChanged);
+        }
+    }
+
+    disableMaximizedListeners() {
+        if (this.windowCreatedId) {
+            global.display.disconnect(this.windowCreatedId);
+            this.windowCreatedId = null;
+        }
+        if (this.workspaceSwitchId) {
+            global.get_workspace_manager().disconnect(this.workspaceSwitchId);
+            this.workspaceSwitchId = null;
+        }
+        if (this.windowDestroyedId) {
+            global.window_manager.disconnect(this.windowDestroyedId);
+            this.windowDestroyedId = null;
+        }
+        global.display.list_all_windows().forEach(window => {
+            window.disconnect(this.monitoredWindows[window.get_id()]);
+        });
+        this.monitoredWindows = {};
+    }
+
+    toggleGradient(enabled) {
+        // this checks if the gradient is currently applied
+        // or not so we don't add classes multiple times.
+        // The effect is applied if there is no maximized window
+        // if the respective setting is applied.
+        if (this.isEffectApplied === enabled)
+            return;
+
+        toggleGradient(enabled);
+        this.isEffectApplied = enabled;
+    }
+
+    enable() {
+        this._settings = this.getSettings();
+
+        attachSettingsListeners(this._settings, this.onSettingsChanged);
+
+        const config = getConfig(this._settings);
+        const { isOpaqueOnMaximized } = config;
+        if (isOpaqueOnMaximized)
+            this.enableMaximizedListeners();
+
+        // initially set up the gradient
+        applyGradientStyle(config, this.path);
+        this.toggleGradient(true);
+    }
+
+    disable() {
+        this.disableMaximizedListeners();
+        this.toggleGradient(false);
+        detachSettingsListeners(this._settings, this.onSettingsChanged);
+        this._settings = null;
+    }
 }

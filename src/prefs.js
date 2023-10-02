@@ -1,34 +1,39 @@
-const ExtensionUtils = imports.misc.extensionUtils;
-const Me = ExtensionUtils.getCurrentExtension();
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
 
-const { Adw, Gdk, Gio, GLib, GObject, Gtk } = imports.gi;
-const Gettext = imports.gettext.domain(Me.metadata["gettext-domain"]);
-const { gettext } = Gettext;
+import AppearancePage from './settings/appearancePage.js';
+import BehaviorPage from './settings/behavioursPage.js';
+import AboutPage from './settings/aboutPage.js';
 
-const { AppearancePage } = Me.imports.settings.appearancePage;
-const { BehaviourPage } = Me.imports.settings.behavioursPage;
-const { AboutPage } = Me.imports.settings.aboutPage;
+import {
+    ExtensionPreferences,
+    gettext as _
+} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-function init() {
-  ExtensionUtils.initTranslations();
-  const iconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
-  if (!iconTheme.get_search_path().includes(`${Me.path}/assets`))
-    iconTheme.add_search_path(`${Me.path}/assets`);
+
+class GradientTopBarPreferences extends ExtensionPreferences {
+    constructor(metadata) {
+        super(metadata);
+        const iconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+        if (!iconTheme.get_resource_path().includes(`${this.path}/assets`)) {
+            iconTheme.add_resource_path(`${this.path}/assets`);
+            iconTheme.add_search_path(`${this.path}/assets`);
+        }
+    }
+
+    fillPreferencesWindow(window) {
+        const settings = this.getSettings();
+        window._settings = settings;
+
+        const appearancePage = new AppearancePage(settings);
+        window.add(appearancePage);
+
+        const behaviorPage = new BehaviorPage(settings);
+        window.add(behaviorPage);
+
+        const aboutPage = new AboutPage(this.metadata, `${this.path}/assets/`);
+        window.add(aboutPage);
+    }
 }
 
-function fillPreferencesWindow(window) {
-  const settings = ExtensionUtils.getSettings(
-    "org.gnome.shell.extensions.org.pshow.gradienttopbar",
-  );
-
-  window.can_navigate_back = true;
-
-  const appearancePage = new AppearancePage(settings);
-  window.add(appearancePage);
-
-  const behaviourPage = new BehaviourPage(settings);
-  window.add(behaviourPage);
-
-  const aboutPage = new AboutPage();
-  window.add(aboutPage);
-}
+export default GradientTopBarPreferences;
