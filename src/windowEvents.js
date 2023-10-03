@@ -170,6 +170,8 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
         this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
 
+        // TODO: on display, listen for window-entered-monitor(display, object, window) and window-left-monitor
+
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
         // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.

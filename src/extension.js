@@ -52,13 +52,15 @@ export default class GradientTopBar extends Extension {
 
         this.windowEvents = new WindowEvents(global.display, global.window_manager, global.get_workspace_manager());
         this.windowEvents.setStateChangeCallback(({ maximizedWindows, currentWorkspace }) => {
-            const workspaceWindowIds = currentWorkspace.list_windows().map(win => win.get_id());
+            const workspaceDisplayMaximizedWindows = currentWorkspace.list_windows()
+            // filter windows only on the primary monitor
+            .filter(window => window.get_monitor() === global.display.get_primary_monitor())
+            // filter maximized windows on the primary monitor
+            .filter(window =>
+                maximizedWindows.has(window.get_id())
+            );
 
-            const lacksWorkspaceMaximizedWindow = workspaceWindowIds.find(workspaceWindowId =>
-                maximizedWindows.has(workspaceWindowId)
-            ) === undefined;
-
-            this.toggleGradient(lacksWorkspaceMaximizedWindow);
+            this.toggleGradient(workspaceDisplayMaximizedWindows.length === 0);
         });
 
         attachSettingsListeners(this._settings, this.onSettingsChanged);
