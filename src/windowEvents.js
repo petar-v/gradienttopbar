@@ -4,7 +4,7 @@ import Meta from 'gi://Meta';
 
 const { BOTH } = Meta.MaximizeFlags;
 
-const isMaximized = window => window.get_maximized() === BOTH;
+const isMaximized = window => window.get_maximized() === BOTH || window.is_monitor_sized();
 
 const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
