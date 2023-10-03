@@ -54,7 +54,7 @@ export default class GradientTopBar extends Extension {
         this.windowEvents.setStateChangeCallback(({ maximizedWindows, currentWorkspace }) => {
             const workspaceDisplayMaximizedWindows = currentWorkspace.list_windows()
             // filter windows only on the primary monitor
-            .filter(window => window.get_monitor() === global.display.get_primary_monitor())
+            .filter(window => window.get_monitor() === global.display.get_primary_monitor()) // TODO: or is_on_primary_monitor()
             // filter maximized windows on the primary monitor
             .filter(window =>
                 maximizedWindows.has(window.get_id())
