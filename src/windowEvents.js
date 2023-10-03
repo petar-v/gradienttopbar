@@ -12,6 +12,7 @@ const WINDOW_CREATE_EVENT = 'window-created';
 const WINDOW_DESTROY_EVENT = 'destroy';
 const WINDOW_MINIMIZED_EVENT = 'minimize';
 const WINDOW_RAISED_EVENT = 'unminimize';
+const WINDOW_EXIT_MONITOR = 'window-left-monitor';
 
 class EventManager {
     constructor() {
@@ -102,12 +103,12 @@ export default class WindowEvents {
 
     enable() {
         let lastState = null;
-        const emitStateChange = () => {
+        const emitStateChange = force => {
             const currentState = {
                 maximizedWindows: this.maximizedWindows,
                 currentWorkspace: this.workspace
             };
-            if (!areSameState(lastState, currentState)) {
+            if (force || !areSameState(lastState, currentState)) {
                 lastState = currentState;
                 this.stateChangeCallback(currentState);
             }
@@ -170,7 +171,10 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
         this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
 
-        // TODO: on display, listen for window-entered-monitor(display, object, window) and window-left-monitor
+        this.eventManager.attachGlobalEventOnce(WINDOW_EXIT_MONITOR, this.display, () => {
+            emitStateChange(true);
+        });
+        // TODO: listen for main monitor change
 
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
