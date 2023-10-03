@@ -174,7 +174,6 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(WINDOW_EXIT_MONITOR, this.display, () => {
             emitStateChange(true);
         });
-        // TODO: listen for main monitor change
 
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
