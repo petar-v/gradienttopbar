@@ -51,7 +51,12 @@ export default class GradientTopBar extends Extension {
         // TODO: make sure the maximized window is in the same monitor in case of multi-monitor setup
 
         this.windowEvents = new WindowEvents(global.display, global.window_manager, global.get_workspace_manager());
-        this.windowEvents.setStateChangeCallback(({ maximizedWindows, currentWorkspace }) => {
+        this.windowEvents.setStateChangeCallback(({ maximizedWindows, currentWorkspace, inOverview }) => {
+            if (inOverview) {
+                this.toggleGradient(true);
+                return;
+            }
+
             const workspaceDisplayMaximizedWindows = currentWorkspace.list_windows()
             // filter windows only on the primary monitor
             .filter(window => window.get_monitor() === global.display.get_primary_monitor()) // TODO: or is_on_primary_monitor()

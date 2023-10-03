@@ -1,10 +1,10 @@
 import Meta from 'gi://Meta';
-
+import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 // I've created this file with the wish that I delete it one day (or at least make it much better).
 
 const { BOTH } = Meta.MaximizeFlags;
 
-const isMaximized = window => window.get_maximized() === BOTH || window.is_monitor_sized();
+const isMaximized = window => window.get_maximized() === BOTH || window.is_monitor_sized() || window.is_screen_sized();
 
 const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
@@ -17,6 +17,9 @@ const WINDOW_EXIT_MONITOR = 'window-left-monitor';
 const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
 const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
 const WINDOW_WORKSPACE_CHANGED = 'workspace-changed';
+
+const OVERVIEW_SHOWING = 'showing';
+const OVERVIEW_HIDING = 'hiding';
 
 class EventManager {
     constructor() {
@@ -77,6 +80,8 @@ const eqSet = (as, bs) => {
 };
 
 const areSameState = (state1, state2) => {
+    if (state1.inOverview !== state2.inOverview)
+        return false;
     if ([state1, state2].includes(null))
         return false;
     if ([state1.workspace, state2.workspace].includes(undefined))
@@ -98,6 +103,7 @@ export default class WindowEvents {
         this.stateChangeCallback = () => {};
 
         this.workspace = null;
+        this.inOverview = false;
         this.maximizedWindows = new Set();
     }
 
@@ -110,7 +116,8 @@ export default class WindowEvents {
         const emitStateChange = force => {
             const currentState = {
                 maximizedWindows: this.maximizedWindows,
-                currentWorkspace: this.workspace
+                currentWorkspace: this.workspace,
+                inOverview: this.inOverview
             };
             if (force || !areSameState(lastState, currentState)) {
                 lastState = currentState;
@@ -181,6 +188,16 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
         this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
 
+        this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
+            this.inOverview = true;
+            emitStateChange();
+        });
+
+        this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
+            this.inOverview = false;
+            emitStateChange();
+        });
+
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
         // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
@@ -200,5 +217,6 @@ export default class WindowEvents {
         });
         this.workspace = null;
         this.maximizedWindows = new Set();
+        this.inOverview = null;
     }
 }
