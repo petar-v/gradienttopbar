@@ -12,7 +12,10 @@ const WINDOW_CREATE_EVENT = 'window-created';
 const WINDOW_DESTROY_EVENT = 'destroy';
 const WINDOW_MINIMIZED_EVENT = 'minimize';
 const WINDOW_RAISED_EVENT = 'unminimize';
+
 const WINDOW_EXIT_MONITOR = 'window-left-monitor';
+const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
+const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
 
 class EventManager {
     constructor() {
@@ -159,28 +162,29 @@ export default class WindowEvents {
             emitStateChange();
         };
 
+        const forceStateChangeEmission = () => emitStateChange(true);
+
+        this.workspace = this.workspaceManager.get_active_workspace();
+
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
         // TODO: what if we have tiled windows?
 
-        // FIXME: add events for when switching maximized windows from one workspace to another. I think in that case I only need to emit a state change
-        // https://gjs-docs.gnome.org/meta13~13/meta.workspace#signal-window-added
-        // https://github.com/AMDG2/GnomeShell_DynamicTopBar/blob/906b8e69479bd6098748752ee8842782177aa7dd/dynamicTopBar%40gnomeshell.feildel.fr/extension.js#L288
         this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, onWindowCreate);
         this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
         this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
         this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
         this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
 
-        this.eventManager.attachGlobalEventOnce(WINDOW_EXIT_MONITOR, this.display, () => {
-            emitStateChange(true);
-        });
+        this.eventManager.attachGlobalEventOnce(WINDOW_EXIT_MONITOR, this.display, forceStateChangeEmission);
+        // FIXME:
+        this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
+        this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
 
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
         // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
         this.display.list_all_windows().forEach(window => this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange));
 
-        this.workspace = this.workspaceManager.get_active_workspace();
         this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
         emitStateChange();
     }
