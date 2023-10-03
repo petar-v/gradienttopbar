@@ -184,19 +184,10 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
 
         this.eventManager.attachGlobalEventOnce(WINDOW_EXIT_MONITOR, this.display, forceStateChangeEmission);
-        // FIXME:
-        this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
-        this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
 
-        this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
-            this.inOverview = true;
-            emitStateChange();
-        });
-
-        this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
-            this.inOverview = false;
-            emitStateChange();
-        });
+        // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
+        // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
+        // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
 
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
@@ -204,6 +195,16 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(window => {
             this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
             this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
+        });
+
+        // disable style changes when in overview - might make this a config option
+        this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
+            this.inOverview = true;
+            emitStateChange();
+        });
+        this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
+            this.inOverview = false;
+            emitStateChange();
         });
 
         this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
