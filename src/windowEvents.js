@@ -16,6 +16,7 @@ const WINDOW_RAISED_EVENT = 'unminimize';
 const WINDOW_EXIT_MONITOR = 'window-left-monitor';
 const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
 const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
+const WINDOW_WORKSPACE_CHANGED = 'workspace-changed';
 
 class EventManager {
     constructor() {
@@ -183,7 +184,10 @@ export default class WindowEvents {
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
         // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
-        this.display.list_all_windows().forEach(window => this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange));
+        this.display.list_all_windows().forEach(window => {
+            this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
+            this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
+        });
 
         this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
         emitStateChange();
