@@ -1,6 +1,5 @@
 import Meta from 'gi://Meta';
 import { overview } from 'resource:///org/gnome/shell/ui/main.js';
-// I've created this file with the wish that I delete it one day (or at least make it much better).
 
 const { BOTH } = Meta.MaximizeFlags;
 
@@ -80,9 +79,9 @@ const eqSet = (as, bs) => {
 };
 
 const areSameState = (state1, state2) => {
-    if (state1.inOverview !== state2.inOverview)
-        return false;
     if ([state1, state2].includes(null))
+        return false;
+    if (state1.inOverview !== state2.inOverview)
         return false;
     if ([state1.workspace, state2.workspace].includes(undefined))
         return false;
