@@ -1,10 +1,9 @@
 import Meta from 'gi://Meta';
-
-// I've created this file with the wish that I delete it one day (or at least make it much better).
+import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
 const { BOTH } = Meta.MaximizeFlags;
 
-const isMaximized = window => window.get_maximized() === BOTH;
+const isMaximized = window => window.get_maximized() === BOTH || window.is_monitor_sized() || window.is_screen_sized();
 
 const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
@@ -12,6 +11,14 @@ const WINDOW_CREATE_EVENT = 'window-created';
 const WINDOW_DESTROY_EVENT = 'destroy';
 const WINDOW_MINIMIZED_EVENT = 'minimize';
 const WINDOW_RAISED_EVENT = 'unminimize';
+
+const WINDOW_EXIT_MONITOR = 'window-left-monitor';
+const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
+const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
+const WINDOW_WORKSPACE_CHANGED = 'workspace-changed';
+
+const OVERVIEW_SHOWING = 'showing';
+const OVERVIEW_HIDING = 'hiding';
 
 class EventManager {
     constructor() {
@@ -74,6 +81,8 @@ const eqSet = (as, bs) => {
 const areSameState = (state1, state2) => {
     if ([state1, state2].includes(null))
         return false;
+    if (state1.inOverview !== state2.inOverview)
+        return false;
     if ([state1.workspace, state2.workspace].includes(undefined))
         return false;
     if (state1.workspace.index() !== state2.workspace.index())
@@ -93,6 +102,7 @@ export default class WindowEvents {
         this.stateChangeCallback = () => {};
 
         this.workspace = null;
+        this.inOverview = false;
         this.maximizedWindows = new Set();
     }
 
@@ -102,12 +112,13 @@ export default class WindowEvents {
 
     enable() {
         let lastState = null;
-        const emitStateChange = () => {
+        const emitStateChange = force => {
             const currentState = {
                 maximizedWindows: this.maximizedWindows,
-                currentWorkspace: this.workspace
+                currentWorkspace: this.workspace,
+                inOverview: this.inOverview
             };
-            if (!areSameState(lastState, currentState)) {
+            if (force || !areSameState(lastState, currentState)) {
                 lastState = currentState;
                 this.stateChangeCallback(currentState);
             }
@@ -158,24 +169,43 @@ export default class WindowEvents {
             emitStateChange();
         };
 
+        const forceStateChangeEmission = () => emitStateChange(true);
+
+        this.workspace = this.workspaceManager.get_active_workspace();
+
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
         // TODO: what if we have tiled windows?
 
-        // FIXME: add events for when switching maximized windows from one workspace to another. I think in that case I only need to emit a state change
-        // https://gjs-docs.gnome.org/meta13~13/meta.workspace#signal-window-added
-        // https://github.com/AMDG2/GnomeShell_DynamicTopBar/blob/906b8e69479bd6098748752ee8842782177aa7dd/dynamicTopBar%40gnomeshell.feildel.fr/extension.js#L288
         this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, onWindowCreate);
         this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
         this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
         this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
         this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
 
+        this.eventManager.attachGlobalEventOnce(WINDOW_EXIT_MONITOR, this.display, forceStateChangeEmission);
+
+        // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
+        // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
+        // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
+
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
         // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
         // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
-        this.display.list_all_windows().forEach(window => this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange));
+        this.display.list_all_windows().forEach(window => {
+            this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
+            this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
+        });
 
-        this.workspace = this.workspaceManager.get_active_workspace();
+        // disable style changes when in overview - might make this a config option
+        this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
+            this.inOverview = true;
+            emitStateChange();
+        });
+        this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
+            this.inOverview = false;
+            emitStateChange();
+        });
+
         this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
         emitStateChange();
     }
@@ -187,5 +217,6 @@ export default class WindowEvents {
         });
         this.workspace = null;
         this.maximizedWindows = new Set();
+        this.inOverview = null;
     }
 }
