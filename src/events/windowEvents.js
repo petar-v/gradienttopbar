@@ -1,6 +1,9 @@
 import Meta from 'gi://Meta';
 import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
+import EventManager from './eventManager.js';
+import { areSameState } from './states.js';
+
 const { VERTICAL, BOTH } = Meta.MaximizeFlags;
 
 const SIZE_CHANGE_EVENT = 'size-changed';
@@ -18,77 +21,7 @@ const WINDOW_WORKSPACE_CHANGED = 'workspace-changed';
 const OVERVIEW_SHOWING = 'showing';
 const OVERVIEW_HIDING = 'hiding';
 
-class EventManager {
-    constructor() {
-        this.evenIds = {}; // event name -> {target, eventID}
-        this.monitoredWindows = {}; // windowID -> {eventName -> eventID}
-    }
-
-    attachGlobalEventOnce(eventName, target, callback) {
-        if (this.evenIds[eventName] === undefined) {
-            const id = target.connect(eventName, callback);
-            this.evenIds[eventName] = {
-                target,
-                id
-            };
-        }
-    }
-
-    disconnectAllEvents() {
-        Object.keys(this.evenIds).forEach(eventName => {
-            const event = this.evenIds[eventName];
-            event.target.disconnect(event.id);
-        });
-        this.evenIds = {};
-    }
-
-    attachWindowEventOnce(eventName, window, callback) {
-        const windowId = window.get_id();
-        if (this.monitoredWindows[windowId] === undefined)
-            this.monitoredWindows[windowId] = {};
-
-        if (this.monitoredWindows[windowId][eventName] === undefined) {
-            this.monitoredWindows[windowId][eventName] = window.connect(
-                eventName,
-                callback
-            );
-        }
-    }
-
-    disconnectWindowEvents(window) {
-        const windowId = window.get_id();
-        if (this.monitoredWindows[windowId] === undefined)
-            return;
-
-        Object.keys(this.monitoredWindows[windowId]).forEach(eventName => window.disconnect(this.monitoredWindows[windowId][eventName]));
-        delete this.monitoredWindows[windowId];
-    }
-}
-
-const eqSet = (as, bs) => {
-    if (as.size !== bs.size)
-        return false;
-
-    for (const a of as) {
-        if (!bs.has(a))
-            return false;
-    }
-    return true;
-};
-
-const areSameState = (state1, state2) => {
-    if ([state1, state2].includes(null))
-        return false;
-    if (state1.inOverview !== state2.inOverview)
-        return false;
-    if ([state1.workspace, state2.workspace].includes(undefined))
-        return false;
-    if (state1.workspace.index() !== state2.workspace.index())
-        return false;
-
-    return eqSet(state1.maximizedWindows, state2.maximizedWindows);
-};
-
+// FIXME: this causes the overview to close on login
 const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
 
 const isMaximized = window => !isDesktopIconsNG(window) && (

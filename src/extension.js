@@ -8,7 +8,7 @@ import {
     detachSettingsListeners
 } from './config.js';
 
-import WindowEvents from './windowEvents.js';
+import WindowEvents from './events/windowEvents.js';
 
 export default class GradientTopBar extends Extension {
     constructor(metadata) {
