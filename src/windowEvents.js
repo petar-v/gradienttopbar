@@ -3,7 +3,7 @@ import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
 const { BOTH } = Meta.MaximizeFlags;
 
-const isMaximized = window => window.get_maximized() === BOTH || window.is_monitor_sized() || window.is_screen_sized();
+const isMaximized = window => window.is_monitor_sized() || window.is_screen_sized() || window.get_maximized() === BOTH || window.maximized_vertically();
 
 const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
