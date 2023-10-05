@@ -148,6 +148,7 @@ export default class WindowEvents {
         // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
         this.display.list_all_windows().forEach(attachWindowEvents);
 
+        // FIXME: find a way to do that only for the windows on the primary monitor's current workspace
         this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
         emitStateChange();
     }
