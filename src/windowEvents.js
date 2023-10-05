@@ -1,9 +1,7 @@
 import Meta from 'gi://Meta';
 import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
-const { BOTH } = Meta.MaximizeFlags;
-
-const isMaximized = window => window.is_monitor_sized() || window.is_screen_sized() || window.get_maximized() === BOTH || window.maximized_vertically();
+const { VERTICAL, BOTH } = Meta.MaximizeFlags;
 
 const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
@@ -91,6 +89,14 @@ const areSameState = (state1, state2) => {
     return eqSet(state1.maximizedWindows, state2.maximizedWindows);
 };
 
+const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
+
+const isMaximized = window => !isDesktopIconsNG(window) && (
+    window.is_monitor_sized() ||
+    window.is_screen_sized() ||
+    [BOTH, VERTICAL].includes(window.get_maximized())
+);
+
 export default class WindowEvents {
     constructor(display, windowManager, workspaceManager) {
         this.display = display;
@@ -146,14 +152,17 @@ export default class WindowEvents {
             emitStateChange();
         };
 
-        const onWindowCreate = (_, window) => {
+        const attachWindowEvents = window => {
+            if (isDesktopIconsNG(window))
+                return;
+
             if (window.can_maximize())
                 this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
 
             if (isMaximized(window))
                 this.maximizedWindows.add(window.get_id());
 
-            emitStateChange();
+            this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
         };
 
         const onWindowMinimize = (_, windowActor) => {
@@ -176,7 +185,10 @@ export default class WindowEvents {
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
         // TODO: what if we have tiled windows?
 
-        this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, onWindowCreate);
+        this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, (_, window) => {
+            attachWindowEvents(window);
+            emitStateChange();
+        });
         this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
         this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
         this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
@@ -188,14 +200,6 @@ export default class WindowEvents {
         // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
         // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
 
-        // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
-        // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
-        // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
-        this.display.list_all_windows().forEach(window => {
-            this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
-            this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
-        });
-
         // disable style changes when in overview - might make this a config option
         this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
             this.inOverview = true;
@@ -205,6 +209,11 @@ export default class WindowEvents {
             this.inOverview = false;
             emitStateChange();
         });
+
+        // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
+        // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
+        // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
+        this.display.list_all_windows().forEach(attachWindowEvents);
 
         this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
         emitStateChange();
