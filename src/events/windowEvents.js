@@ -1,9 +1,10 @@
 import Meta from 'gi://Meta';
 import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
-const { BOTH } = Meta.MaximizeFlags;
+import EventManager from './eventManager.js';
+import { areSameState } from './states.js';
 
-const isMaximized = window => window.get_maximized() === BOTH || window.is_monitor_sized() || window.is_screen_sized();
+const { VERTICAL, BOTH } = Meta.MaximizeFlags;
 
 const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
@@ -20,76 +21,14 @@ const WINDOW_WORKSPACE_CHANGED = 'workspace-changed';
 const OVERVIEW_SHOWING = 'showing';
 const OVERVIEW_HIDING = 'hiding';
 
-class EventManager {
-    constructor() {
-        this.evenIds = {}; // event name -> {target, eventID}
-        this.monitoredWindows = {}; // windowID -> {eventName -> eventID}
-    }
+// FIXME: this causes the overview to close on login
+const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
 
-    attachGlobalEventOnce(eventName, target, callback) {
-        if (this.evenIds[eventName] === undefined) {
-            const id = target.connect(eventName, callback);
-            this.evenIds[eventName] = {
-                target,
-                id
-            };
-        }
-    }
-
-    disconnectAllEvents() {
-        Object.keys(this.evenIds).forEach(eventName => {
-            const event = this.evenIds[eventName];
-            event.target.disconnect(event.id);
-        });
-        this.evenIds = {};
-    }
-
-    attachWindowEventOnce(eventName, window, callback) {
-        const windowId = window.get_id();
-        if (this.monitoredWindows[windowId] === undefined)
-            this.monitoredWindows[windowId] = {};
-
-        if (this.monitoredWindows[windowId][eventName] === undefined) {
-            this.monitoredWindows[windowId][eventName] = window.connect(
-                eventName,
-                callback
-            );
-        }
-    }
-
-    disconnectWindowEvents(window) {
-        const windowId = window.get_id();
-        if (this.monitoredWindows[windowId] === undefined)
-            return;
-
-        Object.keys(this.monitoredWindows[windowId]).forEach(eventName => window.disconnect(this.monitoredWindows[windowId][eventName]));
-        delete this.monitoredWindows[windowId];
-    }
-}
-
-const eqSet = (as, bs) => {
-    if (as.size !== bs.size)
-        return false;
-
-    for (const a of as) {
-        if (!bs.has(a))
-            return false;
-    }
-    return true;
-};
-
-const areSameState = (state1, state2) => {
-    if ([state1, state2].includes(null))
-        return false;
-    if (state1.inOverview !== state2.inOverview)
-        return false;
-    if ([state1.workspace, state2.workspace].includes(undefined))
-        return false;
-    if (state1.workspace.index() !== state2.workspace.index())
-        return false;
-
-    return eqSet(state1.maximizedWindows, state2.maximizedWindows);
-};
+const isMaximized = window => !isDesktopIconsNG(window) && (
+    window.is_monitor_sized() ||
+    window.is_screen_sized() ||
+    [BOTH, VERTICAL].includes(window.get_maximized())
+);
 
 export default class WindowEvents {
     constructor(display, windowManager, workspaceManager) {
@@ -146,14 +85,17 @@ export default class WindowEvents {
             emitStateChange();
         };
 
-        const onWindowCreate = (_, window) => {
+        const attachWindowEvents = window => {
+            if (isDesktopIconsNG(window))
+                return;
+
             if (window.can_maximize())
                 this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
 
             if (isMaximized(window))
                 this.maximizedWindows.add(window.get_id());
 
-            emitStateChange();
+            this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
         };
 
         const onWindowMinimize = (_, windowActor) => {
@@ -176,7 +118,10 @@ export default class WindowEvents {
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
         // TODO: what if we have tiled windows?
 
-        this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, onWindowCreate);
+        this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, (_, window) => {
+            attachWindowEvents(window);
+            emitStateChange();
+        });
         this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
         this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
         this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
@@ -188,14 +133,6 @@ export default class WindowEvents {
         // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
         // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
 
-        // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
-        // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
-        // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
-        this.display.list_all_windows().forEach(window => {
-            this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
-            this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
-        });
-
         // disable style changes when in overview - might make this a config option
         this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
             this.inOverview = true;
@@ -206,6 +143,12 @@ export default class WindowEvents {
             emitStateChange();
         });
 
+        // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
+        // to make it work with tiling, I would need to figure out the position in case it is maximized horizontally but on top.
+        // if it's maximized vertically, then it's likely on either side. In that case I want to make the bar opaque.
+        this.display.list_all_windows().forEach(attachWindowEvents);
+
+        // FIXME: find a way to do that only for the windows on the primary monitor's current workspace
         this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
         emitStateChange();
     }
