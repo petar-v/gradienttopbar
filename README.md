@@ -21,10 +21,9 @@ Beta-testing on newer releases is much appreciated as I usually use the latest G
 
 # To Do
 
-- [ ] Refactor
 - [ ] Add box shadow settings
 - [ ] Add a "Contributions" and a "Run from source" guides
-- [ ] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar color effect.
+- [ ] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
 - [ ] Add a demo video
 - [ ] Figure out reliable testing methods or at least unit tests
 - [ ] Make it work with something like tiling when the window occupies the whole top horizontally (to test with Tiling Assistant)
