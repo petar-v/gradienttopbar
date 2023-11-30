@@ -1,8 +1,8 @@
 {
   "name": "gnome-gradienttopbar",
   "title": "Gradient Top Bar",
-  "description": "Makes GNOME's topbar's background gradient.",
-  "version": "16",
+  "description": "Makes GNOME's panel's background gradient. You can edit the colour scheme from the extension's settings in Gnome 45.",
+  "version": "17",
   "engines": {
     "gnome": ">=45"
   },
@@ -27,7 +27,7 @@
     "precommit": "lint-staged"
   },
   "devDependencies": {
-    "eslint": "^8.53.0",
+    "eslint": "^8.54.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-import": "^2.29.0",

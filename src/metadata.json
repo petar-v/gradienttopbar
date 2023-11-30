@@ -2,10 +2,14 @@
   "uuid": "gradienttopbar@pshow.org",
   "icon": "./assets/logo.png",
   "name": "Gradient Top Bar",
-  "description": "Makes GNOME's topbar's background gradient. You can edit the colour scheme from the extension's settings.",
+  "description": "Makes GNOME's panel's background gradient. You can edit the colour scheme from the extension's settings in Gnome 45.",
+  "donations": {
+    "github": "petar-v",
+    "paypal": "petarv73"
+  },
   "shell-version": ["45"],
   "url": "https://github.com/petar-v/gradienttopbar",
-  "version": 16,
+  "version": 17,
   "gettext-domain": "org.pshow.gradienttopbar",
   "settings-schema": "org.gnome.shell.extensions.org.pshow.gradienttopbar",
   "hasPrefs": true
