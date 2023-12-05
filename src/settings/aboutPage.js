@@ -60,7 +60,7 @@ class About extends Adw.PreferencesPage {
         });
 
         const projectDescriptionLabel = new Gtk.Label({
-            label: gettext('Makes GNOME\'s topbar\'s background gradient.'),
+            label: gettext('Customize GNOME\'s panel.'),
             hexpand: false,
             vexpand: false
         });
