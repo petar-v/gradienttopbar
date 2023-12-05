@@ -15,6 +15,9 @@ const LICENSE =
   'DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE</a> for details.' +
   '</span>';
 
+const PAYPAL_LINK = 'https://www.paypal.me/petarv73';
+const GITHUB_SPONSORS_LINK = 'https://github.com/sponsors/petar-v';
+
 const createLinkRow = (title, uri) => {
     const image = new Gtk.Image({
         icon_name: 'adw-external-link-symbolic',
@@ -57,7 +60,7 @@ class About extends Adw.PreferencesPage {
         });
 
         const projectDescriptionLabel = new Gtk.Label({
-            label: gettext('Makes GNOME\'s topbar\'s background gradient.'),
+            label: gettext('Customize GNOME\'s panel.'),
             hexpand: false,
             vexpand: false
         });
@@ -100,6 +103,19 @@ class About extends Adw.PreferencesPage {
         );
         infoGroup.add(issuesRow);
         this.add(infoGroup);
+
+        const donateGroup = new Adw.PreferencesGroup();
+        const githubDonation = createLinkRow(
+            gettext('Donate via GitHub'),
+            `${GITHUB_SPONSORS_LINK}`
+        );
+        donateGroup.add(githubDonation);
+        const paypalDonation = createLinkRow(
+            gettext('Donate via PayPal'),
+            `${PAYPAL_LINK}`
+        );
+        donateGroup.add(paypalDonation);
+        this.add(donateGroup);
 
         const licenseGroup = new Adw.PreferencesGroup();
         const licenseLabel = new Gtk.Label({
