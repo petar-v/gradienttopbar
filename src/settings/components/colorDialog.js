@@ -1,7 +1,7 @@
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 
-export const createColorDialogBtn = (pickerTitle, colroString, callback) => {
+export const createColorDialogBtn = (pickerTitle, colorString, callback) => {
     if ([Gtk.ColorDialog, Gtk.ColorDialogButton].includes(undefined))
         return null;
 
@@ -11,7 +11,7 @@ export const createColorDialogBtn = (pickerTitle, colroString, callback) => {
     colorDialog.set_with_alpha(true);
 
     const rgba = new Gdk.RGBA();
-    rgba.parse(colroString);
+    rgba.parse(colorString);
 
     const chooserBtn = Gtk.ColorDialogButton.new(colorDialog);
     chooserBtn.set_rgba(rgba);
@@ -22,9 +22,13 @@ export const createColorDialogBtn = (pickerTitle, colroString, callback) => {
     return chooserBtn;
 };
 
-export const createColorDialogBtnLegacy = (pickerTitle, colroString, callback) => {
+export const createColorDialogBtnLegacy = (
+        pickerTitle,
+        colorString,
+        callback
+) => {
     const rgba = new Gdk.RGBA();
-    rgba.parse(colroString);
+    rgba.parse(colorString);
     const button = Gtk.ColorButton.new_with_rgba(rgba);
     button.set_modal(true);
     button.set_title(pickerTitle);
@@ -34,9 +38,9 @@ export const createColorDialogBtnLegacy = (pickerTitle, colroString, callback) =
     return button;
 };
 
-export const createColorDialog = (pickerTitle, colroString, callback) => {
-    const dialog = createColorDialogBtn(pickerTitle, colroString, callback);
+export const createColorDialog = (pickerTitle, colorString, callback) => {
+    const dialog = createColorDialogBtn(pickerTitle, colorString, callback);
     if (dialog)
         return dialog;
-    return createColorDialogBtnLegacy(pickerTitle, colroString, callback);
+    return createColorDialogBtnLegacy(pickerTitle, colorString, callback);
 };
