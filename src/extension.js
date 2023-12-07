@@ -66,7 +66,6 @@ export default class GradientTopBar extends Extension {
           ) // TODO: or is_on_primary_monitor()
           // filter maximized windows on the primary monitor
           .filter(window => maximizedWindows.has(window.get_id()));
-
                 this.toggleGradient(workspaceDisplayMaximizedWindows.length === 0);
             }
         );
