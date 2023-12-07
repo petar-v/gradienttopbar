@@ -7,6 +7,8 @@ import {
     gettext
 } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+import { exportSettingsToFile, loadSettingsFromFile } from '../config.js';
+import { loadFileDialog, saveFileDialog } from './components/fileChooser.js';
 
 const LICENSE =
   '<span size="small">' +
@@ -71,8 +73,38 @@ class About extends Adw.PreferencesPage {
 
         this.add(projectHeaderGroup);
 
-        const infoGroup = new Adw.PreferencesGroup();
+        const settingsGroup = new Adw.PreferencesGroup();
+        const settingsRow = new Adw.ActionRow({
+            title: gettext('Settings')
+        });
+        const restoreButton = new Gtk.Button({
+            label: gettext('Restore'),
+            valign: Gtk.Align.CENTER
+        });
+        restoreButton.connect('clicked', () =>
+            loadFileDialog({
+                onFileSelected: loadSettingsFromFile,
+                onFileError: () => {},
+                transientFor: this.get_root()
+            })
+        );
+        const exportButton = new Gtk.Button({
+            label: gettext('Export'),
+            valign: Gtk.Align.CENTER
+        });
+        exportButton.connect('clicked', () =>
+            saveFileDialog({
+                onSelected: exportSettingsToFile,
+                onError: () => {},
+                transientFor: this.get_root()
+            })
+        );
+        settingsRow.add_suffix(restoreButton);
+        settingsRow.add_suffix(exportButton);
+        settingsGroup.add(settingsRow);
+        this.add(settingsGroup);
 
+        const infoGroup = new Adw.PreferencesGroup();
         const projectVersionRow = new Adw.ActionRow({
             title: gettext('Extension Version')
         });
