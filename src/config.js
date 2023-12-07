@@ -42,8 +42,6 @@ export const exportSettingsToFile = file => {
     const out = Gio.BufferedOutputStream.new_sized(raw, 4096);
 
     const settings = GLib.spawn_command_line_sync(`dconf dump ${SETTINGS_GSCHEMA_PATH}`)[1];
-    console.log("Settings", settings);
-    console.log(`dconf dump ${SETTINGS_GSCHEMA_PATH}`);
     out.write_all(
         settings,
         null
