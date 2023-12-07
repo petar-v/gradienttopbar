@@ -5,8 +5,10 @@ import GObject from 'gi://GObject';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+import { getConfig, attachSettingsListeners, detachSettingsListeners } from '../config.js';
+
 class Behavior extends Adw.PreferencesPage {
-    _init(settings) {
+    _init(window, settings) {
         super._init({
             title: gettext('Behaviour'),
             icon_name: 'system-run-symbolic',
@@ -45,6 +47,15 @@ class Behavior extends Adw.PreferencesPage {
 
         behaviorGroup.add(opaqueOnMaximizedRow);
         this.add(behaviorGroup);
+
+        const onSettingsChanged = s => {
+            const config = getConfig(s);
+            opaqueOnMaximizedSwitch.set_active(config.isOpaqueOnMaximized);
+        };
+        attachSettingsListeners(settings, onSettingsChanged);
+        window.connect('close-request', () => {
+            detachSettingsListeners(settings, onSettingsChanged);
+        });
     }
 }
 
