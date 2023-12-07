@@ -22,12 +22,12 @@ class GradientTopBarPreferences extends ExtensionPreferences {
 
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window._settings = settings;
+        window._settings = settings; // TODO: maybe redraw the whole prefs window on settings loaded from file?
 
-        const appearancePage = new AppearancePage(settings);
+        const appearancePage = new AppearancePage(window, settings);
         window.add(appearancePage);
 
-        const behaviorPage = new BehaviorPage(settings);
+        const behaviorPage = new BehaviorPage(window, settings);
         window.add(behaviorPage);
 
         const aboutPage = new AboutPage(this.metadata, `${this.path}/assets/`);

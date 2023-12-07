@@ -1,11 +1,12 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
+import Gdk from 'gi://Gdk';
 import GObject from 'gi://GObject';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { getConfig, saveColors } from '../config.js';
+import { getConfig, saveColors, attachSettingsListeners, detachSettingsListeners } from '../config.js';
 import { createColorDialog } from './components/colorDialog.js';
 
 const GradientDirection = GObject.registerClass(
@@ -48,12 +49,22 @@ const createColorChooserRow = (
     });
 
     row.add_suffix(chooserBtn);
-    row.activatable_widget = chooserBtn;
+    row.set_activatable_widget(chooserBtn);
     return row;
 };
 
+const setGradientDirectionOnRow = (directionRow, gradientDirection) => {
+    const { model } = directionRow;
+    for (let i = 0; i < model.get_n_items(); i++) {
+        if (model.get_item(i).value === gradientDirection) {
+            directionRow.set_selected(i);
+            break;
+        }
+    }
+};
+
 class Appearance extends Adw.PreferencesPage {
-    _init(settings) {
+    _init(window, settings) {
         super._init({
             title: gettext('Appearance'),
             icon_name: 'applications-graphics-symbolic',
@@ -87,13 +98,7 @@ class Appearance extends Adw.PreferencesPage {
             settings.set_string('gradient-direction', selectedItem.value);
         });
 
-        const { model } = directionRow;
-        for (let i = 0; i < model.get_n_items(); i++) {
-            if (model.get_item(i).value === gradientDirection) {
-                directionRow.set_selected(i);
-                break;
-            }
-        }
+        setGradientDirectionOnRow(directionRow, gradientDirection);
 
         gradientGroup.add(directionRow);
         this.add(gradientGroup);
@@ -111,7 +116,6 @@ class Appearance extends Adw.PreferencesPage {
                 saveColors(settings, rgba, colors.end);
             }
         );
-
         colorsGroup.add(startColorChooserRow);
 
         const endColorChooserRow = createColorChooserRow(
@@ -123,10 +127,25 @@ class Appearance extends Adw.PreferencesPage {
                 saveColors(settings, colors.start, rgba);
             }
         );
-
         colorsGroup.add(endColorChooserRow);
 
         this.add(colorsGroup);
+        const onSettingsChanged = s => {
+            const config = getConfig(s);
+            setGradientDirectionOnRow(directionRow, config.gradientDirection);
+
+            const start = new Gdk.RGBA();
+            start.parse(config.colors.start);
+            startColorChooserRow.get_activatable_widget().set_rgba(start);
+
+            const end = new Gdk.RGBA();
+            end.parse(config.colors.end);
+            endColorChooserRow.get_activatable_widget().set_rgba(end);
+        };
+        attachSettingsListeners(settings, onSettingsChanged);
+        window.connect('close-request', () => {
+            detachSettingsListeners(settings, onSettingsChanged);
+        });
     }
 }
 

@@ -43,7 +43,7 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         opaqueOnMaximizedRow.add_suffix(opaqueOnMaximizedSwitch);
-        opaqueOnMaximizedRow.activatable_widget = opaqueOnMaximizedSwitch;
+        opaqueOnMaximizedRow.set_activatable_widget(opaqueOnMaximizedSwitch);
 
         behaviorGroup.add(opaqueOnMaximizedRow);
         this.add(behaviorGroup);
