@@ -10,7 +10,6 @@ import {
     gettext as _
 } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-
 class GradientTopBarPreferences extends ExtensionPreferences {
     constructor(metadata) {
         super(metadata);

@@ -1,6 +1,4 @@
-import {
-    Extension
-} from 'resource:///org/gnome/shell/extensions/extension.js';
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { applyGradientStyle, toggleGradient } from './gradient.js';
 import {
     getConfig,
@@ -34,10 +32,10 @@ export default class GradientTopBar extends Extension {
     }
 
     toggleGradient(enabled) {
-        // this checks if the gradient is currently applied
-        // or not so we don't add classes multiple times.
-        // The effect is applied if there is no maximized window
-        // if the respective setting is applied.
+    // this checks if the gradient is currently applied
+    // or not so we don't add classes multiple times.
+    // The effect is applied if there is no maximized window
+    // if the respective setting is applied.
         if (this.isEffectApplied === enabled)
             return;
 
@@ -47,23 +45,31 @@ export default class GradientTopBar extends Extension {
 
     enable() {
         this._settings = this.getSettings();
-        this.windowEvents = new WindowEvents(global.display, global.window_manager, global.get_workspace_manager());
-        this.windowEvents.setStateChangeCallback(({ maximizedWindows, currentWorkspace, inOverview }) => {
-            if (inOverview) {
-                this.toggleGradient(true);
-                return;
+        this.windowEvents = new WindowEvents(
+            global.display,
+            global.window_manager,
+            global.get_workspace_manager()
+        );
+        this.windowEvents.setStateChangeCallback(
+            ({ maximizedWindows, currentWorkspace, inOverview }) => {
+                if (inOverview) {
+                    this.toggleGradient(true);
+                    return;
+                }
+
+                const workspaceDisplayMaximizedWindows = currentWorkspace
+          .list_windows()
+          // filter windows only on the primary monitor
+          .filter(
+              window =>
+                  window.get_monitor() === global.display.get_primary_monitor()
+          ) // TODO: or is_on_primary_monitor()
+          // filter maximized windows on the primary monitor
+          .filter(window => maximizedWindows.has(window.get_id()));
+
+                this.toggleGradient(workspaceDisplayMaximizedWindows.length === 0);
             }
-
-            const workspaceDisplayMaximizedWindows = currentWorkspace.list_windows()
-            // filter windows only on the primary monitor
-            .filter(window => window.get_monitor() === global.display.get_primary_monitor()) // TODO: or is_on_primary_monitor()
-            // filter maximized windows on the primary monitor
-            .filter(window =>
-                maximizedWindows.has(window.get_id())
-            );
-
-            this.toggleGradient(workspaceDisplayMaximizedWindows.length === 0);
-        });
+        );
 
         attachSettingsListeners(this._settings, this.onSettingsChanged);
 

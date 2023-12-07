@@ -1,4 +1,3 @@
-
 class EventManager {
     constructor() {
         this.evenIds = {}; // event name -> {target, eventID}
@@ -41,7 +40,9 @@ class EventManager {
         if (this.monitoredWindows[windowId] === undefined)
             return;
 
-        Object.keys(this.monitoredWindows[windowId]).forEach(eventName => window.disconnect(this.monitoredWindows[windowId][eventName]));
+        Object.keys(this.monitoredWindows[windowId]).forEach(eventName =>
+            window.disconnect(this.monitoredWindows[windowId][eventName])
+        );
         delete this.monitoredWindows[windowId];
     }
 }

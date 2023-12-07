@@ -3,10 +3,7 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 
-import {
-    gettext
-} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
-
+import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 class Behavior extends Adw.PreferencesPage {
     _init(settings) {
