@@ -86,7 +86,9 @@ class About extends Adw.PreferencesPage {
         restoreButton.connect('clicked', () =>
             loadFileDialog({
                 onFileSelected: loadSettingsFromFile,
-                onFileError: () => {},
+                onFileError: error => {
+                    console.log('Error load', error);
+                },
                 transientFor: this.get_root()
             })
         );
@@ -97,7 +99,9 @@ class About extends Adw.PreferencesPage {
         exportButton.connect('clicked', () =>
             saveFileDialog({
                 onSelected: exportSettingsToFile,
-                onError: () => {},
+                onError: (error) => {
+                    console.log('Error export', error);
+                },
                 transientFor: this.get_root()
             })
         );
