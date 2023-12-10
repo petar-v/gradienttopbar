@@ -1,5 +1,4 @@
 import Gtk from 'gi://Gtk';
-import Gdk from 'gi://Gdk';
 import Adw from 'gi://Adw';
 import GObject from 'gi://GObject';
 
@@ -7,6 +6,8 @@ import {
     gettext
 } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+import { exportSettingsToFile, loadSettingsFromFile } from '../config.js';
+import { loadFileDialog, saveFileDialog } from './components/fileChooser.js';
 
 const LICENSE =
   '<span size="small">' +
@@ -18,7 +19,7 @@ const LICENSE =
 const PAYPAL_LINK = 'https://www.paypal.me/petarv73';
 const GITHUB_SPONSORS_LINK = 'https://github.com/sponsors/petar-v';
 
-const createLinkRow = (title, uri) => {
+const createLinkRow = (title, uri, parent) => {
     const image = new Gtk.Image({
         icon_name: 'adw-external-link-symbolic',
         valign: Gtk.Align.CENTER
@@ -28,10 +29,13 @@ const createLinkRow = (title, uri) => {
         activatable: true
     });
     linkRow.connect('activated', () => {
-        Gtk.show_uri(this.get_root(), uri, Gdk.CURRENT_TIME);
+        const launcher = new Gtk.UriLauncher();
+        launcher.uri = uri;
+        launcher.launch(parent, null, (l, res) =>
+            l.launch_finish(res)
+        );
     });
     linkRow.add_suffix(image);
-
     return linkRow;
 };
 
@@ -71,8 +75,36 @@ class About extends Adw.PreferencesPage {
 
         this.add(projectHeaderGroup);
 
-        const infoGroup = new Adw.PreferencesGroup();
+        const settingsGroup = new Adw.PreferencesGroup();
+        const settingsRow = new Adw.ActionRow({
+            title: gettext('Settings')
+        });
+        const restoreButton = new Gtk.Button({
+            label: gettext('Restore'),
+            valign: Gtk.Align.CENTER
+        });
+        restoreButton.connect('clicked', () =>
+            loadFileDialog({
+                onFileSelected: loadSettingsFromFile,
+                transientFor: this.get_root()
+            })
+        );
+        const exportButton = new Gtk.Button({
+            label: gettext('Export'),
+            valign: Gtk.Align.CENTER
+        });
+        exportButton.connect('clicked', () =>
+            saveFileDialog({
+                onSelected: exportSettingsToFile,
+                transientFor: this.get_root()
+            })
+        );
+        settingsRow.add_suffix(restoreButton);
+        settingsRow.add_suffix(exportButton);
+        settingsGroup.add(settingsRow);
+        this.add(settingsGroup);
 
+        const infoGroup = new Adw.PreferencesGroup();
         const projectVersionRow = new Adw.ActionRow({
             title: gettext('Extension Version')
         });
@@ -99,7 +131,8 @@ class About extends Adw.PreferencesPage {
 
         const issuesRow = createLinkRow(
             gettext('Report an Issue'),
-            metadata.url
+            metadata.url,
+            this.get_root()
         );
         infoGroup.add(issuesRow);
         this.add(infoGroup);
@@ -107,12 +140,14 @@ class About extends Adw.PreferencesPage {
         const donateGroup = new Adw.PreferencesGroup();
         const githubDonation = createLinkRow(
             gettext('Donate via GitHub'),
-            `${GITHUB_SPONSORS_LINK}`
+            `${GITHUB_SPONSORS_LINK}`,
+            this.get_root()
         );
         donateGroup.add(githubDonation);
         const paypalDonation = createLinkRow(
             gettext('Donate via PayPal'),
-            `${PAYPAL_LINK}`
+            `${PAYPAL_LINK}`,
+            this.get_root()
         );
         donateGroup.add(paypalDonation);
         this.add(donateGroup);

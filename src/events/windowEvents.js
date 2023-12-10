@@ -14,8 +14,8 @@ const WINDOW_MINIMIZED_EVENT = 'minimize';
 const WINDOW_RAISED_EVENT = 'unminimize';
 
 const WINDOW_EXIT_MONITOR = 'window-left-monitor';
-const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
-const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
+// const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
+// const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
 const WINDOW_WORKSPACE_CHANGED = 'workspace-changed';
 
 const OVERVIEW_SHOWING = 'showing';
@@ -24,11 +24,11 @@ const OVERVIEW_HIDING = 'hiding';
 // FIXME: this causes the overview to close on login
 const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
 
-const isMaximized = window => !isDesktopIconsNG(window) && (
-    window.is_monitor_sized() ||
+const isMaximized = window =>
+    !isDesktopIconsNG(window) &&
+  (window.is_monitor_sized() ||
     window.is_screen_sized() ||
-    [BOTH, VERTICAL].includes(window.get_maximized())
-);
+    [BOTH, VERTICAL].includes(window.get_maximized()));
 
 export default class WindowEvents {
     constructor(display, windowManager, workspaceManager) {
@@ -90,12 +90,20 @@ export default class WindowEvents {
                 return;
 
             if (window.can_maximize())
-                this.eventManager.attachWindowEventOnce(SIZE_CHANGE_EVENT, window, onWindowSizeChange);
+            { this.eventManager.attachWindowEventOnce(
+                SIZE_CHANGE_EVENT,
+                window,
+                onWindowSizeChange
+            ); }
 
             if (isMaximized(window))
                 this.maximizedWindows.add(window.get_id());
 
-            this.eventManager.attachWindowEventOnce(WINDOW_WORKSPACE_CHANGED, window, forceStateChangeEmission);
+            this.eventManager.attachWindowEventOnce(
+                WINDOW_WORKSPACE_CHANGED,
+                window,
+                forceStateChangeEmission
+            );
         };
 
         const onWindowMinimize = (_, windowActor) => {
@@ -118,16 +126,40 @@ export default class WindowEvents {
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
         // TODO: what if we have tiled windows?
 
-        this.eventManager.attachGlobalEventOnce(WINDOW_CREATE_EVENT, this.display, (_, window) => {
-            attachWindowEvents(window);
-            emitStateChange();
-        });
-        this.eventManager.attachGlobalEventOnce(WINDOW_DESTROY_EVENT, this.windowManager, onWindowDestroy);
-        this.eventManager.attachGlobalEventOnce(WORKSPACE_CHANGE_EVENT, this.workspaceManager, onWorkspaceChanged);
-        this.eventManager.attachGlobalEventOnce(WINDOW_MINIMIZED_EVENT, this.windowManager, onWindowMinimize);
-        this.eventManager.attachGlobalEventOnce(WINDOW_RAISED_EVENT, this.windowManager, onWindowRaise);
+        this.eventManager.attachGlobalEventOnce(
+            WINDOW_CREATE_EVENT,
+            this.display,
+            (_, window) => {
+                attachWindowEvents(window);
+                emitStateChange();
+            }
+        );
+        this.eventManager.attachGlobalEventOnce(
+            WINDOW_DESTROY_EVENT,
+            this.windowManager,
+            onWindowDestroy
+        );
+        this.eventManager.attachGlobalEventOnce(
+            WORKSPACE_CHANGE_EVENT,
+            this.workspaceManager,
+            onWorkspaceChanged
+        );
+        this.eventManager.attachGlobalEventOnce(
+            WINDOW_MINIMIZED_EVENT,
+            this.windowManager,
+            onWindowMinimize
+        );
+        this.eventManager.attachGlobalEventOnce(
+            WINDOW_RAISED_EVENT,
+            this.windowManager,
+            onWindowRaise
+        );
 
-        this.eventManager.attachGlobalEventOnce(WINDOW_EXIT_MONITOR, this.display, forceStateChangeEmission);
+        this.eventManager.attachGlobalEventOnce(
+            WINDOW_EXIT_MONITOR,
+            this.display,
+            forceStateChangeEmission
+        );
 
         // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
         // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
@@ -149,7 +181,12 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(attachWindowEvents);
 
         // FIXME: find a way to do that only for the windows on the primary monitor's current workspace
-        this.maximizedWindows = new Set(this.display.list_all_windows().filter(isMaximized).map(window => window.get_id()));
+        this.maximizedWindows = new Set(
+            this.display
+        .list_all_windows()
+        .filter(isMaximized)
+        .map(window => window.get_id())
+        );
         emitStateChange();
     }
 

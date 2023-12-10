@@ -25,7 +25,9 @@ const saveUserCss = (file, stylesheet) => {
 
 export const applyGradientStyle = (config, extensionPath) => {
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-    const userStylesheet = Gio.File.new_for_path(`${extensionPath}/user-stylesheet.css`);
+    const userStylesheet = Gio.File.new_for_path(
+        `${extensionPath}/user-stylesheet.css`
+    );
 
     // generate a stylesheet based on the user preferences. note: this is somewhat of a hack.
     // I couldn't figure out how to dynamically alter classes. I could have used Main.panel.set_style

@@ -3,13 +3,12 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 
-import {
-    gettext
-} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+import { getConfig, attachSettingsListeners, detachSettingsListeners } from '../config.js';
 
 class Behavior extends Adw.PreferencesPage {
-    _init(settings) {
+    _init(window, settings) {
         super._init({
             title: gettext('Behaviour'),
             icon_name: 'system-run-symbolic',
@@ -44,10 +43,19 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         opaqueOnMaximizedRow.add_suffix(opaqueOnMaximizedSwitch);
-        opaqueOnMaximizedRow.activatable_widget = opaqueOnMaximizedSwitch;
+        opaqueOnMaximizedRow.set_activatable_widget(opaqueOnMaximizedSwitch);
 
         behaviorGroup.add(opaqueOnMaximizedRow);
         this.add(behaviorGroup);
+
+        const onSettingsChanged = s => {
+            const config = getConfig(s);
+            opaqueOnMaximizedSwitch.set_active(config.isOpaqueOnMaximized);
+        };
+        attachSettingsListeners(settings, onSettingsChanged);
+        window.connect('close-request', () => {
+            detachSettingsListeners(settings, onSettingsChanged);
+        });
     }
 }
 
