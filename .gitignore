@@ -1,2 +1,11 @@
 gradienttopbar@pshow.org.shell-extension.zip
 node_modules
+
+.yarn/*
+.pnp.*
+!.yarn/cache
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
