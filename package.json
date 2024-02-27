@@ -4,7 +4,7 @@
   "description": "Makes GNOME's panel's background gradient. You can edit the colour scheme from the extension's settings in Gnome 45.",
   "version": "19",
   "engines": {
-    "gnome": ">=46"
+    "gnome": ">=45"
   },
   "shell-version": [
     "45"
