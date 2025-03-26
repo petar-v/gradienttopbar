@@ -13,6 +13,7 @@
   "url": "https://github.com/petar-v/gradienttopbar",
   "license": "WTFPL",
   "author": "Petar Vasilev <petar@pshow.org>",
+  "type": "module",
   "scripts": {
     "nested-wayland": "dbus-run-session -- gnome-shell --nested --wayland",
     "restart-gnome-shell": "DISPLAY=:0 XAUTHORITY=/var/run/gdm/auth-for-gdm-*/database gnome-shell --replace",
@@ -27,9 +28,9 @@
     "precommit": "lint-staged"
   },
   "devDependencies": {
-    "eslint": "^8.57.1",
+    "eslint": "^9.23.0",
     "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.5",
     "husky": "^9.1.7",
