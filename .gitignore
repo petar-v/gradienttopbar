@@ -1,5 +1,6 @@
 gradienttopbar@pshow.org.shell-extension.zip
 node_modules
+.idea/
 
 .yarn/*
 .pnp.*
