@@ -23,7 +23,7 @@
     "zip-extension": "gnome-extensions pack src --force",
     "compile-schemas": "glib-compile-schemas ./src/schemas/",
     "zip": "cd src && zip -r ../gradienttopbar@pshow.org.shell-extension.zip .",
-    "prettify": "prettier --write 'src/**/*.{js,css,json}'",
+    "prettify": "prettier --write 'src/**/*.{css}' && yarn lint --fix",
     "lint": "eslint 'src/**/*.{js,json}'",
     "precommit": "lint-staged"
   },
