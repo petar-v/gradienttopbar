@@ -200,4 +200,21 @@ export default class WindowEvents {
         this.maximizedWindows = new Set();
         this.inOverview = null;
     }
+
+    forceStateUpdate() {
+        // Re-evaluate maximized windows
+        this.maximizedWindows = new Set(
+            this.display
+                .list_all_windows()
+                .filter(isMaximized)
+                .map(window => window.get_id())
+        );
+
+        // Force state change emission
+        this.stateChangeCallback({
+            maximizedWindows: this.maximizedWindows,
+            currentWorkspace: this.workspace,
+            inOverview: this.inOverview
+        });
+    }
 }
