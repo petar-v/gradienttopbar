@@ -1,5 +1,6 @@
 import Meta from 'gi://Meta';
 import { overview } from 'resource:///org/gnome/shell/ui/main.js';
+import Gio from 'gi://Gio';
 
 import EventManager from './eventManager.js';
 import { areSameState } from './states.js';
@@ -43,6 +44,12 @@ export default class WindowEvents {
         this.workspace = null;
         this.inOverview = false;
         this.maximizedWindows = new Set();
+
+        // Screen lock/unlock event handling
+        this._screenShieldSettings = null;
+        this._screenLockHandler = null;
+        this._sessionManager = null;
+        this._unlockScreenHandler = null;
     }
 
     setStateChangeCallback(callback) {
@@ -188,6 +195,26 @@ export default class WindowEvents {
         .filter(isMaximized)
         .map(window => window.get_id())
         );
+
+        // Add screen lock/unlock event handling
+        this._screenShieldSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.screensaver' });
+        this._screenLockHandler = this._screenShieldSettings.connect('changed::lock-enabled', () => {
+            // Force state re-evaluation after screen unlock
+            this.forceStateUpdate();
+        });
+
+        // Alternative approach using session manager signals
+        this._sessionManager = Gio.DBus.session.lookup_proxy_sync(
+            'org.gnome.SessionManager',
+            '/org/gnome/SessionManager',
+            Gio.DBusProxyFlags.NONE,
+            null
+        );
+        this._unlockScreenHandler = this._sessionManager.connect('signal::SessionRunning', () => {
+            // Force state re-evaluation after screen unlock
+            this.forceStateUpdate();
+        });
+
         emitStateChange();
     }
 
@@ -196,6 +223,20 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(window => {
             this.eventManager.disconnectWindowEvents(window);
         });
+
+        // Disconnect screen lock/unlock handlers
+        if (this._screenShieldSettings && this._screenLockHandler) {
+            this._screenShieldSettings.disconnect(this._screenLockHandler);
+            this._screenShieldSettings = null;
+            this._screenLockHandler = null;
+        }
+
+        if (this._sessionManager && this._unlockScreenHandler) {
+            this._sessionManager.disconnect(this._unlockScreenHandler);
+            this._sessionManager = null;
+            this._unlockScreenHandler = null;
+        }
+
         this.workspace = null;
         this.maximizedWindows = new Set();
         this.inOverview = null;
