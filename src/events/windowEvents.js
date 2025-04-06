@@ -189,12 +189,7 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(attachWindowEvents);
 
         // FIXME: find a way to do that only for the windows on the primary monitor's current workspace
-        this.maximizedWindows = new Set(
-            this.display
-        .list_all_windows()
-        .filter(isMaximized)
-        .map(window => window.get_id())
-        );
+        this.maximizedWindows = this.getMaximizedWindowIds();
 
         // Add screen lock/unlock event handling
         this._screenShieldSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.screensaver' });
@@ -242,14 +237,18 @@ export default class WindowEvents {
         this.inOverview = null;
     }
 
-    forceStateUpdate() {
-        // Re-evaluate maximized windows
-        this.maximizedWindows = new Set(
+    getMaximizedWindowIds() {
+        return new Set(
             this.display
                 .list_all_windows()
                 .filter(isMaximized)
                 .map(window => window.get_id())
         );
+    }
+
+    forceStateUpdate() {
+        // Re-evaluate maximized windows
+        this.maximizedWindows = this.getMaximizedWindowIds();
 
         // Force state change emission
         this.stateChangeCallback({
