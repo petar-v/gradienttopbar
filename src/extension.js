@@ -21,14 +21,11 @@ export default class GradientTopBar extends Extension {
             const config = getConfig(settings);
             applyGradientStyle(config, this.path);
 
-            const { isOpaqueOnMaximized } = config;
+            // Always enable window events to track maximized windows
+            this.windowEvents.enable();
 
-            if (isOpaqueOnMaximized) {
-                this.windowEvents.enable();
-            } else {
-                this.windowEvents.disable();
-                this.toggleGradient(true);
-            }
+            // Force update to apply the current behavior
+            this.windowEvents.forceStateUpdate();
         };
     }
 
@@ -68,13 +65,27 @@ export default class GradientTopBar extends Extension {
           .filter(window => maximizedWindows.has(window.get_id()));
 
                 const hasMaximizedWindows = workspaceDisplayMaximizedWindows.length > 0;
+                const maximizedBehavior = this._settings.get_string('maximized-behavior');
 
-                if (hasMaximizedWindows && this._settings.get_boolean('opaque-on-maximized')) {
-                    // Apply maximized gradient style
-                    this.toggleGradient(true, true);
+                if (hasMaximizedWindows) {
+                    // Handle different behaviors for maximized windows
+                    switch (maximizedBehavior) {
+                        case 'keep-gradient':
+                            // Keep the normal gradient
+                            this.toggleGradient(true, false);
+                            break;
+                        case 'keep-theme':
+                            // Remove the gradient to show the default theme
+                            this.toggleGradient(false, false);
+                            break;
+                        case 'apply-style':
+                            // Apply the maximized gradient style
+                            this.toggleGradient(true, true);
+                            break;
+                    }
                 } else {
-                    // Apply normal gradient style or no style
-                    this.toggleGradient(!hasMaximizedWindows, false);
+                    // No maximized windows, apply normal gradient
+                    this.toggleGradient(true, false);
                 }
             }
         );
@@ -82,13 +93,13 @@ export default class GradientTopBar extends Extension {
         attachSettingsListeners(this._settings, this.onSettingsChanged);
 
         const config = getConfig(this._settings);
-        const { isOpaqueOnMaximized } = config;
-        if (isOpaqueOnMaximized)
-            this.windowEvents.enable();
+
+        // Always enable window events to track maximized windows
+        this.windowEvents.enable();
 
         // initially set up the gradient
         applyGradientStyle(config, this.path);
-        this.toggleGradient(true);
+        this.toggleGradient(true, false);
     }
 
     disable() {

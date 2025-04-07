@@ -11,6 +11,32 @@ import {
     detachSettingsListeners
 } from '../config.js';
 
+const MaximizedBehavior = GObject.registerClass(
+    {
+        Properties: {
+            name: GObject.ParamSpec.string(
+                'name',
+                'name',
+                'name',
+                GObject.ParamFlags.READWRITE,
+                null
+            ),
+            value: GObject.ParamSpec.string(
+                'value',
+                'value',
+                'value',
+                GObject.ParamFlags.READWRITE,
+                null
+            )
+        }
+    },
+    class MaximizedBehavior extends GObject.Object {
+        _init(name, value) {
+            super._init({ name, value });
+        }
+    }
+);
+
 class Behavior extends Adw.PreferencesPage {
     _init(window, settings) {
         super._init({
@@ -25,36 +51,53 @@ class Behavior extends Adw.PreferencesPage {
             title: gettext('Behavior')
         });
 
-        let opaqueOnMaximizedSwitch = new Gtk.Switch({
-            valign: Gtk.Align.CENTER,
-            active: this._settings.get_boolean('opaque-on-maximized')
+        // Create model for maximized behavior dropdown
+        const maximizedBehaviorModel = new Gio.ListStore({
+            item_type: MaximizedBehavior
         });
-        settings.bind(
-            'opaque-on-maximized',
-            opaqueOnMaximizedSwitch,
-            'active',
-            Gio.SettingsBindFlags.DEFAULT
-        );
-        opaqueOnMaximizedSwitch.connect('notify::active', widget => {
-            settings.set_boolean('opaque-on-maximized', widget.get_active());
-        });
-        let opaqueOnMaximizedRow = new Adw.ActionRow({
-            title: gettext('Apply maximized style on maximized window'),
+
+        [
+            new MaximizedBehavior(gettext('Keep gradient'), 'keep-gradient'),
+            new MaximizedBehavior(gettext('Keep original theme'), 'keep-theme'),
+            new MaximizedBehavior(gettext('Apply style'), 'apply-style')
+        ].forEach(behavior => maximizedBehaviorModel.append(behavior));
+
+        // Create dropdown for maximized behavior
+        const maximizedBehaviorRow = new Adw.ComboRow({
+            title: gettext('When windows are maximized'),
             subtitle: gettext(
-                'Applies a different gradient style when there is a maximized window on the current workspace.'
+                'Choose what style to apply to the top bar when there is a maximized window'
             ),
-            activatable_widget: opaqueOnMaximizedSwitch
+            model: maximizedBehaviorModel,
+            expression: new Gtk.PropertyExpression(MaximizedBehavior, null, 'name')
         });
 
-        opaqueOnMaximizedRow.add_suffix(opaqueOnMaximizedSwitch);
-        opaqueOnMaximizedRow.set_activatable_widget(opaqueOnMaximizedSwitch);
+        // Set the selected item based on the current setting
+        const setMaximizedBehaviorOnRow = (row, behaviorValue) => {
+            const { model } = row;
+            for (let i = 0; i < model.get_n_items(); i++) {
+                if (model.get_item(i).value === behaviorValue) {
+                    row.set_selected(i);
+                    break;
+                }
+            }
+        };
 
-        behaviorGroup.add(opaqueOnMaximizedRow);
+        // Set initial value
+        setMaximizedBehaviorOnRow(maximizedBehaviorRow, this._settings.get_string('maximized-behavior'));
+
+        // Connect to changes
+        maximizedBehaviorRow.connect('notify::selected', () => {
+            const { selectedItem } = maximizedBehaviorRow;
+            settings.set_string('maximized-behavior', selectedItem.value);
+        });
+
+        behaviorGroup.add(maximizedBehaviorRow);
         this.add(behaviorGroup);
 
         const onSettingsChanged = s => {
             const config = getConfig(s);
-            opaqueOnMaximizedSwitch.set_active(config.isOpaqueOnMaximized);
+            setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
         };
         attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {

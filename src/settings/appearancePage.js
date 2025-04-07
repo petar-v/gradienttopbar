@@ -80,7 +80,7 @@ class Appearance extends Adw.PreferencesPage {
         const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = getConfig(settings);
 
         const gradientGroup = new Adw.PreferencesGroup({
-            title: gettext('Gradient')
+            title: gettext('Gradient Appearance')
         });
 
         const gradientDirectionModel = new Gio.ListStore({
@@ -107,11 +107,6 @@ class Appearance extends Adw.PreferencesPage {
         setGradientDirectionOnRow(directionRow, gradientDirection);
 
         gradientGroup.add(directionRow);
-        this.add(gradientGroup);
-
-        const colorsGroup = new Adw.PreferencesGroup({
-            title: gettext('Colors')
-        });
 
         const startColorChooserRow = createColorChooserRow(
             gettext('Gradient Start Colour'),
@@ -122,7 +117,7 @@ class Appearance extends Adw.PreferencesPage {
                 saveColors(settings, rgba, colors.end);
             }
         );
-        colorsGroup.add(startColorChooserRow);
+        gradientGroup.add(startColorChooserRow);
 
         const endColorChooserRow = createColorChooserRow(
             gettext('Gradient End Colour'),
@@ -133,13 +128,13 @@ class Appearance extends Adw.PreferencesPage {
                 saveColors(settings, colors.start, rgba);
             }
         );
-        colorsGroup.add(endColorChooserRow);
+        gradientGroup.add(endColorChooserRow);
 
-        this.add(colorsGroup);
+        this.add(gradientGroup);
 
         // Add a new group for maximized window gradient settings
         const maximizedGradientGroup = new Adw.PreferencesGroup({
-            title: gettext('Maximized Window Gradient')
+            title: gettext('Maximized Window Gradient Appearance')
         });
 
         // Create direction dropdown for maximized windows
@@ -184,11 +179,26 @@ class Appearance extends Adw.PreferencesPage {
         // Add the group to the page
         this.add(maximizedGradientGroup);
 
+        // Function to update the visibility of maximized gradient settings
+        const updateMaximizedGradientVisibility = () => {
+            const maximizedBehavior = settings.get_string('maximized-behavior');
+            maximizedGradientGroup.set_visible(maximizedBehavior === 'apply-style');
+        };
+
+        // Set initial visibility
+        updateMaximizedGradientVisibility();
+
+        // Listen for changes to maximized-behavior setting
+        settings.connect('changed::maximized-behavior', updateMaximizedGradientVisibility);
+
         const onSettingsChanged = s => {
             const config = getConfig(s);
+
+            // Update gradient direction dropdowns
             setGradientDirectionOnRow(directionRow, config.gradientDirection);
             setGradientDirectionOnRow(maximizedDirectionRow, config.maximizedGradientDirection);
 
+            // Update normal gradient colors
             const start = new Gdk.RGBA();
             start.parse(config.colors.start);
             startColorChooserRow.get_activatable_widget().set_rgba(start);
@@ -197,6 +207,7 @@ class Appearance extends Adw.PreferencesPage {
             end.parse(config.colors.end);
             endColorChooserRow.get_activatable_widget().set_rgba(end);
 
+            // Update maximized gradient colors
             const maximizedStart = new Gdk.RGBA();
             maximizedStart.parse(config.maximizedColors.start);
             maximizedStartColorChooserRow.get_activatable_widget().set_rgba(maximizedStart);
