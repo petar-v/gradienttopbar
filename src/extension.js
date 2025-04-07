@@ -86,6 +86,7 @@ export default class GradientTopBar extends Extension {
         this.windowEvents.disable();
         this.toggleGradient(false);
         detachSettingsListeners(this._settings, this.onSettingsChanged);
+
         this.windowEvents = null;
         this.isEffectApplied = false;
         this._settings = null;

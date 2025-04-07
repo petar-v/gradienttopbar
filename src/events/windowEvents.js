@@ -182,12 +182,14 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(attachWindowEvents);
 
         // FIXME: find a way to do that only for the windows on the primary monitor's current workspace
-        this.maximizedWindows = new Set(
-            this.display
-        .list_all_windows()
-        .filter(isMaximized)
-        .map(window => window.get_id())
-        );
+        this.maximizedWindows = this.getMaximizedWindowIds();
+
+        // Add screen lock/unlock event handling
+        this.eventManager.attachUnlockScreenEvent(() => {
+            // Force state re-evaluation after screen unlock
+            this.forceStateUpdate();
+        });
+
         emitStateChange();
     }
 
@@ -196,8 +198,30 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(window => {
             this.eventManager.disconnectWindowEvents(window);
         });
+
         this.workspace = null;
         this.maximizedWindows = new Set();
         this.inOverview = null;
+    }
+
+    getMaximizedWindowIds() {
+        return new Set(
+            this.display
+                .list_all_windows()
+                .filter(isMaximized)
+                .map(window => window.get_id())
+        );
+    }
+
+    forceStateUpdate() {
+        // Re-evaluate maximized windows
+        this.maximizedWindows = this.getMaximizedWindowIds();
+
+        // Force state change emission
+        this.stateChangeCallback({
+            maximizedWindows: this.maximizedWindows,
+            currentWorkspace: this.workspace,
+            inOverview: this.inOverview
+        });
     }
 }
