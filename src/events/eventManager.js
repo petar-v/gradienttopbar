@@ -1,7 +1,10 @@
+import { screenShield } from 'resource:///org/gnome/shell/ui/main.js';
+
 class EventManager {
     constructor() {
         this.evenIds = {}; // event name -> {target, eventID}
         this.monitoredWindows = {}; // windowID -> {eventName -> eventID}
+        this.unlockHandlerId = null;
     }
 
     attachGlobalEventOnce(eventName, target, callback) {
@@ -19,6 +22,7 @@ class EventManager {
             const event = this.evenIds[eventName];
             event.target.disconnect(event.id);
         });
+        this.detachUnlockScreenEvent();
         this.evenIds = {};
     }
 
@@ -44,6 +48,18 @@ class EventManager {
             window.disconnect(this.monitoredWindows[windowId][eventName])
         );
         delete this.monitoredWindows[windowId];
+    }
+
+    attachUnlockScreenEvent(callback) {
+        if (this.unlockHandlerId === null)
+            this.unlockHandlerId = screenShield.connect('unlock-screen', callback);
+    }
+
+    detachUnlockScreenEvent() {
+        if (this.unlockHandlerId !== null) {
+            screenShield.disconnect(this.unlockHandlerId);
+            this.unlockHandlerId = null;
+        }
     }
 }
 

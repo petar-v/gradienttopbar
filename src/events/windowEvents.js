@@ -1,5 +1,5 @@
 import Meta from 'gi://Meta';
-import { overview, screenShield } from 'resource:///org/gnome/shell/ui/main.js';
+import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
 import EventManager from './eventManager.js';
 import { areSameState } from './states.js';
@@ -43,9 +43,6 @@ export default class WindowEvents {
         this.workspace = null;
         this.inOverview = false;
         this.maximizedWindows = new Set();
-
-        // Screen lock/unlock event handling
-        this._unlockSignal = null;
     }
 
     setStateChangeCallback(callback) {
@@ -188,7 +185,7 @@ export default class WindowEvents {
         this.maximizedWindows = this.getMaximizedWindowIds();
 
         // Add screen lock/unlock event handling
-        this._unlockSignal = screenShield.connect('unlock-screen', () => {
+        this.eventManager.attachUnlockScreenEvent(() => {
             // Force state re-evaluation after screen unlock
             this.forceStateUpdate();
         });
@@ -201,12 +198,6 @@ export default class WindowEvents {
         this.display.list_all_windows().forEach(window => {
             this.eventManager.disconnectWindowEvents(window);
         });
-
-        // Disconnect screen lock/unlock handler
-        if (this._unlockSignal !== null) {
-            screenShield.disconnect(this._unlockSignal);
-            this._unlockSignal = null;
-        }
 
         this.workspace = null;
         this.maximizedWindows = new Set();
