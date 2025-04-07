@@ -39,9 +39,9 @@ class Behavior extends Adw.PreferencesPage {
             settings.set_boolean('opaque-on-maximized', widget.get_active());
         });
         let opaqueOnMaximizedRow = new Adw.ActionRow({
-            title: gettext('Remove style on maximized window'),
+            title: gettext('Apply maximized style on maximized window'),
             subtitle: gettext(
-                'Removes the gradient effect whenever there is a maximized window on the current workspace.'
+                'Applies a different gradient style when there is a maximized window on the current workspace.'
             ),
             activatable_widget: opaqueOnMaximizedSwitch
         });

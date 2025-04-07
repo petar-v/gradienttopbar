@@ -9,6 +9,7 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 import {
     getConfig,
     saveColors,
+    saveMaximizedColors,
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
@@ -76,7 +77,7 @@ class Appearance extends Adw.PreferencesPage {
             name: 'Appearance'
         });
 
-        const { gradientDirection, colors } = getConfig(settings);
+        const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = getConfig(settings);
 
         const gradientGroup = new Adw.PreferencesGroup({
             title: gettext('Gradient')
@@ -135,9 +136,58 @@ class Appearance extends Adw.PreferencesPage {
         colorsGroup.add(endColorChooserRow);
 
         this.add(colorsGroup);
+
+        // Add a new group for maximized window gradient settings
+        const maximizedGradientGroup = new Adw.PreferencesGroup({
+            title: gettext('Maximized Window Gradient')
+        });
+
+        // Create direction dropdown for maximized windows
+        const maximizedDirectionRow = new Adw.ComboRow({
+            title: gettext('Maximized Gradient Direction'),
+            subtitle: gettext('The orientation of the gradient when a window is maximized.'),
+            model: gradientDirectionModel,
+            expression: new Gtk.PropertyExpression(GradientDirection, null, 'name')
+        });
+
+        maximizedDirectionRow.connect('notify::selected', () => {
+            const { selectedItem } = maximizedDirectionRow;
+            settings.set_string('maximized-gradient-direction', selectedItem.value);
+        });
+
+        setGradientDirectionOnRow(maximizedDirectionRow, maximizedGradientDirection);
+        maximizedGradientGroup.add(maximizedDirectionRow);
+
+        // Create color pickers for maximized windows
+        const maximizedStartColorChooserRow = createColorChooserRow(
+            gettext('Maximized Gradient Start Colour'),
+            gettext('The start color of the gradient when a window is maximized'),
+            maximizedColors.start,
+            rgba => {
+                maximizedColors.start = rgba;
+                saveMaximizedColors(settings, rgba, maximizedColors.end);
+            }
+        );
+        maximizedGradientGroup.add(maximizedStartColorChooserRow);
+
+        const maximizedEndColorChooserRow = createColorChooserRow(
+            gettext('Maximized Gradient End Colour'),
+            gettext('The end color of the gradient when a window is maximized'),
+            maximizedColors.end,
+            rgba => {
+                maximizedColors.end = rgba;
+                saveMaximizedColors(settings, maximizedColors.start, rgba);
+            }
+        );
+        maximizedGradientGroup.add(maximizedEndColorChooserRow);
+
+        // Add the group to the page
+        this.add(maximizedGradientGroup);
+
         const onSettingsChanged = s => {
             const config = getConfig(s);
             setGradientDirectionOnRow(directionRow, config.gradientDirection);
+            setGradientDirectionOnRow(maximizedDirectionRow, config.maximizedGradientDirection);
 
             const start = new Gdk.RGBA();
             start.parse(config.colors.start);
@@ -146,6 +196,14 @@ class Appearance extends Adw.PreferencesPage {
             const end = new Gdk.RGBA();
             end.parse(config.colors.end);
             endColorChooserRow.get_activatable_widget().set_rgba(end);
+
+            const maximizedStart = new Gdk.RGBA();
+            maximizedStart.parse(config.maximizedColors.start);
+            maximizedStartColorChooserRow.get_activatable_widget().set_rgba(maximizedStart);
+
+            const maximizedEnd = new Gdk.RGBA();
+            maximizedEnd.parse(config.maximizedColors.end);
+            maximizedEndColorChooserRow.get_activatable_widget().set_rgba(maximizedEnd);
         };
         attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {

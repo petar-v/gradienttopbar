@@ -20,5 +20,15 @@
       <summary>The orientation of the gradient</summary>
       <description>The orientation of the gradient can either be "vertical" or "horizontal"</description>
     </key>
+    <key name="maximized-colors" type="as">
+      <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0.8)"]</default>
+      <summary>Array of the gradient colours for maximized windows</summary>
+      <description>Lists all of the colours that are saved for the gradient of the top bar when a window is maximized.</description>
+    </key>
+    <key name="maximized-gradient-direction" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.GradientOrientation">
+      <default>'vertical'</default>
+      <summary>The orientation of the gradient for maximized windows</summary>
+      <description>The orientation of the gradient when a window is maximized.</description>
+    </key>
   </schema>
 </schemalist>

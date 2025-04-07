@@ -6,3 +6,12 @@
   background-color: transparent;
   -panel-corner-radius: 0;
 }
+
+.panel-maximized-gradient {
+  box-shadow: none;
+}
+
+.corner-maximized-gradient {
+  background-color: transparent;
+  -panel-corner-radius: 0;
+}

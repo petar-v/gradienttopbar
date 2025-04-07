@@ -14,6 +14,7 @@ export default class GradientTopBar extends Extension {
 
         // gradient state
         this.isEffectApplied = false;
+        this.hasMaximizedWindows = false;
         this.windowEvents = null;
 
         this.onSettingsChanged = settings => {
@@ -31,16 +32,15 @@ export default class GradientTopBar extends Extension {
         };
     }
 
-    toggleGradient(enabled) {
-    // this checks if the gradient is currently applied
-    // or not so we don't add classes multiple times.
-    // The effect is applied if there is no maximized window
-    // if the respective setting is applied.
-        if (this.isEffectApplied === enabled)
+    toggleGradient(enabled, hasMaximizedWindows = false) {
+    // this checks if the gradient state has changed
+    // so we don't add classes multiple times.
+        if (this.isEffectApplied === enabled && this.hasMaximizedWindows === hasMaximizedWindows)
             return;
 
-        toggleGradient(enabled);
+        toggleGradient(enabled, hasMaximizedWindows);
         this.isEffectApplied = enabled;
+        this.hasMaximizedWindows = hasMaximizedWindows;
     }
 
     enable() {
@@ -53,7 +53,7 @@ export default class GradientTopBar extends Extension {
         this.windowEvents.setStateChangeCallback(
             ({ maximizedWindows, currentWorkspace, inOverview }) => {
                 if (inOverview) {
-                    this.toggleGradient(true);
+                    this.toggleGradient(true, false);
                     return;
                 }
 
@@ -66,7 +66,16 @@ export default class GradientTopBar extends Extension {
           ) // TODO: or is_on_primary_monitor()
           // filter maximized windows on the primary monitor
           .filter(window => maximizedWindows.has(window.get_id()));
-                this.toggleGradient(workspaceDisplayMaximizedWindows.length === 0);
+
+                const hasMaximizedWindows = workspaceDisplayMaximizedWindows.length > 0;
+
+                if (hasMaximizedWindows && this._settings.get_boolean('opaque-on-maximized')) {
+                    // Apply maximized gradient style
+                    this.toggleGradient(true, true);
+                } else {
+                    // Apply normal gradient style or no style
+                    this.toggleGradient(!hasMaximizedWindows, false);
+                }
             }
         );
 
