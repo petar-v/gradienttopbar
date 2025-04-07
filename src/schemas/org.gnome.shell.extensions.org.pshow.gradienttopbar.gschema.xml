@@ -4,11 +4,16 @@
     <value nick="vertical" value="0"/>
     <value nick="horizontal" value="1"/>
   </enum>
+  <enum id="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
+    <value nick="keep-gradient" value="0"/>
+    <value nick="keep-theme" value="1"/>
+    <value nick="apply-style" value="2"/>
+  </enum>
   <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
-    <key name="opaque-on-maximized" type="b">
-      <default>false</default>
-      <summary>Opaque on maximized window</summary>
-      <description>Removes the gradient effect whenever there is a maximized window on the current workspace.</description>
+    <key name="maximized-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
+      <default>'keep-gradient'</default>
+      <summary>Behavior when windows are maximized</summary>
+      <description>Determines what style to apply to the top bar when there is a maximized window: keep the normal gradient, use the default theme, or apply a custom style.</description>
     </key>
     <key name="colors" type="as">
       <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
@@ -19,6 +24,16 @@
       <default>'vertical'</default>
       <summary>The orientation of the gradient</summary>
       <description>The orientation of the gradient can either be "vertical" or "horizontal"</description>
+    </key>
+    <key name="maximized-colors" type="as">
+      <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0.8)"]</default>
+      <summary>Array of the gradient colours for maximized windows</summary>
+      <description>Lists all of the colours that are saved for the gradient of the top bar when a window is maximized.</description>
+    </key>
+    <key name="maximized-gradient-direction" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.GradientOrientation">
+      <default>'vertical'</default>
+      <summary>The orientation of the gradient for maximized windows</summary>
+      <description>The orientation of the gradient when a window is maximized.</description>
     </key>
   </schema>
 </schemalist>

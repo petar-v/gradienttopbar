@@ -7,16 +7,23 @@ export const SETTINGS_GSCHEMA =
 const SETTINGS_GSCHEMA_PATH = `/${SETTINGS_GSCHEMA.replaceAll('.', '/')}/`;
 
 export const getConfig = settings => {
-    const isOpaqueOnMaximized = settings.get_boolean('opaque-on-maximized');
+    const maximizedBehavior = settings.get_string('maximized-behavior');
     const colors = settings.get_value('colors').deep_unpack();
     const gradientDirection = settings.get_string('gradient-direction');
+    const maximizedColors = settings.get_value('maximized-colors').deep_unpack();
+    const maximizedGradientDirection = settings.get_string('maximized-gradient-direction');
 
     return {
-        isOpaqueOnMaximized,
+        maximizedBehavior,
         gradientDirection,
         colors: {
             start: colors[0],
             end: colors[1]
+        },
+        maximizedGradientDirection,
+        maximizedColors: {
+            start: maximizedColors[0],
+            end: maximizedColors[1]
         }
     };
 };
@@ -25,16 +32,24 @@ export const saveColors = (settings, startRgba, endRgba) => {
     settings.set_strv('colors', [startRgba, endRgba]);
 };
 
+export const saveMaximizedColors = (settings, startRgba, endRgba) => {
+    settings.set_strv('maximized-colors', [startRgba, endRgba]);
+};
+
 export const attachSettingsListeners = (settings, listener) => {
     settings.connect('changed::gradient-direction', listener);
-    settings.connect('changed::opaque-on-maximized', listener);
+    settings.connect('changed::maximized-behavior', listener);
     settings.connect('changed::colors', listener);
+    settings.connect('changed::maximized-colors', listener);
+    settings.connect('changed::maximized-gradient-direction', listener);
 };
 
 export const detachSettingsListeners = (settings, listener) => {
     settings.disconnect('changed::gradient-direction', listener);
-    settings.disconnect('changed::opaque-on-maximized', listener);
+    settings.disconnect('changed::maximized-behavior', listener);
     settings.disconnect('changed::colors', listener);
+    settings.disconnect('changed::maximized-colors', listener);
+    settings.disconnect('changed::maximized-gradient-direction', listener);
 };
 
 export const exportSettingsToFile = file => {
