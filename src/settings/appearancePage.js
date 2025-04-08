@@ -10,6 +10,8 @@ import {
     getConfig,
     saveColors,
     saveMaximizedColors,
+    saveCornerRadius,
+    saveMaximizedCornerRadius,
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
@@ -77,7 +79,7 @@ class Appearance extends Adw.PreferencesPage {
             name: 'Appearance'
         });
 
-        const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = getConfig(settings);
+        const { gradientDirection, colors, maximizedGradientDirection, maximizedColors, cornerRadius, maximizedCornerRadius } = getConfig(settings);
 
         const gradientGroup = new Adw.PreferencesGroup({
             title: gettext('Gradient Appearance')
@@ -130,6 +132,34 @@ class Appearance extends Adw.PreferencesPage {
         );
         gradientGroup.add(endColorChooserRow);
 
+        // Add corner radius spin button
+        const cornerRadiusAdjustment = new Gtk.Adjustment({
+            lower: 0,
+            upper: 20,
+            step_increment: 1
+        });
+
+        const cornerRadiusSpinButton = new Gtk.SpinButton({
+            adjustment: cornerRadiusAdjustment,
+            numeric: true,
+            snap_to_ticks: true,
+            value: cornerRadius
+        });
+
+        cornerRadiusSpinButton.connect('value-changed', () => {
+            const radius = cornerRadiusSpinButton.get_value_as_int();
+            saveCornerRadius(settings, radius);
+        });
+
+        const cornerRadiusRow = new Adw.ActionRow({
+            title: gettext('Corner Radius'),
+            subtitle: gettext('The radius of the panel corners in normal state.')
+        });
+
+        cornerRadiusRow.add_suffix(cornerRadiusSpinButton);
+        cornerRadiusRow.set_activatable_widget(cornerRadiusSpinButton);
+        gradientGroup.add(cornerRadiusRow);
+
         this.add(gradientGroup);
 
         // Add a new group for maximized window gradient settings
@@ -176,6 +206,34 @@ class Appearance extends Adw.PreferencesPage {
         );
         maximizedGradientGroup.add(maximizedEndColorChooserRow);
 
+        // Add maximized corner radius spin button
+        const maximizedCornerRadiusAdjustment = new Gtk.Adjustment({
+            lower: 0,
+            upper: 20,
+            step_increment: 1
+        });
+
+        const maximizedCornerRadiusSpinButton = new Gtk.SpinButton({
+            adjustment: maximizedCornerRadiusAdjustment,
+            numeric: true,
+            snap_to_ticks: true,
+            value: maximizedCornerRadius
+        });
+
+        maximizedCornerRadiusSpinButton.connect('value-changed', () => {
+            const radius = maximizedCornerRadiusSpinButton.get_value_as_int();
+            saveMaximizedCornerRadius(settings, radius);
+        });
+
+        const maximizedCornerRadiusRow = new Adw.ActionRow({
+            title: gettext('Maximized Corner Radius'),
+            subtitle: gettext('The radius of the panel corners when a window is maximized.')
+        });
+
+        maximizedCornerRadiusRow.add_suffix(maximizedCornerRadiusSpinButton);
+        maximizedCornerRadiusRow.set_activatable_widget(maximizedCornerRadiusSpinButton);
+        maximizedGradientGroup.add(maximizedCornerRadiusRow);
+
         // Add the group to the page
         this.add(maximizedGradientGroup);
 
@@ -218,6 +276,10 @@ class Appearance extends Adw.PreferencesPage {
             const maximizedEnd = new Gdk.RGBA();
             maximizedEnd.parse(config.maximizedColors.end);
             maximizedEndColorChooserRow.get_activatable_widget().set_rgba(maximizedEnd);
+
+            // Update corner radius values
+            cornerRadiusSpinButton.set_value(config.cornerRadius);
+            maximizedCornerRadiusSpinButton.set_value(config.maximizedCornerRadius);
         };
         attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {

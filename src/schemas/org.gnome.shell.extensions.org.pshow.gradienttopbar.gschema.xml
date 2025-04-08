@@ -35,5 +35,15 @@
       <summary>The orientation of the gradient for maximized windows</summary>
       <description>The orientation of the gradient when a window is maximized.</description>
     </key>
+    <key name="corner-radius" type="i">
+      <default>0</default>
+      <summary>Panel corner radius</summary>
+      <description>The radius of the panel corners in normal state.</description>
+    </key>
+    <key name="maximized-corner-radius" type="i">
+      <default>0</default>
+      <summary>Panel corner radius for maximized windows</summary>
+      <description>The radius of the panel corners when a window is maximized.</description>
+    </key>
   </schema>
 </schemalist>

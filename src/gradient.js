@@ -9,7 +9,7 @@ const CORNER_GRADIENT_CLASS = 'corner-gradient';
 const CORNER_MAXIMIZED_GRADIENT_CLASS = 'corner-maximized-gradient';
 
 const generateCss = config => {
-    const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
+    const { gradientDirection, colors, maximizedGradientDirection, maximizedColors, cornerRadius, maximizedCornerRadius } = config;
     return `.${GRADIENT_CLASS} {
             background-color: transparent;
             background-gradient-direction: ${gradientDirection};
@@ -18,7 +18,7 @@ const generateCss = config => {
           }
           .${CORNER_GRADIENT_CLASS} {
             -panel-corner-background-color: transparent;
-            -panel-corner-radius: 0;
+            -panel-corner-radius: ${cornerRadius};
           }
           .${MAXIMIZED_GRADIENT_CLASS} {
             background-color: transparent;
@@ -28,7 +28,7 @@ const generateCss = config => {
           }
           .${CORNER_MAXIMIZED_GRADIENT_CLASS} {
             -panel-corner-background-color: transparent;
-            -panel-corner-radius: 0;
+            -panel-corner-radius: ${maximizedCornerRadius};
           }`;
 };
 

@@ -12,6 +12,8 @@ export const getConfig = settings => {
     const gradientDirection = settings.get_string('gradient-direction');
     const maximizedColors = settings.get_value('maximized-colors').deep_unpack();
     const maximizedGradientDirection = settings.get_string('maximized-gradient-direction');
+    const cornerRadius = settings.get_int('corner-radius');
+    const maximizedCornerRadius = settings.get_int('maximized-corner-radius');
 
     return {
         maximizedBehavior,
@@ -24,7 +26,9 @@ export const getConfig = settings => {
         maximizedColors: {
             start: maximizedColors[0],
             end: maximizedColors[1]
-        }
+        },
+        cornerRadius,
+        maximizedCornerRadius
     };
 };
 
@@ -36,12 +40,22 @@ export const saveMaximizedColors = (settings, startRgba, endRgba) => {
     settings.set_strv('maximized-colors', [startRgba, endRgba]);
 };
 
+export const saveCornerRadius = (settings, radius) => {
+    settings.set_int('corner-radius', radius);
+};
+
+export const saveMaximizedCornerRadius = (settings, radius) => {
+    settings.set_int('maximized-corner-radius', radius);
+};
+
 export const attachSettingsListeners = (settings, listener) => {
     settings.connect('changed::gradient-direction', listener);
     settings.connect('changed::maximized-behavior', listener);
     settings.connect('changed::colors', listener);
     settings.connect('changed::maximized-colors', listener);
     settings.connect('changed::maximized-gradient-direction', listener);
+    settings.connect('changed::corner-radius', listener);
+    settings.connect('changed::maximized-corner-radius', listener);
 };
 
 export const detachSettingsListeners = (settings, listener) => {
@@ -50,6 +64,8 @@ export const detachSettingsListeners = (settings, listener) => {
     settings.disconnect('changed::colors', listener);
     settings.disconnect('changed::maximized-colors', listener);
     settings.disconnect('changed::maximized-gradient-direction', listener);
+    settings.disconnect('changed::corner-radius', listener);
+    settings.disconnect('changed::maximized-corner-radius', listener);
 };
 
 export const exportSettingsToFile = file => {
