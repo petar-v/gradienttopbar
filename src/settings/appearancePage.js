@@ -179,10 +179,13 @@ class Appearance extends Adw.PreferencesPage {
         // Add the group to the page
         this.add(maximizedGradientGroup);
 
-        // Function to update the visibility of maximized gradient settings
+        // Function to update the sensitivity of maximized gradient settings
         const updateMaximizedGradientVisibility = () => {
             const maximizedBehavior = settings.get_string('maximized-behavior');
-            maximizedGradientGroup.set_visible(maximizedBehavior === 'apply-style');
+            const isApplyStyle = maximizedBehavior === 'apply-style';
+
+            // Keep the group visible but set sensitivity based on the setting
+            maximizedGradientGroup.set_sensitive(isApplyStyle);
         };
 
         // Set initial visibility
