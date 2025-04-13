@@ -12,6 +12,7 @@ import {
     getMaximizedBehavior,
     setMaximizedBehavior
 } from '../config.js';
+import { MAXIMIZED_BEHAVIOR, MAXIMIZATION_TYPE } from '../constants.js';
 
 import { MAXIMIZED_BEHAVIOR } from '../constants.js';
 
@@ -127,10 +128,10 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         [
-            new MaximizationType(gettext('Both horizontally and vertically'), 'both'),
-            new MaximizationType(gettext('Vertically only'), 'vertical'),
-            new MaximizationType(gettext('Horizontally only'), 'horizontal'),
-            new MaximizationType(gettext('Any of these'), 'any')
+            new MaximizationType(gettext('Both horizontally and vertically'), MAXIMIZATION_TYPE.BOTH),
+            new MaximizationType(gettext('Vertically only'), MAXIMIZATION_TYPE.VERTICAL),
+            new MaximizationType(gettext('Horizontally only'), MAXIMIZATION_TYPE.HORIZONTAL),
+            new MaximizationType(gettext('Any of these'), MAXIMIZATION_TYPE.ANY)
         ].forEach(type => maximizationTypeModel.append(type));
 
         // Create dropdown for maximization type
@@ -161,7 +162,7 @@ class Behavior extends Adw.PreferencesPage {
         const updateMaximizationDetectionSensitivity = () => {
             const maximizedBehavior = settings.get_string('maximized-behavior');
             // Only enable the maximization detection settings if we're not using 'keep-gradient'
-            const needsMaximizationDetection = maximizedBehavior !== 'keep-gradient';
+            const needsMaximizationDetection = maximizedBehavior !== MAXIMIZED_BEHAVIOR.KEEP_GRADIENT;
 
             // Keep the group visible but set sensitivity based on the setting
             maximizationDetectionGroup.set_sensitive(needsMaximizationDetection);

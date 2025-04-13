@@ -44,6 +44,8 @@ export default class GradientTopBar extends Extension {
                 this.initializeWindowEvents();
             }
             this.windowEvents.enable();
+
+            // Force update to apply the current behavior
             this.windowEvents.forceStateUpdate();
         };
     }

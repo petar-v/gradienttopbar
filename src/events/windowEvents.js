@@ -3,6 +3,7 @@ import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
 import EventManager from './eventManager.js';
 import { areSameState } from './states.js';
+import { MAXIMIZATION_TYPE } from '../constants.js';
 
 const { VERTICAL, HORIZONTAL, BOTH } = Meta.MaximizeFlags;
 
@@ -31,7 +32,7 @@ const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this i
  * @param {string} maximizationType - Maximization type definition
  * @returns {boolean} True if the window is maximized or full-screen
  */
-const isMaximized = (window, maximizationType = 'both') => {
+const isMaximized = (window, maximizationType = MAXIMIZATION_TYPE.BOTH) => {
     // Ignore Desktop Icons NG windows
     if (isDesktopIconsNG(window))
         return false;
@@ -47,13 +48,13 @@ const isMaximized = (window, maximizationType = 'both') => {
     const windowMaximizeState = window.get_maximized();
 
     switch (maximizationType) {
-        case 'both':
+        case MAXIMIZATION_TYPE.BOTH:
             return windowMaximizeState === BOTH;
-        case 'vertical':
+        case MAXIMIZATION_TYPE.VERTICAL:
             return windowMaximizeState === VERTICAL || windowMaximizeState === BOTH;
-        case 'horizontal':
+        case MAXIMIZATION_TYPE.HORIZONTAL:
             return windowMaximizeState === HORIZONTAL || windowMaximizeState === BOTH;
-        case 'any':
+        case MAXIMIZATION_TYPE.ANY:
             return windowMaximizeState === VERTICAL ||
                 windowMaximizeState === HORIZONTAL ||
                 windowMaximizeState === BOTH;
@@ -86,10 +87,8 @@ export default class WindowEvents {
         this.workspace = null;
         this.inOverview = false;
         this.maximizedWindows = new Set();
-
+        this.maximizationType = MAXIMIZATION_TYPE.BOTH; // Default value
         this.lastState = null;
-        this.maximizationType = 'both'; // Default value
-
     }
 
     /**
