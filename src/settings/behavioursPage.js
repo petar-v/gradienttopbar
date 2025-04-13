@@ -116,14 +116,11 @@ class Behavior extends Adw.PreferencesPage {
         // Set initial value
         setMaximizedBehaviorOnRow(maximizedBehaviorRow, getMaximizedBehavior(this._settings));
 
-        // Connect to changes
-        maximizedBehaviorRow.connect('notify::selected', () => {
-            const { selectedItem } = maximizedBehaviorRow;
-            setMaximizedBehavior(this._settings, selectedItem.value);
+        // Create a group for maximization detection settings
+        const maximizationDetectionGroup = new Adw.PreferencesGroup({
+            title: gettext('Maximization Detection')
         });
 
-        behaviorGroup.add(maximizedBehaviorRow);
-        
         // Create model for maximization type dropdown
         const maximizationTypeModel = new Gio.ListStore({
             item_type: MaximizationType
@@ -160,19 +157,47 @@ class Behavior extends Adw.PreferencesPage {
         // Set initial value
         setMaximizationTypeOnRow(maximizationTypeRow, this._settings.get_string('maximization-type'));
 
-        // Connect to changes
+        // Function to update the sensitivity of maximization detection settings
+        const updateMaximizationDetectionSensitivity = () => {
+            const maximizedBehavior = settings.get_string('maximized-behavior');
+            // Only enable the maximization detection settings if we're not using 'keep-gradient'
+            const needsMaximizationDetection = maximizedBehavior !== 'keep-gradient';
+
+            // Keep the group visible but set sensitivity based on the setting
+            maximizationDetectionGroup.set_sensitive(needsMaximizationDetection);
+        };
+
+        // Set initial sensitivity
+        updateMaximizationDetectionSensitivity();
+
+        // Connect to changes in maximized behavior
+        maximizedBehaviorRow.connect('notify::selected', () => {
+            const { selectedItem } = maximizedBehaviorRow;
+            setMaximizedBehavior(this._settings, selectedItem.value);
+        });
+
+        // Listen for changes to maximized-behavior setting
+        settings.connect('changed::maximized-behavior', updateMaximizationDetectionSensitivity);
+
+        // Connect to changes in maximization type
         maximizationTypeRow.connect('notify::selected', () => {
             const { selectedItem } = maximizationTypeRow;
             settings.set_string('maximization-type', selectedItem.value);
         });
 
-        behaviorGroup.add(maximizationTypeRow);
+        // Add rows to groups
+        behaviorGroup.add(maximizedBehaviorRow);
+        maximizationDetectionGroup.add(maximizationTypeRow);
+
+        // Add groups to page
         this.add(behaviorGroup);
+        this.add(maximizationDetectionGroup);
 
         const onSettingsChanged = s => {
             const config = getConfig(s);
             setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
             setMaximizationTypeOnRow(maximizationTypeRow, config.maximizationType);
+            updateMaximizationDetectionSensitivity();
         };
         attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
