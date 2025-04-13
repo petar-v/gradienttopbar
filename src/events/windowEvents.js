@@ -4,7 +4,7 @@ import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 import EventManager from './eventManager.js';
 import { areSameState } from './states.js';
 
-const { VERTICAL, BOTH } = Meta.MaximizeFlags;
+const { VERTICAL, HORIZONTAL, BOTH } = Meta.MaximizeFlags;
 
 const SIZE_CHANGE_EVENT = 'size-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
@@ -28,9 +28,10 @@ const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this i
  * Determines if a window is maximized or full-screen
  *
  * @param {Meta.Window} window - The window to check
+ * @param {string} maximizationType - Maximization type definition
  * @returns {boolean} True if the window is maximized or full-screen
  */
-const isMaximized = window => {
+const isMaximized = (window, maximizationType = 'both') => {
     // Ignore Desktop Icons NG windows
     if (isDesktopIconsNG(window))
         return false;
@@ -42,8 +43,23 @@ const isMaximized = window => {
 
 
     // Check if window is maximized (either vertically or both dimensions)
-    const maximizeFlags = window.get_maximized();
-    return [BOTH, VERTICAL].includes(maximizeFlags);
+
+    const windowMaximizeState = window.get_maximized();
+
+    switch (maximizationType) {
+        case 'both':
+            return windowMaximizeState === BOTH;
+        case 'vertical':
+            return windowMaximizeState === VERTICAL || windowMaximizeState === BOTH;
+        case 'horizontal':
+            return windowMaximizeState === HORIZONTAL || windowMaximizeState === BOTH;
+        case 'any':
+            return windowMaximizeState === VERTICAL ||
+                windowMaximizeState === HORIZONTAL ||
+                windowMaximizeState === BOTH;
+        default:
+            return windowMaximizeState === BOTH;
+    }
 };
 
 /**
@@ -70,7 +86,10 @@ export default class WindowEvents {
         this.workspace = null;
         this.inOverview = false;
         this.maximizedWindows = new Set();
+
         this.lastState = null;
+        this.maximizationType = 'both'; // Default value
+
     }
 
     /**
@@ -80,6 +99,23 @@ export default class WindowEvents {
      */
     setStateChangeCallback(callback) {
         this.stateChangeCallback = callback;
+    }
+
+    setMaximizationType(type) {
+        this.maximizationType = type;
+        this.forceStateUpdate();
+    }
+
+    forceStateUpdate() {
+        // Update the maximized windows set based on the current maximization type
+        this.maximizedWindows = this.getMaximizedWindowIds();
+
+        // Force a state change emission
+        this.stateChangeCallback({
+            maximizedWindows: this.maximizedWindows,
+            currentWorkspace: this.workspace,
+            inOverview: this.inOverview
+        });
     }
 
     /**
@@ -130,7 +166,7 @@ export default class WindowEvents {
          * @param {Meta.Window} window - The window that changed size
          */
         const onWindowSizeChange = window => {
-            if (isMaximized(window))
+            if (isMaximized(window, this.maximizationType))
                 this.maximizedWindows.add(window.get_id());
             else
                 this.maximizedWindows.delete(window.get_id());
@@ -179,7 +215,7 @@ export default class WindowEvents {
                 );
             }
 
-            if (isMaximized(window))
+            if (isMaximized(window, this.maximizationType))
                 this.maximizedWindows.add(window.get_id());
 
             this.eventManager.attachWindowEventOnce(
@@ -209,10 +245,12 @@ export default class WindowEvents {
          */
         const onWindowRaise = (_, windowActor) => {
             const window = windowActor.get_meta_window();
-            if (isMaximized(window))
+            if (isMaximized(window, this.maximizationType))
                 this.maximizedWindows.add(window.get_id());
             this.emitStateChange();
         };
+
+        const forceStateChangeEmission = () => emitStateChange(true);
 
         this.workspace = this.workspaceManager.get_active_workspace();
 
@@ -310,7 +348,7 @@ export default class WindowEvents {
         return new Set(
             this.display
                 .list_all_windows()
-                .filter(isMaximized)
+                .filter(window => isMaximized(window, this.maximizationType))
                 .map(window => window.get_id())
         );
     }

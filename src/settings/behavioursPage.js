@@ -41,6 +41,32 @@ const MaximizedBehavior = GObject.registerClass(
     }
 );
 
+const MaximizationType = GObject.registerClass(
+    {
+        Properties: {
+            name: GObject.ParamSpec.string(
+                'name',
+                'name',
+                'name',
+                GObject.ParamFlags.READWRITE,
+                null
+            ),
+            value: GObject.ParamSpec.string(
+                'value',
+                'value',
+                'value',
+                GObject.ParamFlags.READWRITE,
+                null
+            )
+        }
+    },
+    class MaximizationType extends GObject.Object {
+        _init(name, value) {
+            super._init({ name, value });
+        }
+    }
+);
+
 class Behavior extends Adw.PreferencesPage {
     _init(window, settings) {
         super._init({
@@ -97,11 +123,56 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         behaviorGroup.add(maximizedBehaviorRow);
+        
+        // Create model for maximization type dropdown
+        const maximizationTypeModel = new Gio.ListStore({
+            item_type: MaximizationType
+        });
+
+        [
+            new MaximizationType(gettext('Both horizontally and vertically'), 'both'),
+            new MaximizationType(gettext('Vertically only'), 'vertical'),
+            new MaximizationType(gettext('Horizontally only'), 'horizontal'),
+            new MaximizationType(gettext('Any of these'), 'any')
+        ].forEach(type => maximizationTypeModel.append(type));
+
+        // Create dropdown for maximization type
+        const maximizationTypeRow = new Adw.ComboRow({
+            title: gettext('Definition of a maximized window'),
+            subtitle: gettext(
+                'Choose what constitutes a maximized window for the extension'
+            ),
+            model: maximizationTypeModel,
+            expression: new Gtk.PropertyExpression(MaximizationType, null, 'name')
+        });
+
+        // Set the selected item based on the current setting
+        const setMaximizationTypeOnRow = (row, typeValue) => {
+            const { model } = row;
+            for (let i = 0; i < model.get_n_items(); i++) {
+                if (model.get_item(i).value === typeValue) {
+                    row.set_selected(i);
+                    break;
+                }
+            }
+        };
+
+        // Set initial value
+        setMaximizationTypeOnRow(maximizationTypeRow, this._settings.get_string('maximization-type'));
+
+        // Connect to changes
+        maximizationTypeRow.connect('notify::selected', () => {
+            const { selectedItem } = maximizationTypeRow;
+            settings.set_string('maximization-type', selectedItem.value);
+        });
+
+        behaviorGroup.add(maximizationTypeRow);
         this.add(behaviorGroup);
 
         const onSettingsChanged = s => {
             const config = getConfig(s);
             setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
+            setMaximizationTypeOnRow(maximizationTypeRow, config.maximizationType);
         };
         attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {

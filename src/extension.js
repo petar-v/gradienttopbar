@@ -23,6 +23,10 @@ export default class GradientTopBar extends Extension {
             const config = getConfig(settings);
             applyGradientStyle(config, this.path);
 
+            // Update maximization type if it changed
+            if (this.windowEvents) {
+                this.windowEvents.setMaximizationType(config.maximizationType);
+            }
             const maximizedBehavior = getMaximizedBehavior(settings);
 
             // If set to keep-gradient, disable window events to save resources
@@ -62,6 +66,10 @@ export default class GradientTopBar extends Extension {
                 global.window_manager,
                 global.get_workspace_manager()
             );
+            const config = getConfig(this._settings);
+
+            // Set the maximization type from settings
+            this.windowEvents.setMaximizationType(config.maximizationType);
 
             this.windowEvents.setStateChangeCallback(
                 ({ maximizedWindows, currentWorkspace, inOverview }) => {
@@ -134,6 +142,7 @@ export default class GradientTopBar extends Extension {
         this.toggleGradient(false);
         detachSettingsListeners(this._settings, this.onSettingsChanged);
 
+        this.windowEvents = null;
         this.isEffectApplied = false;
         this._settings = null;
     }

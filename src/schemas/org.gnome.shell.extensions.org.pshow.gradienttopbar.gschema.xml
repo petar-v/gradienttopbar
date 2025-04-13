@@ -9,11 +9,22 @@
     <value nick="keep-theme" value="1"/>
     <value nick="apply-style" value="2"/>
   </enum>
+  <enum id="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizationType">
+    <value nick="both" value="0"/>
+    <value nick="vertical" value="1"/>
+    <value nick="horizontal" value="2"/>
+    <value nick="any" value="3"/>
+  </enum>
   <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
     <key name="maximized-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
       <default>'keep-gradient'</default>
       <summary>Behavior when windows are maximized</summary>
       <description>Determines what style to apply to the top bar when there is a maximized window: keep the normal gradient, use the default theme, or apply a custom style.</description>
+    </key>
+    <key name="maximization-type" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizationType">
+      <default>'both'</default>
+      <summary>Definition of a maximized window</summary>
+      <description>Determines what constitutes a maximized window: both horizontally and vertically maximized, only vertically maximized, only horizontally maximized, or any of these.</description>
     </key>
     <key name="colors" type="as">
       <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>

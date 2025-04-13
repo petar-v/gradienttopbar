@@ -20,6 +20,7 @@ export const MAXIMIZED_COLORS = 'maximized-colors';
  * @returns {Object} The complete configuration object
  */
 export const getConfig = settings => {
+    const maximizationType = settings.get_string('maximization-type');
     const maximizedBehavior = settings.get_string(MAXIMIZED_BEHAVIOR);
     const colors = settings.get_value(COLORS).deep_unpack();
     const gradientDirection = settings.get_string(GRADIENT_DIRECTION);
@@ -28,6 +29,7 @@ export const getConfig = settings => {
 
     return {
         maximizedBehavior,
+        maximizationType,
         gradientDirection,
         colors: {
             start: colors[0],
@@ -152,6 +154,7 @@ export const saveMaximizedColors = (settings, startRgba, endRgba) => {
 export const attachSettingsListeners = (settings, listener) => {
     settings.connect(`changed::${GRADIENT_DIRECTION}`, listener);
     settings.connect(`changed::${MAXIMIZED_BEHAVIOR}`, listener);
+    settings.connect('changed::maximization-type', listener);
     settings.connect(`changed::${COLORS}`, listener);
     settings.connect(`changed::${MAXIMIZED_COLORS}`, listener);
     settings.connect(`changed::${MAXIMIZED_GRADIENT_DIRECTION}`, listener);
@@ -166,6 +169,7 @@ export const attachSettingsListeners = (settings, listener) => {
 export const detachSettingsListeners = (settings, listener) => {
     settings.disconnect(`changed::${GRADIENT_DIRECTION}`, listener);
     settings.disconnect(`changed::${MAXIMIZED_BEHAVIOR}`, listener);
+    settings.disconnect('changed::maximization-type', listener);
     settings.disconnect(`changed::${COLORS}`, listener);
     settings.disconnect(`changed::${MAXIMIZED_COLORS}`, listener);
     settings.disconnect(`changed::${MAXIMIZED_GRADIENT_DIRECTION}`, listener);
