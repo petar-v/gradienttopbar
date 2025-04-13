@@ -8,8 +8,12 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 import {
     getConfig,
     attachSettingsListeners,
-    detachSettingsListeners
+    detachSettingsListeners,
+    getMaximizedBehavior,
+    setMaximizedBehavior
 } from '../config.js';
+
+import { MAXIMIZED_BEHAVIOR } from '../constants.js';
 
 const MaximizedBehavior = GObject.registerClass(
     {
@@ -57,9 +61,9 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         [
-            new MaximizedBehavior(gettext('Keep gradient'), 'keep-gradient'),
-            new MaximizedBehavior(gettext('Keep original theme'), 'keep-theme'),
-            new MaximizedBehavior(gettext('Apply style'), 'apply-style')
+            new MaximizedBehavior(gettext('Keep gradient'), MAXIMIZED_BEHAVIOR.KEEP_GRADIENT),
+            new MaximizedBehavior(gettext('Keep original theme'), MAXIMIZED_BEHAVIOR.KEEP_THEME),
+            new MaximizedBehavior(gettext('Apply style'), MAXIMIZED_BEHAVIOR.APPLY_STYLE)
         ].forEach(behavior => maximizedBehaviorModel.append(behavior));
 
         // Create dropdown for maximized behavior
@@ -84,12 +88,12 @@ class Behavior extends Adw.PreferencesPage {
         };
 
         // Set initial value
-        setMaximizedBehaviorOnRow(maximizedBehaviorRow, this._settings.get_string('maximized-behavior'));
+        setMaximizedBehaviorOnRow(maximizedBehaviorRow, getMaximizedBehavior(this._settings));
 
         // Connect to changes
         maximizedBehaviorRow.connect('notify::selected', () => {
             const { selectedItem } = maximizedBehaviorRow;
-            settings.set_string('maximized-behavior', selectedItem.value);
+            setMaximizedBehavior(this._settings, selectedItem.value);
         });
 
         behaviorGroup.add(maximizedBehaviorRow);

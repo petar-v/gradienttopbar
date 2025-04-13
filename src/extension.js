@@ -2,9 +2,11 @@ import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { applyGradientStyle, toggleGradient } from './gradient.js';
 import {
     getConfig,
+    getMaximizedBehavior,
     attachSettingsListeners,
     detachSettingsListeners
 } from './config.js';
+import { MAXIMIZED_BEHAVIOR } from './constants.js';
 
 import WindowEvents from './events/windowEvents.js';
 
@@ -21,10 +23,10 @@ export default class GradientTopBar extends Extension {
             const config = getConfig(settings);
             applyGradientStyle(config, this.path);
 
-            const maximizedBehavior = config.maximizedBehavior;
+            const maximizedBehavior = getMaximizedBehavior(settings);
 
             // If set to keep-gradient, disable window events to save resources
-            if (maximizedBehavior === 'keep-gradient') {
+            if (maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT) {
                 if (this.windowEvents)
                     this.windowEvents.disable();
                 // Always show the gradient when in keep-gradient mode
@@ -79,20 +81,20 @@ export default class GradientTopBar extends Extension {
               .filter(window => maximizedWindows.has(window.get_id()));
 
                     const hasMaximizedWindows = workspaceDisplayMaximizedWindows.length > 0;
-                    const maximizedBehavior = this._settings.get_string('maximized-behavior');
+                    const maximizedBehavior = getMaximizedBehavior(this._settings);
 
                     if (hasMaximizedWindows) {
                         // Handle different behaviors for maximized windows
                         switch (maximizedBehavior) {
-                            case 'keep-gradient':
+                            case MAXIMIZED_BEHAVIOR.KEEP_GRADIENT:
                                 // Keep the normal gradient
                                 this.toggleGradient(true, false);
                                 break;
-                            case 'keep-theme':
+                            case MAXIMIZED_BEHAVIOR.KEEP_THEME:
                                 // Remove the gradient to show the default theme
                                 this.toggleGradient(false, false);
                                 break;
-                            case 'apply-style':
+                            case MAXIMIZED_BEHAVIOR.APPLY_STYLE:
                                 // Apply the maximized gradient style
                                 this.toggleGradient(true, true);
                                 break;
@@ -113,7 +115,7 @@ export default class GradientTopBar extends Extension {
         const config = getConfig(this._settings);
 
         // Only initialize and enable window events if not using keep-gradient
-        if (config.maximizedBehavior !== 'keep-gradient') {
+        if (getMaximizedBehavior(this._settings) !== MAXIMIZED_BEHAVIOR.KEEP_GRADIENT) {
             this.initializeWindowEvents();
             this.windowEvents.enable();
         }
