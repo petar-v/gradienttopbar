@@ -24,13 +24,30 @@ const OVERVIEW_HIDING = 'hiding';
 // FIXME: this causes the overview to close on login
 const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
 
+/**
+ * Determines if a window is maximized or full-screen
+ * 
+ * @param {Meta.Window} window - The window to check
+ * @returns {boolean} True if the window is maximized or full-screen
+ */
 const isMaximized = window =>
     !isDesktopIconsNG(window) &&
   (window.is_monitor_sized() ||
     window.is_screen_sized() ||
     [BOTH, VERTICAL].includes(window.get_maximized()));
 
+/**
+ * Manages window events and tracks window state changes
+ * Used to detect maximized windows and trigger appropriate UI updates
+ */
 export default class WindowEvents {
+    /**
+     * Creates a new WindowEvents instance
+     * 
+     * @param {Meta.Display} display - The GNOME Shell display
+     * @param {Meta.WindowManager} windowManager - The GNOME Shell window manager
+     * @param {Meta.WorkspaceManager} workspaceManager - The GNOME Shell workspace manager
+     */
     constructor(display, windowManager, workspaceManager) {
         this.display = display;
         this.windowManager = windowManager;
@@ -46,10 +63,20 @@ export default class WindowEvents {
         this.lastState = null;
     }
 
+    /**
+     * Sets the callback function to be called when window state changes
+     * 
+     * @param {Function} callback - The callback function that receives the current state
+     */
     setStateChangeCallback(callback) {
         this.stateChangeCallback = callback;
     }
 
+    /**
+     * Gets the current window state
+     * 
+     * @returns {Object} An object containing the current state (maximizedWindows, currentWorkspace, inOverview)
+     */
     getCurrentState() {
         return {
             maximizedWindows: this.maximizedWindows,
@@ -58,6 +85,11 @@ export default class WindowEvents {
         };
     }
 
+    /**
+     * Emits a state change event if the state has changed or if forced
+     * 
+     * @param {boolean} force - If true, emits the event even if the state hasn't changed
+     */
     emitStateChange(force = false) {
         const currentState = this.getCurrentState();
         if (force || !areSameState(this.lastState, currentState)) {
@@ -66,6 +98,10 @@ export default class WindowEvents {
         }
     }
 
+    /**
+     * Forces a state update by re-evaluating maximized windows and emitting a state change
+     * Used when the state needs to be refreshed regardless of detected changes
+     */
     forceStateUpdate() {
         // Re-evaluate maximized windows
         this.maximizedWindows = this.getMaximizedWindowIds();
@@ -73,7 +109,16 @@ export default class WindowEvents {
         this.emitStateChange(true);
     }
 
+    /**
+     * Enables window event tracking
+     * Sets up all event listeners and initializes the current state
+     */
     enable() {
+        /**
+         * Handles window size change events
+         * 
+         * @param {Meta.Window} window - The window that changed size
+         */
         const onWindowSizeChange = window => {
             if (isMaximized(window))
                 this.maximizedWindows.add(window.get_id());
@@ -83,11 +128,22 @@ export default class WindowEvents {
             this.emitStateChange();
         };
 
+        /**
+         * Handles workspace change events
+         * 
+         * @param {Meta.WorkspaceManager} workspaceManager - The workspace manager
+         */
         const onWorkspaceChanged = workspaceManager => {
             this.workspace = workspaceManager.get_active_workspace();
             this.emitStateChange();
         };
 
+        /**
+         * Handles window destruction events
+         * 
+         * @param {*} _ - Unused parameter
+         * @param {Meta.WindowActor} windowActor - The window actor being destroyed
+         */
         const onWindowDestroy = (_, windowActor) => {
             const window = windowActor.get_meta_window();
             this.maximizedWindows.delete(window.get_id());
@@ -96,6 +152,11 @@ export default class WindowEvents {
             this.emitStateChange();
         };
 
+        /**
+         * Attaches event listeners to a window
+         * 
+         * @param {Meta.Window} window - The window to attach events to
+         */
         const attachWindowEvents = window => {
             if (isDesktopIconsNG(window))
                 return;
@@ -118,12 +179,24 @@ export default class WindowEvents {
             );
         };
 
+        /**
+         * Handles window minimize events
+         * 
+         * @param {*} _ - Unused parameter
+         * @param {Meta.WindowActor} windowActor - The window actor being minimized
+         */
         const onWindowMinimize = (_, windowActor) => {
             const windowId = windowActor.get_meta_window().get_id();
             this.maximizedWindows.delete(windowId);
             this.emitStateChange();
         };
 
+        /**
+         * Handles window raise (unminimize) events
+         * 
+         * @param {*} _ - Unused parameter
+         * @param {Meta.WindowActor} windowActor - The window actor being raised
+         */
         const onWindowRaise = (_, windowActor) => {
             const window = windowActor.get_meta_window();
             if (isMaximized(window))
@@ -202,6 +275,10 @@ export default class WindowEvents {
         this.emitStateChange();
     }
 
+    /**
+     * Disables window event tracking
+     * Cleans up all event listeners and resets the state
+     */
     disable() {
         this.eventManager.disconnectAllEvents();
         this.display.list_all_windows().forEach(window => {
@@ -214,6 +291,11 @@ export default class WindowEvents {
         this.lastState = null;
     }
 
+    /**
+     * Gets the IDs of all currently maximized windows
+     * 
+     * @returns {Set<number>} A set containing the IDs of all maximized windows
+     */
     getMaximizedWindowIds() {
         return new Set(
             this.display
