@@ -26,15 +26,25 @@ const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this i
 
 /**
  * Determines if a window is maximized or full-screen
- * 
+ *
  * @param {Meta.Window} window - The window to check
  * @returns {boolean} True if the window is maximized or full-screen
  */
-const isMaximized = window =>
-    !isDesktopIconsNG(window) &&
-  (window.is_monitor_sized() ||
-    window.is_screen_sized() ||
-    [BOTH, VERTICAL].includes(window.get_maximized()));
+const isMaximized = window => {
+    // Ignore Desktop Icons NG windows
+    if (isDesktopIconsNG(window))
+        return false;
+
+
+    // Check if window is full-screen
+    if (window.is_monitor_sized() || window.is_screen_sized())
+        return true;
+
+
+    // Check if window is maximized (either vertically or both dimensions)
+    const maximizeFlags = window.get_maximized();
+    return [BOTH, VERTICAL].includes(maximizeFlags);
+};
 
 /**
  * Manages window events and tracks window state changes
@@ -43,7 +53,7 @@ const isMaximized = window =>
 export default class WindowEvents {
     /**
      * Creates a new WindowEvents instance
-     * 
+     *
      * @param {Meta.Display} display - The GNOME Shell display
      * @param {Meta.WindowManager} windowManager - The GNOME Shell window manager
      * @param {Meta.WorkspaceManager} workspaceManager - The GNOME Shell workspace manager
@@ -65,7 +75,7 @@ export default class WindowEvents {
 
     /**
      * Sets the callback function to be called when window state changes
-     * 
+     *
      * @param {Function} callback - The callback function that receives the current state
      */
     setStateChangeCallback(callback) {
@@ -74,7 +84,7 @@ export default class WindowEvents {
 
     /**
      * Gets the current window state
-     * 
+     *
      * @returns {Object} An object containing the current state (maximizedWindows, currentWorkspace, inOverview)
      */
     getCurrentState() {
@@ -87,7 +97,7 @@ export default class WindowEvents {
 
     /**
      * Emits a state change event if the state has changed or if forced
-     * 
+     *
      * @param {boolean} force - If true, emits the event even if the state hasn't changed
      */
     emitStateChange(force = false) {
@@ -116,7 +126,7 @@ export default class WindowEvents {
     enable() {
         /**
          * Handles window size change events
-         * 
+         *
          * @param {Meta.Window} window - The window that changed size
          */
         const onWindowSizeChange = window => {
@@ -130,7 +140,7 @@ export default class WindowEvents {
 
         /**
          * Handles workspace change events
-         * 
+         *
          * @param {Meta.WorkspaceManager} workspaceManager - The workspace manager
          */
         const onWorkspaceChanged = workspaceManager => {
@@ -140,7 +150,7 @@ export default class WindowEvents {
 
         /**
          * Handles window destruction events
-         * 
+         *
          * @param {*} _ - Unused parameter
          * @param {Meta.WindowActor} windowActor - The window actor being destroyed
          */
@@ -154,7 +164,7 @@ export default class WindowEvents {
 
         /**
          * Attaches event listeners to a window
-         * 
+         *
          * @param {Meta.Window} window - The window to attach events to
          */
         const attachWindowEvents = window => {
@@ -181,7 +191,7 @@ export default class WindowEvents {
 
         /**
          * Handles window minimize events
-         * 
+         *
          * @param {*} _ - Unused parameter
          * @param {Meta.WindowActor} windowActor - The window actor being minimized
          */
@@ -193,7 +203,7 @@ export default class WindowEvents {
 
         /**
          * Handles window raise (unminimize) events
-         * 
+         *
          * @param {*} _ - Unused parameter
          * @param {Meta.WindowActor} windowActor - The window actor being raised
          */
@@ -293,7 +303,7 @@ export default class WindowEvents {
 
     /**
      * Gets the IDs of all currently maximized windows
-     * 
+     *
      * @returns {Set<number>} A set containing the IDs of all maximized windows
      */
     getMaximizedWindowIds() {
