@@ -43,50 +43,49 @@ export default class WindowEvents {
         this.workspace = null;
         this.inOverview = false;
         this.maximizedWindows = new Set();
+        this.lastState = null;
     }
 
     setStateChangeCallback(callback) {
         this.stateChangeCallback = callback;
     }
 
-    forceStateUpdate() {
-        // Re-evaluate maximized windows
-        this.maximizedWindows = this.getMaximizedWindowIds();
-        const currentState = {
+    getCurrentState() {
+        return {
             maximizedWindows: this.maximizedWindows,
             currentWorkspace: this.workspace,
             inOverview: this.inOverview
         };
+    }
+
+    emitStateChange(force = false) {
+        const currentState = this.getCurrentState();
+        if (force || !areSameState(this.lastState, currentState)) {
+            this.lastState = currentState;
+            this.stateChangeCallback(currentState);
+        }
+    }
+
+    forceStateUpdate() {
+        // Re-evaluate maximized windows
+        this.maximizedWindows = this.getMaximizedWindowIds();
         // Force state change emission
-        this.stateChangeCallback(currentState);
+        this.emitStateChange(true);
     }
 
     enable() {
-        let lastState = null;
-        const emitStateChange = () => {
-            const currentState = {
-                maximizedWindows: this.maximizedWindows,
-                currentWorkspace: this.workspace,
-                inOverview: this.inOverview
-            };
-            if (!areSameState(lastState, currentState)) {
-                lastState = currentState;
-                this.stateChangeCallback(currentState);
-            }
-        };
-
         const onWindowSizeChange = window => {
             if (isMaximized(window))
                 this.maximizedWindows.add(window.get_id());
             else
                 this.maximizedWindows.delete(window.get_id());
 
-            emitStateChange();
+            this.emitStateChange();
         };
 
         const onWorkspaceChanged = workspaceManager => {
             this.workspace = workspaceManager.get_active_workspace();
-            emitStateChange();
+            this.emitStateChange();
         };
 
         const onWindowDestroy = (_, windowActor) => {
@@ -94,7 +93,7 @@ export default class WindowEvents {
             this.maximizedWindows.delete(window.get_id());
             this.eventManager.disconnectWindowEvents(window);
 
-            emitStateChange();
+            this.emitStateChange();
         };
 
         const attachWindowEvents = window => {
@@ -115,21 +114,21 @@ export default class WindowEvents {
             this.eventManager.attachWindowEventOnce(
                 WINDOW_WORKSPACE_CHANGED,
                 window,
-                forceStateChangeEmission
+                () => this.forceStateUpdate()
             );
         };
 
         const onWindowMinimize = (_, windowActor) => {
             const windowId = windowActor.get_meta_window().get_id();
             this.maximizedWindows.delete(windowId);
-            emitStateChange();
+            this.emitStateChange();
         };
 
         const onWindowRaise = (_, windowActor) => {
             const window = windowActor.get_meta_window();
             if (isMaximized(window))
                 this.maximizedWindows.add(window.get_id());
-            emitStateChange();
+            this.emitStateChange();
         };
 
         this.workspace = this.workspaceManager.get_active_workspace();
@@ -142,7 +141,7 @@ export default class WindowEvents {
             this.display,
             (_, window) => {
                 attachWindowEvents(window);
-                emitStateChange();
+                this.emitStateChange();
             }
         );
         this.eventManager.attachGlobalEventOnce(
@@ -169,21 +168,21 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(
             WINDOW_EXIT_MONITOR,
             this.display,
-            () => emitStateChange(true)
+            () => this.emitStateChange(true)
         );
 
         // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
-        // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, forceStateChangeEmission);
-        // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, forceStateChangeEmission);
+        // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, () => this.forceStateUpdate());
+        // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, () => this.forceStateUpdate());
 
         // disable style changes when in overview - might make this a config option
         this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
             this.inOverview = true;
-            emitStateChange();
+            this.emitStateChange();
         });
         this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
             this.inOverview = false;
-            emitStateChange();
+            this.emitStateChange();
         });
 
         // TODO: instead of on size change, listen for https://gjs-docs.gnome.org/meta13~13/meta.window#property-maximized_horizontally or vertically
@@ -200,7 +199,7 @@ export default class WindowEvents {
             this.forceStateUpdate();
         });
 
-        emitStateChange();
+        this.emitStateChange();
     }
 
     disable() {
@@ -212,6 +211,7 @@ export default class WindowEvents {
         this.workspace = null;
         this.maximizedWindows = new Set();
         this.inOverview = null;
+        this.lastState = null;
     }
 
     getMaximizedWindowIds() {
