@@ -25,6 +25,9 @@ const OVERVIEW_HIDING = 'hiding';
 // FIXME: this causes the overview to close on login
 const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
 
+// Check if window is full screen or monitor sized
+const isFullScreen = window => window.is_monitor_sized() || window.is_screen_sized();
+
 /**
  * Determines if a window is maximized or full-screen
  *
@@ -37,27 +40,19 @@ const isMaximized = (window, maximizationType = MAXIMIZATION_TYPE.BOTH) => {
     if (isDesktopIconsNG(window))
         return false;
 
-
-    // Check if window is full-screen
-    if (window.is_monitor_sized() || window.is_screen_sized())
-        return true;
-
-
-    // Check if window is maximized (either vertically or both dimensions)
-
     const windowMaximizeState = window.get_maximized();
 
     switch (maximizationType) {
         case MAXIMIZATION_TYPE.BOTH:
-            return windowMaximizeState === BOTH;
+            return windowMaximizeState === BOTH || isFullScreen(window);
         case MAXIMIZATION_TYPE.VERTICAL:
             return windowMaximizeState === VERTICAL || windowMaximizeState === BOTH;
         case MAXIMIZATION_TYPE.HORIZONTAL:
             return windowMaximizeState === HORIZONTAL || windowMaximizeState === BOTH;
         case MAXIMIZATION_TYPE.ANY:
             return windowMaximizeState === VERTICAL ||
-                windowMaximizeState === HORIZONTAL ||
-                windowMaximizeState === BOTH;
+                   windowMaximizeState === HORIZONTAL ||
+                   windowMaximizeState === BOTH || isFullScreen(window);
         default:
             return windowMaximizeState === BOTH;
     }

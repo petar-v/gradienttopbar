@@ -23,10 +23,15 @@ export default class GradientTopBar extends Extension {
             const config = getConfig(settings);
             applyGradientStyle(config, this.path);
 
-            // Update maximization type if it changed
-            if (this.windowEvents) {
-                this.windowEvents.setMaximizationType(config.maximizationType);
+            // For other behaviors, we need to track window states
+            if (!this.windowEvents) {
+                // If window events were not initialized, initialize them now
+                this.initializeWindowEvents();
             }
+            // Update maximization type if it changed
+            if (this.windowEvents)
+                this.windowEvents.setMaximizationType(config.maximizationType);
+
             const maximizedBehavior = getMaximizedBehavior(settings);
 
             // If set to keep-gradient, disable window events to save resources
@@ -38,11 +43,6 @@ export default class GradientTopBar extends Extension {
                 return;
             }
 
-            // For other behaviors, we need to track window states
-            if (!this.windowEvents) {
-                // If window events were not initialized, initialize them now
-                this.initializeWindowEvents();
-            }
             this.windowEvents.enable();
 
             // Force update to apply the current behavior
