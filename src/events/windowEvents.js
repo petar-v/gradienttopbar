@@ -49,15 +49,27 @@ export default class WindowEvents {
         this.stateChangeCallback = callback;
     }
 
+    forceStateUpdate() {
+        // Re-evaluate maximized windows
+        this.maximizedWindows = this.getMaximizedWindowIds();
+        const currentState = {
+            maximizedWindows: this.maximizedWindows,
+            currentWorkspace: this.workspace,
+            inOverview: this.inOverview
+        };
+        // Force state change emission
+        this.stateChangeCallback(currentState);
+    }
+
     enable() {
         let lastState = null;
-        const emitStateChange = force => {
+        const emitStateChange = () => {
             const currentState = {
                 maximizedWindows: this.maximizedWindows,
                 currentWorkspace: this.workspace,
                 inOverview: this.inOverview
             };
-            if (force || !areSameState(lastState, currentState)) {
+            if (!areSameState(lastState, currentState)) {
                 lastState = currentState;
                 this.stateChangeCallback(currentState);
             }
@@ -120,8 +132,6 @@ export default class WindowEvents {
             emitStateChange();
         };
 
-        const forceStateChangeEmission = () => emitStateChange(true);
-
         this.workspace = this.workspaceManager.get_active_workspace();
 
         // TODO: what if the window starts as maximized dimensions but is not "snapped"?
@@ -159,7 +169,7 @@ export default class WindowEvents {
         this.eventManager.attachGlobalEventOnce(
             WINDOW_EXIT_MONITOR,
             this.display,
-            forceStateChangeEmission
+            () => emitStateChange(true)
         );
 
         // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
@@ -211,17 +221,5 @@ export default class WindowEvents {
                 .filter(isMaximized)
                 .map(window => window.get_id())
         );
-    }
-
-    forceStateUpdate() {
-        // Re-evaluate maximized windows
-        this.maximizedWindows = this.getMaximizedWindowIds();
-
-        // Force state change emission
-        this.stateChangeCallback({
-            maximizedWindows: this.maximizedWindows,
-            currentWorkspace: this.workspace,
-            inOverview: this.inOverview
-        });
     }
 }

@@ -21,10 +21,23 @@ export default class GradientTopBar extends Extension {
             const config = getConfig(settings);
             applyGradientStyle(config, this.path);
 
-            // Always enable window events to track maximized windows
-            this.windowEvents.enable();
+            const maximizedBehavior = config.maximizedBehavior;
 
-            // Force update to apply the current behavior
+            // If set to keep-gradient, disable window events to save resources
+            if (maximizedBehavior === 'keep-gradient') {
+                if (this.windowEvents)
+                    this.windowEvents.disable();
+                // Always show the gradient when in keep-gradient mode
+                this.toggleGradient(true, false);
+                return;
+            }
+
+            // For other behaviors, we need to track window states
+            if (!this.windowEvents) {
+                // If window events were not initialized, initialize them now
+                this.initializeWindowEvents();
+            }
+            this.windowEvents.enable();
             this.windowEvents.forceStateUpdate();
         };
     }
@@ -40,62 +53,70 @@ export default class GradientTopBar extends Extension {
         this.hasMaximizedWindows = hasMaximizedWindows;
     }
 
+    initializeWindowEvents() {
+        if (!this.windowEvents) {
+            this.windowEvents = new WindowEvents(
+                global.display,
+                global.window_manager,
+                global.get_workspace_manager()
+            );
+
+            this.windowEvents.setStateChangeCallback(
+                ({ maximizedWindows, currentWorkspace, inOverview }) => {
+                    if (inOverview) {
+                        this.toggleGradient(true, false);
+                        return;
+                    }
+
+                    const workspaceDisplayMaximizedWindows = currentWorkspace
+              .list_windows()
+              // filter windows only on the primary monitor
+              .filter(
+                  window =>
+                      window.get_monitor() === global.display.get_primary_monitor()
+              ) // TODO: or is_on_primary_monitor()
+              // filter maximized windows on the primary monitor
+              .filter(window => maximizedWindows.has(window.get_id()));
+
+                    const hasMaximizedWindows = workspaceDisplayMaximizedWindows.length > 0;
+                    const maximizedBehavior = this._settings.get_string('maximized-behavior');
+
+                    if (hasMaximizedWindows) {
+                        // Handle different behaviors for maximized windows
+                        switch (maximizedBehavior) {
+                            case 'keep-gradient':
+                                // Keep the normal gradient
+                                this.toggleGradient(true, false);
+                                break;
+                            case 'keep-theme':
+                                // Remove the gradient to show the default theme
+                                this.toggleGradient(false, false);
+                                break;
+                            case 'apply-style':
+                                // Apply the maximized gradient style
+                                this.toggleGradient(true, true);
+                                break;
+                        }
+                    } else {
+                        // No maximized windows, apply normal gradient
+                        this.toggleGradient(true, false);
+                    }
+                }
+            );
+        }
+    }
+
     enable() {
         this._settings = this.getSettings();
-        this.windowEvents = new WindowEvents(
-            global.display,
-            global.window_manager,
-            global.get_workspace_manager()
-        );
-        this.windowEvents.setStateChangeCallback(
-            ({ maximizedWindows, currentWorkspace, inOverview }) => {
-                if (inOverview) {
-                    this.toggleGradient(true, false);
-                    return;
-                }
-
-                const workspaceDisplayMaximizedWindows = currentWorkspace
-          .list_windows()
-          // filter windows only on the primary monitor
-          .filter(
-              window =>
-                  window.get_monitor() === global.display.get_primary_monitor()
-          ) // TODO: or is_on_primary_monitor()
-          // filter maximized windows on the primary monitor
-          .filter(window => maximizedWindows.has(window.get_id()));
-
-                const hasMaximizedWindows = workspaceDisplayMaximizedWindows.length > 0;
-                const maximizedBehavior = this._settings.get_string('maximized-behavior');
-
-                if (hasMaximizedWindows) {
-                    // Handle different behaviors for maximized windows
-                    switch (maximizedBehavior) {
-                        case 'keep-gradient':
-                            // Keep the normal gradient
-                            this.toggleGradient(true, false);
-                            break;
-                        case 'keep-theme':
-                            // Remove the gradient to show the default theme
-                            this.toggleGradient(false, false);
-                            break;
-                        case 'apply-style':
-                            // Apply the maximized gradient style
-                            this.toggleGradient(true, true);
-                            break;
-                    }
-                } else {
-                    // No maximized windows, apply normal gradient
-                    this.toggleGradient(true, false);
-                }
-            }
-        );
-
         attachSettingsListeners(this._settings, this.onSettingsChanged);
 
         const config = getConfig(this._settings);
 
-        // Always enable window events to track maximized windows
-        this.windowEvents.enable();
+        // Only initialize and enable window events if not using keep-gradient
+        if (config.maximizedBehavior !== 'keep-gradient') {
+            this.initializeWindowEvents();
+            this.windowEvents.enable();
+        }
 
         // initially set up the gradient
         applyGradientStyle(config, this.path);
@@ -103,11 +124,14 @@ export default class GradientTopBar extends Extension {
     }
 
     disable() {
-        this.windowEvents.disable();
+        if (this.windowEvents) {
+            this.windowEvents.disable();
+            this.windowEvents = null;
+        }
+
         this.toggleGradient(false);
         detachSettingsListeners(this._settings, this.onSettingsChanged);
 
-        this.windowEvents = null;
         this.isEffectApplied = false;
         this._settings = null;
     }
