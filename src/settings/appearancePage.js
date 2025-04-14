@@ -10,10 +10,14 @@ import {
     getConfig,
     saveColors,
     saveMaximizedColors,
+    setGradientDirection,
+    setMaximizedGradientDirection,
+    getMaximizedBehavior,
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
 import { createColorDialog } from './components/colorDialog.js';
+import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
 
 const GradientDirection = GObject.registerClass(
     {
@@ -88,8 +92,8 @@ class Appearance extends Adw.PreferencesPage {
         });
 
         [
-            new GradientDirection(gettext('Vertical'), 'vertical'),
-            new GradientDirection(gettext('Horizontal'), 'horizontal')
+            new GradientDirection(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
+            new GradientDirection(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
         ].forEach(d => gradientDirectionModel.append(d));
 
         const directionRow = new Adw.ComboRow({
@@ -101,7 +105,7 @@ class Appearance extends Adw.PreferencesPage {
 
         directionRow.connect('notify::selected', () => {
             const { selectedItem } = directionRow;
-            settings.set_string('gradient-direction', selectedItem.value);
+            setGradientDirection(settings, selectedItem.value);
         });
 
         setGradientDirectionOnRow(directionRow, gradientDirection);
@@ -147,7 +151,7 @@ class Appearance extends Adw.PreferencesPage {
 
         maximizedDirectionRow.connect('notify::selected', () => {
             const { selectedItem } = maximizedDirectionRow;
-            settings.set_string('maximized-gradient-direction', selectedItem.value);
+            setMaximizedGradientDirection(settings, selectedItem.value);
         });
 
         setGradientDirectionOnRow(maximizedDirectionRow, maximizedGradientDirection);
@@ -181,8 +185,8 @@ class Appearance extends Adw.PreferencesPage {
 
         // Function to update the sensitivity of maximized gradient settings
         const updateMaximizedGradientVisibility = () => {
-            const maximizedBehavior = settings.get_string('maximized-behavior');
-            const isApplyStyle = maximizedBehavior === 'apply-style';
+            const maximizedBehavior = getMaximizedBehavior(settings);
+            const isApplyStyle = maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
 
             // Keep the group visible but set sensitivity based on the setting
             maximizedGradientGroup.set_sensitive(isApplyStyle);
