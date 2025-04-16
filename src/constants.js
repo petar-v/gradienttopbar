@@ -9,6 +9,14 @@ export const MAXIMIZED_BEHAVIOR = {
     APPLY_STYLE: 'apply-style'
 };
 
+// Maximization type constants
+export const MAXIMIZATION_TYPE = {
+    BOTH: 'both',
+    VERTICAL: 'vertical',
+    HORIZONTAL: 'horizontal',
+    ANY: 'any'
+};
+
 // Gradient directions
 export const GRADIENT_DIRECTION = {
     VERTICAL: 'vertical',
