@@ -23,6 +23,15 @@ export default class GradientTopBar extends Extension {
             const config = getConfig(settings);
             applyGradientStyle(config, this.path);
 
+            // For other behaviors, we need to track window states
+            if (!this.windowEvents) {
+                // If window events were not initialized, initialize them now
+                this.initializeWindowEvents();
+            }
+            // Update maximization type if it changed
+            if (this.windowEvents)
+                this.windowEvents.setMaximizationType(config.maximizationType);
+
             const maximizedBehavior = getMaximizedBehavior(settings);
 
             // If set to keep-gradient, disable window events to save resources
@@ -34,12 +43,9 @@ export default class GradientTopBar extends Extension {
                 return;
             }
 
-            // For other behaviors, we need to track window states
-            if (!this.windowEvents) {
-                // If window events were not initialized, initialize them now
-                this.initializeWindowEvents();
-            }
             this.windowEvents.enable();
+
+            // Force update to apply the current behavior
             this.windowEvents.forceStateUpdate();
         };
     }
@@ -62,6 +68,10 @@ export default class GradientTopBar extends Extension {
                 global.window_manager,
                 global.get_workspace_manager()
             );
+            const config = getConfig(this._settings);
+
+            // Set the maximization type from settings
+            this.windowEvents.setMaximizationType(config.maximizationType);
 
             this.windowEvents.setStateChangeCallback(
                 ({ maximizedWindows, currentWorkspace, inOverview }) => {
@@ -134,6 +144,7 @@ export default class GradientTopBar extends Extension {
         this.toggleGradient(false);
         detachSettingsListeners(this._settings, this.onSettingsChanged);
 
+        this.windowEvents = null;
         this.isEffectApplied = false;
         this._settings = null;
     }
