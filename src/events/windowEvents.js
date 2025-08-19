@@ -244,7 +244,6 @@ export default class WindowEvents {
             this.emitStateChange();
         };
 
-        const forceStateChangeEmission = () => emitStateChange(true);
 
         this.workspace = this.workspaceManager.get_active_workspace();
 

@@ -14,8 +14,6 @@ import {
 } from '../config.js';
 import { MAXIMIZED_BEHAVIOR, MAXIMIZATION_TYPE } from '../constants.js';
 
-import { MAXIMIZED_BEHAVIOR } from '../constants.js';
-
 const MaximizedBehavior = GObject.registerClass(
     {
         Properties: {
