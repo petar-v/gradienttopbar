@@ -15,6 +15,8 @@
   "author": "Petar Vasilev <petar@pshow.org>",
   "type": "module",
   "scripts": {
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "nested-wayland": "dbus-run-session -- gnome-shell --nested --wayland",
     "restart-gnome-shell": "DISPLAY=:0 XAUTHORITY=/var/run/gdm/auth-for-gdm-*/database gnome-shell --replace",
     "pref-debug": "journalctl -f -o cat /usr/bin/gjs",
@@ -34,6 +36,7 @@
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.6",
     "husky": "^9.1.7",
+    "jest": "^30.0.5",
     "prettier": "^3.5.3"
   },
   "husky": {
@@ -48,5 +51,17 @@
       "git add"
     ]
   },
-  "packageManager": "yarn@4.0.1"
+  "packageManager": "yarn@4.0.1",
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "moduleNameMapper": {
+      "^resource:///org/gnome/shell/ui/main.js$": "<rootDir>/test/mocks/main.js"
+    },
+    "globals": {
+      "jest": {
+        "useESM": true
+      }
+    }
+  }
 }
