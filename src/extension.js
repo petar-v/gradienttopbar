@@ -10,6 +10,16 @@ import { MAXIMIZED_BEHAVIOR } from './constants.js';
 
 import WindowEvents from './events/windowEvents.js';
 
+const isOnPrimaryMonitor = win => {
+    if (win?.is_on_primary_monitor)
+        return win.is_on_primary_monitor();
+
+    if (win?.get_monitor && global.display?.get_primary_monitor)
+        return win.get_monitor() === global.display.get_primary_monitor();
+    
+    return true;
+};
+
 export default class GradientTopBar extends Extension {
     constructor(metadata) {
         super(metadata);
@@ -73,10 +83,7 @@ export default class GradientTopBar extends Extension {
                     const workspaceDisplayMaximizedWindows = currentWorkspace
               .list_windows()
               // filter windows only on the primary monitor
-              .filter(
-                  window =>
-                      window.get_monitor() === global.display.get_primary_monitor()
-              ) // TODO: or is_on_primary_monitor()
+              .filter(isOnPrimaryMonitor)
               // filter maximized windows on the primary monitor
               .filter(window => maximizedWindows.has(window.get_id()));
 
