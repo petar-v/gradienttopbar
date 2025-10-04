@@ -25,7 +25,8 @@
     "zip": "cd src && zip -r ../gradienttopbar@pshow.org.shell-extension.zip .",
     "prettify": "prettier --write 'src/**/*.{css}' && yarn lint --fix",
     "lint": "eslint 'src/**/*.{js,json}'",
-    "precommit": "lint-staged"
+    "precommit": "lint-staged",
+    "upload": "gnome-extensions upload --accept-tos"
   },
   "devDependencies": {
     "eslint": "^9.25.1",
