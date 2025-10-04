@@ -2,12 +2,12 @@
   "name": "gnome-gradienttopbar",
   "title": "Gradient Top Bar",
   "description": "Makes GNOME's panel's background gradient. You can edit the colour scheme from the extension's settings in Gnome 45.",
-  "version": "22",
+  "version": "23",
   "engines": {
-    "gnome": ">=47"
+    "gnome": ">=49"
   },
   "shell-version": [
-    "48"
+    "49"
   ],
   "uuid": "gradienttopbar@pshow.org",
   "url": "https://github.com/petar-v/gradienttopbar",
