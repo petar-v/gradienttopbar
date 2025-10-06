@@ -1,6 +1,11 @@
 # Gradient Top Bar
 
-Makes the topbar's background gradient.
+Give GNOME’s top bar a customizable gradient.
+
+- Choose start and end colors of the gradient
+- Vertical or horizontal orientation
+- Separate style when a window is maximized: keep the gradient, keep the original theme, or apply a custom gradient
+- Simple preferences dialog
 
 
 ## Screenshot
