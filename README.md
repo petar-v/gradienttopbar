@@ -1,6 +1,11 @@
 # Gradient Top Bar
 
-Makes the topbar's background gradient.
+Give GNOME’s top bar a customizable gradient.
+
+- Choose start and end colors of the gradient
+- Vertical or horizontal orientation
+- Separate style when a window is maximized: keep the gradient, keep the original theme, or apply a custom gradient
+- Simple preferences dialog
 
 
 ## Screenshot
@@ -79,7 +84,7 @@ The project includes several scripts to help with development:
 ### Testing and Debugging
 
 - `yarn nested-wayland`: Runs a nested GNOME Shell session in Wayland mode for testing the extension without affecting your main session.
-- `yarn restart-gnome-shell`: Restarts the GNOME Shell (useful after making changes).
+- `yarn restart-gnome-shell`: Restarts GNOME Shell in the current session (may momentarily disrupt your desktop).
 - `yarn pref-debug`: Monitors logs from GJS (GNOME JavaScript) for debugging preferences.
 - `yarn open-prefs`: Opens the preferences dialog for the extension.
 
@@ -103,6 +108,9 @@ The project includes several scripts to help with development:
 3. Test your changes using `yarn local-install` and `yarn open-prefs`.
 4. If needed, debug using `yarn pref-debug` or `yarn nested-wayland`.
 5. Submit a pull request with your changes.
+6. To publish a new version:
+   1) Run `yarn zip-extension` (or `yarn zip`) to create the zip
+   2) Run `yarn upload` and follow the browser flow
 
 # To Do
 

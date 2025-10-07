@@ -36,13 +36,13 @@ const isMaximized = window => {
         return false;
 
 
-    // Check if window is full-screen
+    // Check if the window is full-screen
     if (window.is_monitor_sized() || window.is_screen_sized())
         return true;
 
 
-    // Check if window is maximized (either vertically or both dimensions)
-    const maximizeFlags = window.get_maximized();
+    // Check if the window is maximized (either vertically or both dimensions)
+    const maximizeFlags = window.get_maximize_flags();
     return [BOTH, VERTICAL].includes(maximizeFlags);
 };
 
