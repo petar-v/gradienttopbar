@@ -1,4 +1,5 @@
 import { screenShield } from 'resource:///org/gnome/shell/ui/main.js';
+import GLib from 'gi://GLib';
 
 class EventManager {
     constructor() {
@@ -51,8 +52,16 @@ class EventManager {
     }
 
     attachUnlockScreenEvent(callback) {
-        if (this.unlockHandlerId === null)
-            this.unlockHandlerId = screenShield.connect('unlock-screen', callback);
+        if (this.unlockHandlerId !== null)
+            return;
+        this.unlockHandlerId = screenShield.connect('unlock-screen', () => {
+            // Defer state refresh until the shell settles after unlock to avoid races
+            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                callback();
+                // Remove the idle source
+                return GLib.SOURCE_REMOVE;
+            });
+        });
     }
 
     detachUnlockScreenEvent() {

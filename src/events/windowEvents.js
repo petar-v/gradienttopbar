@@ -254,6 +254,13 @@ export default class WindowEvents {
             () => this.emitStateChange(true)
         );
 
+        // Re-evaluate state when monitor configuration changes (dock/undock, primary changes)
+        this.eventManager.attachGlobalEventOnce(
+            'monitors-changed',
+            this.display,
+            () => this.forceStateUpdate()
+        );
+
         // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
         // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, () => this.forceStateUpdate());
         // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, () => this.forceStateUpdate());
