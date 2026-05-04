@@ -7,7 +7,8 @@
     "gnome": ">=49"
   },
   "shell-version": [
-    "49"
+    "49",
+    "50"
   ],
   "uuid": "gradienttopbar@pshow.org",
   "url": "https://github.com/petar-v/gradienttopbar",
