@@ -2,12 +2,13 @@
   "name": "gnome-gradienttopbar",
   "title": "Gradient Top Bar",
   "description": "Give the top bar a customizable gradient. Choose direction and colors, and optionally use a different style or keep the theme when windows are maximized.",
-  "version": "23",
+  "version": "24",
   "engines": {
     "gnome": ">=49"
   },
   "shell-version": [
-    "49"
+    "49",
+    "50"
   ],
   "uuid": "gradienttopbar@pshow.org",
   "url": "https://github.com/petar-v/gradienttopbar",
