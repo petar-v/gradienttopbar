@@ -7,7 +7,7 @@
     "github": "petar-v",
     "paypal": "petarv73"
   },
-  "shell-version": ["49"],
+  "shell-version": ["49", "50"],
   "url": "https://github.com/petar-v/gradienttopbar",
   "version": 23,
   "gettext-domain": "org.pshow.gradienttopbar",
