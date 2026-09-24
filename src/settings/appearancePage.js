@@ -136,15 +136,15 @@ class Appearance extends Adw.PreferencesPage {
 
         this.add(gradientGroup);
 
-        // Add a new group for maximized window gradient settings
+        // Add a group for the alternate gradient settings
         const maximizedGradientGroup = new Adw.PreferencesGroup({
-            title: gettext('Maximized Window Gradient Appearance')
+            title: gettext('Alternate Gradient Appearance')
         });
 
         // Create direction dropdown for maximized windows
         const maximizedDirectionRow = new Adw.ComboRow({
-            title: gettext('Maximized Gradient Direction'),
-            subtitle: gettext('The orientation of the gradient when a window is maximized.'),
+            title: gettext('Alternate Gradient Direction'),
+            subtitle: gettext('The orientation when the style trigger is active.'),
             model: gradientDirectionModel,
             expression: new Gtk.PropertyExpression(GradientDirection, null, 'name')
         });
@@ -159,8 +159,8 @@ class Appearance extends Adw.PreferencesPage {
 
         // Create color pickers for maximized windows
         const maximizedStartColorChooserRow = createColorChooserRow(
-            gettext('Maximized Gradient Start Colour'),
-            gettext('The start color of the gradient when a window is maximized'),
+            gettext('Alternate Gradient Start Colour'),
+            gettext('The start color of the alternate gradient'),
             maximizedColors.start,
             rgba => {
                 maximizedColors.start = rgba;
@@ -170,8 +170,8 @@ class Appearance extends Adw.PreferencesPage {
         maximizedGradientGroup.add(maximizedStartColorChooserRow);
 
         const maximizedEndColorChooserRow = createColorChooserRow(
-            gettext('Maximized Gradient End Colour'),
-            gettext('The end color of the gradient when a window is maximized'),
+            gettext('Alternate Gradient End Colour'),
+            gettext('The end color of the alternate gradient'),
             maximizedColors.end,
             rgba => {
                 maximizedColors.end = rgba;

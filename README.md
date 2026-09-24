@@ -4,7 +4,8 @@ Give GNOME’s top bar a customizable gradient.
 
 - Choose start and end colors of the gradient
 - Vertical or horizontal orientation
-- Separate style when a window is maximized: keep the gradient, keep the original theme, or apply a custom gradient
+- Trigger an alternate style for maximized windows or windows near the panel
+- Keep the gradient, restore the original theme, or apply a custom gradient when triggered
 - Simple preferences dialog
 
 
