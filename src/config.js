@@ -1,6 +1,8 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { DEFAULT_PROXIMITY_DISTANCE } from './constants.js';
+
 export const SETTINGS_GSCHEMA =
   'org.gnome.shell.extensions.org.pshow.gradienttopbar';
 
@@ -73,7 +75,8 @@ export const setStyleTrigger = (settings, value) => {
     settings.set_string(STYLE_TRIGGER, value);
 };
 
-export const getProximityDistance = settings => settings.get_int(PROXIMITY_DISTANCE);
+export const getProximityDistance = settings =>
+    settings?.get_int(PROXIMITY_DISTANCE) ?? DEFAULT_PROXIMITY_DISTANCE;
 
 export const setProximityDistance = (settings, value) => {
     settings.set_int(PROXIMITY_DISTANCE, value);

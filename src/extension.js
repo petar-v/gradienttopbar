@@ -21,7 +21,7 @@ export default class GradientTopBar extends Extension {
         const maximizedBehavior = getMaximizedBehavior(settings);
         this.windowEvents.setBehaviour(
             getStyleTrigger(settings) === STYLE_TRIGGER.PROXIMITY
-                ? new ProximityWindows()
+                ? new ProximityWindows(settings)
                 : new MaximizedWindows()
         );
 
@@ -99,7 +99,7 @@ export default class GradientTopBar extends Extension {
             global.window_manager,
             global.get_workspace_manager(),
             getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY
-                ? new ProximityWindows()
+                ? new ProximityWindows(this._settings)
                 : new MaximizedWindows()
         );
         this.setWindowStateCallback();

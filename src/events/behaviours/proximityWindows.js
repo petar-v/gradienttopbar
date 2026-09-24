@@ -1,16 +1,21 @@
 import { layoutManager, panel } from 'resource:///org/gnome/shell/ui/main.js';
 
-const DEFAULT_PROXIMITY_DISTANCE = 5;
+import { getProximityDistance } from '../../config.js';
 
 // Keeps all panel-layout dependencies inside the proximity behaviour.
 export default class ProximityWindows {
+    constructor(settings) {
+        this.settings = settings;
+    }
+
     matches(window) {
         const { primaryMonitor } = layoutManager;
         if (!primaryMonitor)
             return false;
 
         // Include a small tolerance below the panel to avoid an exact-edge requirement.
-        const panelBottom = primaryMonitor.y + panel.get_height() + DEFAULT_PROXIMITY_DISTANCE;
+        const distance = getProximityDistance(this.settings);
+        const panelBottom = primaryMonitor.y + panel.get_height() + distance;
         return window.get_frame_rect().y <= panelBottom;
     }
 
