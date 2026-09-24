@@ -150,25 +150,23 @@ export const saveMaximizedColors = (settings, startRgba, endRgba) => {
  * @param {Function} listener - The callback function to call when settings change
  */
 export const attachSettingsListeners = (settings, listener) => {
-    settings.connect(`changed::${GRADIENT_DIRECTION}`, listener);
-    settings.connect(`changed::${MAXIMIZED_BEHAVIOR}`, listener);
-    settings.connect(`changed::${COLORS}`, listener);
-    settings.connect(`changed::${MAXIMIZED_COLORS}`, listener);
-    settings.connect(`changed::${MAXIMIZED_GRADIENT_DIRECTION}`, listener);
+    return [
+        GRADIENT_DIRECTION,
+        MAXIMIZED_BEHAVIOR,
+        COLORS,
+        MAXIMIZED_COLORS,
+        MAXIMIZED_GRADIENT_DIRECTION
+    ].map(key => settings.connect(`changed::${key}`, listener));
 };
 
 /**
  * Detaches listeners for all settings changes
  *
  * @param {Gio.Settings} settings - The settings object
- * @param {Function} listener - The callback function that was attached
+ * @param {number[]} handlerIds - The signal handler IDs returned when attaching
  */
-export const detachSettingsListeners = (settings, listener) => {
-    settings.disconnect(`changed::${GRADIENT_DIRECTION}`, listener);
-    settings.disconnect(`changed::${MAXIMIZED_BEHAVIOR}`, listener);
-    settings.disconnect(`changed::${COLORS}`, listener);
-    settings.disconnect(`changed::${MAXIMIZED_COLORS}`, listener);
-    settings.disconnect(`changed::${MAXIMIZED_GRADIENT_DIRECTION}`, listener);
+export const detachSettingsListeners = (settings, handlerIds) => {
+    handlerIds.forEach(id => settings.disconnect(id));
 };
 
 /**
