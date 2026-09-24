@@ -19,6 +19,12 @@
       <summary>Condition that triggers the alternate panel style</summary>
       <description>Use the alternate panel behavior for maximized windows or windows near the panel.</description>
     </key>
+    <key name="proximity-distance" type="i">
+      <range min="0" max="100"/>
+      <default>5</default>
+      <summary>Proximity distance</summary>
+      <description>Distance in pixels below the panel at which a window triggers the alternate style.</description>
+    </key>
     <key name="maximized-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
       <default>'keep-gradient'</default>
       <summary>Behavior when the style trigger is active</summary>
