@@ -4,7 +4,7 @@ Give GNOME’s top bar a customizable gradient.
 
 - Choose start and end colors of the gradient
 - Vertical or horizontal orientation
-- Trigger an alternate style for maximized windows or windows near the panel
+- Trigger an alternate style for maximized windows or windows within a configurable distance of the panel
 - Keep the gradient, restore the original theme, or apply a custom gradient when triggered
 - Simple preferences dialog
 
@@ -113,7 +113,7 @@ The project includes several scripts to help with development:
 4. If needed, debug using `yarn pref-debug` or `yarn nested-wayland`.
 5. Submit a pull request with your changes.
 6. To publish a new version:
-   1) Run `yarn zip-extension` (or `yarn zip`) to create the zip
+   1) Run `yarn zip` to create the complete extension zip
    2) Run `yarn upload` and follow the browser flow
 
 # To Do
