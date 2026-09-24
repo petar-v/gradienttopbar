@@ -9,11 +9,20 @@
     <value nick="keep-theme" value="1"/>
     <value nick="apply-style" value="2"/>
   </enum>
+  <enum id="org.gnome.shell.extensions.org.pshow.gradienttopbar.StyleTrigger">
+    <value nick="maximized" value="0"/>
+    <value nick="proximity" value="1"/>
+  </enum>
   <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
+    <key name="style-trigger" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.StyleTrigger">
+      <default>'maximized'</default>
+      <summary>Condition that triggers the alternate panel style</summary>
+      <description>Use the alternate panel behavior for maximized windows or windows near the panel.</description>
+    </key>
     <key name="maximized-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
       <default>'keep-gradient'</default>
-      <summary>Behavior when windows are maximized</summary>
-      <description>Determines what style to apply to the top bar when there is a maximized window: keep the normal gradient, use the default theme, or apply a custom style.</description>
+      <summary>Behavior when the style trigger is active</summary>
+      <description>Determines what style to apply to the top bar when the selected window condition is met: keep the normal gradient, use the default theme, or apply a custom style.</description>
     </key>
     <key name="colors" type="as">
       <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
