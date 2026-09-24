@@ -10,10 +10,12 @@ import {
     attachSettingsListeners,
     detachSettingsListeners,
     getMaximizedBehavior,
-    setMaximizedBehavior
+    setMaximizedBehavior,
+    getStyleTrigger,
+    setStyleTrigger
 } from '../config.js';
 
-import { MAXIMIZED_BEHAVIOR } from '../constants.js';
+import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
 
 const MaximizedBehavior = GObject.registerClass(
     {
@@ -55,6 +57,19 @@ class Behavior extends Adw.PreferencesPage {
             title: gettext('Behavior')
         });
 
+        const triggerModel = new Gio.ListStore({ item_type: MaximizedBehavior });
+        [
+            new MaximizedBehavior(gettext('Maximized windows'), STYLE_TRIGGER.MAXIMIZED),
+            new MaximizedBehavior(gettext('Proximity'), STYLE_TRIGGER.PROXIMITY)
+        ].forEach(trigger => triggerModel.append(trigger));
+
+        const triggerRow = new Adw.ComboRow({
+            title: gettext('Style trigger'),
+            subtitle: gettext('Choose when to apply the alternate top bar behavior'),
+            model: triggerModel,
+            expression: new Gtk.PropertyExpression(MaximizedBehavior, null, 'name')
+        });
+
         // Create model for maximized behavior dropdown
         const maximizedBehaviorModel = new Gio.ListStore({
             item_type: MaximizedBehavior
@@ -68,9 +83,9 @@ class Behavior extends Adw.PreferencesPage {
 
         // Create dropdown for maximized behavior
         const maximizedBehaviorRow = new Adw.ComboRow({
-            title: gettext('When windows are maximized'),
+            title: gettext('When triggered'),
             subtitle: gettext(
-                'Choose what style to apply to the top bar when there is a maximized window'
+                'Choose what style to apply to the top bar'
             ),
             model: maximizedBehaviorModel,
             expression: new Gtk.PropertyExpression(MaximizedBehavior, null, 'name')
@@ -89,19 +104,25 @@ class Behavior extends Adw.PreferencesPage {
 
         // Set initial value
         setMaximizedBehaviorOnRow(maximizedBehaviorRow, getMaximizedBehavior(this._settings));
+        setMaximizedBehaviorOnRow(triggerRow, getStyleTrigger(this._settings));
 
         // Connect to changes
         maximizedBehaviorRow.connect('notify::selected', () => {
             const { selectedItem } = maximizedBehaviorRow;
             setMaximizedBehavior(this._settings, selectedItem.value);
         });
+        triggerRow.connect('notify::selected', () => {
+            setStyleTrigger(this._settings, triggerRow.selectedItem.value);
+        });
 
+        behaviorGroup.add(triggerRow);
         behaviorGroup.add(maximizedBehaviorRow);
         this.add(behaviorGroup);
 
         const onSettingsChanged = s => {
             const config = getConfig(s);
             setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
+            setMaximizedBehaviorOnRow(triggerRow, config.styleTrigger);
         };
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
