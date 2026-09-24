@@ -15,10 +15,10 @@ export const areSameState = (state1, state2) => {
         return false;
     if (state1.inOverview !== state2.inOverview)
         return false;
-    if ([state1.workspace, state2.workspace].includes(undefined))
+    if ([state1.currentWorkspace, state2.currentWorkspace].includes(undefined))
         return false;
-    if (state1.workspace.index() !== state2.workspace.index())
+    if (state1.currentWorkspace.index() !== state2.currentWorkspace.index())
         return false;
 
-    return eqSet(state1.maximizedWindows, state2.maximizedWindows);
+    return eqSet(state1.triggerWindows, state2.triggerWindows);
 };
