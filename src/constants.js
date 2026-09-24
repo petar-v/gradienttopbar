@@ -9,6 +9,11 @@ export const MAXIMIZED_BEHAVIOR = {
     APPLY_STYLE: 'apply-style'
 };
 
+export const STYLE_TRIGGER = {
+    MAXIMIZED: 'maximized',
+    PROXIMITY: 'proximity'
+};
+
 // Gradient directions
 export const GRADIENT_DIRECTION = {
     VERTICAL: 'vertical',

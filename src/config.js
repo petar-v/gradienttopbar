@@ -8,6 +8,7 @@ const SETTINGS_GSCHEMA_PATH = `/${SETTINGS_GSCHEMA.replaceAll('.', '/')}/`;
 
 // Settings keys
 export const MAXIMIZED_BEHAVIOR = 'maximized-behavior';
+export const STYLE_TRIGGER = 'style-trigger';
 export const GRADIENT_DIRECTION = 'gradient-direction';
 export const MAXIMIZED_GRADIENT_DIRECTION = 'maximized-gradient-direction';
 export const COLORS = 'colors';
@@ -21,6 +22,7 @@ export const MAXIMIZED_COLORS = 'maximized-colors';
  */
 export const getConfig = settings => {
     const maximizedBehavior = settings.get_string(MAXIMIZED_BEHAVIOR);
+    const styleTrigger = settings.get_string(STYLE_TRIGGER);
     const colors = settings.get_value(COLORS).deep_unpack();
     const gradientDirection = settings.get_string(GRADIENT_DIRECTION);
     const maximizedColors = settings.get_value(MAXIMIZED_COLORS).deep_unpack();
@@ -28,6 +30,7 @@ export const getConfig = settings => {
 
     return {
         maximizedBehavior,
+        styleTrigger,
         gradientDirection,
         colors: {
             start: colors[0],
@@ -59,6 +62,12 @@ export const getMaximizedBehavior = settings => {
  */
 export const setMaximizedBehavior = (settings, value) => {
     settings.set_string(MAXIMIZED_BEHAVIOR, value);
+};
+
+export const getStyleTrigger = settings => settings.get_string(STYLE_TRIGGER);
+
+export const setStyleTrigger = (settings, value) => {
+    settings.set_string(STYLE_TRIGGER, value);
 };
 
 /**
@@ -153,6 +162,7 @@ export const attachSettingsListeners = (settings, listener) => {
     return [
         GRADIENT_DIRECTION,
         MAXIMIZED_BEHAVIOR,
+        STYLE_TRIGGER,
         COLORS,
         MAXIMIZED_COLORS,
         MAXIMIZED_GRADIENT_DIRECTION
