@@ -103,9 +103,9 @@ class Behavior extends Adw.PreferencesPage {
             const config = getConfig(s);
             setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
         };
-        attachSettingsListeners(settings, onSettingsChanged);
+        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
-            detachSettingsListeners(settings, onSettingsChanged);
+            detachSettingsListeners(settings, settingsHandlerIds);
         });
     }
 }

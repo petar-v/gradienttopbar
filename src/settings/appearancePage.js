@@ -196,7 +196,10 @@ class Appearance extends Adw.PreferencesPage {
         updateMaximizedGradientVisibility();
 
         // Listen for changes to maximized-behavior setting
-        settings.connect('changed::maximized-behavior', updateMaximizedGradientVisibility);
+        const visibilityHandlerId = settings.connect(
+            'changed::maximized-behavior',
+            updateMaximizedGradientVisibility
+        );
 
         const onSettingsChanged = s => {
             const config = getConfig(s);
@@ -223,9 +226,10 @@ class Appearance extends Adw.PreferencesPage {
             maximizedEnd.parse(config.maximizedColors.end);
             maximizedEndColorChooserRow.get_activatable_widget().set_rgba(maximizedEnd);
         };
-        attachSettingsListeners(settings, onSettingsChanged);
+        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
-            detachSettingsListeners(settings, onSettingsChanged);
+            settings.disconnect(visibilityHandlerId);
+            detachSettingsListeners(settings, settingsHandlerIds);
         });
     }
 }

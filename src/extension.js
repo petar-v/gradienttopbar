@@ -1,5 +1,5 @@
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
-import { applyGradientStyle, toggleGradient } from './gradient.js';
+import { applyGradientStyle, toggleGradient, unloadGradientStylesheet } from './gradient.js';
 import {
     getConfig,
     getMaximizedBehavior,
@@ -21,37 +21,24 @@ const isOnPrimaryMonitor = win => {
 };
 
 export default class GradientTopBar extends Extension {
-    constructor(metadata) {
-        super(metadata);
+    onSettingsChanged(settings) {
+        const config = getConfig(settings);
+        applyGradientStyle(config, this.path);
 
-        // gradient state
-        this.isEffectApplied = false;
-        this.hasMaximizedWindows = false;
-        this.windowEvents = null;
+        const maximizedBehavior = getMaximizedBehavior(settings);
 
-        this.onSettingsChanged = settings => {
-            const config = getConfig(settings);
-            applyGradientStyle(config, this.path);
 
-            const maximizedBehavior = getMaximizedBehavior(settings);
+        // If set to keep-gradient, disable window events to save resources
+        if (maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT) {
+            if (this.windowEvents)
+                this.windowEvents.disable();
+            // Always show the gradient when in keep-gradient mode
+            this.toggleGradient(true, false);
+            return;
+        }
 
-            // If set to keep-gradient, disable window events to save resources
-            if (maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT) {
-                if (this.windowEvents)
-                    this.windowEvents.disable();
-                // Always show the gradient when in keep-gradient mode
-                this.toggleGradient(true, false);
-                return;
-            }
-
-            // For other behaviors, we need to track window states
-            if (!this.windowEvents) {
-                // If window events were not initialized, initialize them now
-                this.initializeWindowEvents();
-            }
-            this.windowEvents.enable();
-            this.windowEvents.forceStateUpdate();
-        };
+        this.windowEvents.enable();
+        this.windowEvents.forceStateUpdate();
     }
 
     toggleGradient(enabled, hasMaximizedWindows = false) {
@@ -65,16 +52,7 @@ export default class GradientTopBar extends Extension {
         this.hasMaximizedWindows = hasMaximizedWindows;
     }
 
-    initializeWindowEvents() {
-        if (this.windowEvents)
-            return;
-
-        this.windowEvents = new WindowEvents(
-            global.display,
-            global.window_manager,
-            global.get_workspace_manager()
-        );
-
+    setWindowStateCallback() {
         this.windowEvents.setStateChangeCallback(
             ({ maximizedWindows, currentWorkspace, inOverview }) => {
                 if (inOverview) {
@@ -116,16 +94,26 @@ export default class GradientTopBar extends Extension {
     }
 
     enable() {
+        this.isEffectApplied = false;
+        this.hasMaximizedWindows = false;
         this._settings = this.getSettings();
-        attachSettingsListeners(this._settings, this.onSettingsChanged);
+        this._settingsHandlerIds = attachSettingsListeners(
+            this._settings,
+            this.onSettingsChanged.bind(this)
+        );
+
+        this.windowEvents = new WindowEvents(
+            global.display,
+            global.window_manager,
+            global.get_workspace_manager()
+        );
+        this.setWindowStateCallback();
 
         const config = getConfig(this._settings);
 
         // Only initialize and enable window events if not using keep-gradient
-        if (getMaximizedBehavior(this._settings) !== MAXIMIZED_BEHAVIOR.KEEP_GRADIENT) {
-            this.initializeWindowEvents();
+        if (getMaximizedBehavior(this._settings) !== MAXIMIZED_BEHAVIOR.KEEP_GRADIENT)
             this.windowEvents.enable();
-        }
 
         // initially set up the gradient
         applyGradientStyle(config, this.path);
@@ -139,9 +127,11 @@ export default class GradientTopBar extends Extension {
         }
 
         this.toggleGradient(false);
-        detachSettingsListeners(this._settings, this.onSettingsChanged);
+        unloadGradientStylesheet(this.path);
+        detachSettingsListeners(this._settings, this._settingsHandlerIds);
 
         this.isEffectApplied = false;
+        this._settingsHandlerIds = null;
         this._settings = null;
     }
 }

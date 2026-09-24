@@ -84,7 +84,6 @@ The project includes several scripts to help with development:
 ### Testing and Debugging
 
 - `yarn nested-wayland`: Runs a nested GNOME Shell session in Wayland mode for testing the extension without affecting your main session.
-- `yarn restart-gnome-shell`: Restarts GNOME Shell in the current session (may momentarily disrupt your desktop).
 - `yarn pref-debug`: Monitors logs from GJS (GNOME JavaScript) for debugging preferences.
 - `yarn open-prefs`: Opens the preferences dialog for the extension.
 
