@@ -12,7 +12,9 @@ import {
     getMaximizedBehavior,
     setMaximizedBehavior,
     getStyleTrigger,
-    setStyleTrigger
+    setStyleTrigger,
+    getProximityDistance,
+    setProximityDistance
 } from '../config.js';
 
 import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
@@ -70,6 +72,19 @@ class Behavior extends Adw.PreferencesPage {
             expression: new Gtk.PropertyExpression(MaximizedBehavior, null, 'name')
         });
 
+        const proximityDistanceRow = new Adw.SpinRow({
+            title: gettext('Proximity distance'),
+            subtitle: gettext('Distance from the panel in pixels'),
+            adjustment: new Gtk.Adjustment({
+                lower: 0,
+                upper: 100,
+                step_increment: 1,
+                page_increment: 5,
+                value: getProximityDistance(this._settings)
+            }),
+            digits: 0
+        });
+
         // Create model for maximized behavior dropdown
         const maximizedBehaviorModel = new Gio.ListStore({
             item_type: MaximizedBehavior
@@ -105,6 +120,9 @@ class Behavior extends Adw.PreferencesPage {
         // Set initial value
         setMaximizedBehaviorOnRow(maximizedBehaviorRow, getMaximizedBehavior(this._settings));
         setMaximizedBehaviorOnRow(triggerRow, getStyleTrigger(this._settings));
+        proximityDistanceRow.set_sensitive(
+            getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY
+        );
 
         // Connect to changes
         maximizedBehaviorRow.connect('notify::selected', () => {
@@ -114,8 +132,12 @@ class Behavior extends Adw.PreferencesPage {
         triggerRow.connect('notify::selected', () => {
             setStyleTrigger(this._settings, triggerRow.selectedItem.value);
         });
+        proximityDistanceRow.connect('notify::value', () => {
+            setProximityDistance(this._settings, Math.round(proximityDistanceRow.value));
+        });
 
         behaviorGroup.add(triggerRow);
+        behaviorGroup.add(proximityDistanceRow);
         behaviorGroup.add(maximizedBehaviorRow);
         this.add(behaviorGroup);
 
@@ -123,6 +145,8 @@ class Behavior extends Adw.PreferencesPage {
             const config = getConfig(s);
             setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
             setMaximizedBehaviorOnRow(triggerRow, config.styleTrigger);
+            proximityDistanceRow.set_value(config.proximityDistance);
+            proximityDistanceRow.set_sensitive(config.styleTrigger === STYLE_TRIGGER.PROXIMITY);
         };
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
