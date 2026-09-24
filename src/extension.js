@@ -7,9 +7,11 @@ import {
     attachSettingsListeners,
     detachSettingsListeners
 } from './config.js';
-import { MAXIMIZED_BEHAVIOR } from './constants.js';
+import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from './constants.js';
 
 import WindowEvents from './events/windowEvents.js';
+import MaximizedWindows from './events/behaviours/maximizedWindows.js';
+import ProximityWindows from './events/behaviours/proximityWindows.js';
 
 export default class GradientTopBar extends Extension {
     onSettingsChanged(settings) {
@@ -17,7 +19,11 @@ export default class GradientTopBar extends Extension {
         applyGradientStyle(config, this.path);
 
         const maximizedBehavior = getMaximizedBehavior(settings);
-        this.windowEvents.setStyleTrigger(getStyleTrigger(settings));
+        this.windowEvents.setBehaviour(
+            getStyleTrigger(settings) === STYLE_TRIGGER.PROXIMITY
+                ? new ProximityWindows()
+                : new MaximizedWindows()
+        );
 
 
         // If set to keep-gradient, disable window events to save resources
@@ -92,7 +98,9 @@ export default class GradientTopBar extends Extension {
             global.display,
             global.window_manager,
             global.get_workspace_manager(),
-            getStyleTrigger(this._settings)
+            getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY
+                ? new ProximityWindows()
+                : new MaximizedWindows()
         );
         this.setWindowStateCallback();
 

@@ -1,14 +1,9 @@
 import Meta from 'gi://Meta';
-import { layoutManager, overview, panel } from 'resource:///org/gnome/shell/ui/main.js';
+import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 
 import EventManager from './eventManager.js';
 import { areSameState } from './states.js';
-import { STYLE_TRIGGER } from '../constants.js';
 
-const { VERTICAL, BOTH } = Meta.MaximizeFlags;
-
-const SIZE_CHANGE_EVENT = 'size-changed';
-const POSITION_CHANGE_EVENT = 'position-changed';
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
 const WINDOW_CREATE_EVENT = 'window-created';
 const WINDOW_DESTROY_EVENT = 'destroy';
@@ -16,38 +11,13 @@ const WINDOW_MINIMIZED_EVENT = 'minimize';
 const WINDOW_RAISED_EVENT = 'unminimize';
 
 const WINDOW_EXIT_MONITOR = 'window-left-monitor';
-const MONITORS_CHANGED_EVENT = 'monitors-changed';
 // const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
 // const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
-const WINDOW_WORKSPACE_CHANGED = 'workspace-changed';
-
 const OVERVIEW_SHOWING = 'showing';
 const OVERVIEW_HIDING = 'hiding';
 
 // FIXME: this causes the overview to close on login
 const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
-
-/**
- * Determines if a window is maximized or full-screen
- *
- * @param {Meta.Window} window - The window to check
- * @returns {boolean} True if the window is maximized or full-screen
- */
-const isMaximized = window => {
-    // Ignore Desktop Icons NG windows
-    if (isDesktopIconsNG(window))
-        return false;
-
-
-    // Check if the window is full-screen
-    if (window.is_monitor_sized() || window.is_screen_sized())
-        return true;
-
-
-    // Check if the window is maximized (either vertically or both dimensions)
-    const maximizeFlags = window.get_maximize_flags();
-    return [BOTH, VERTICAL].includes(maximizeFlags);
-};
 
 const isVisibleApplicationWindow = window =>
     !isDesktopIconsNG(window) &&
@@ -69,13 +39,14 @@ export default class WindowEvents {
      * @param {Meta.WindowManager} windowManager - The GNOME Shell window manager
      * @param {Meta.WorkspaceManager} workspaceManager - The GNOME Shell workspace manager
      */
-    constructor(display, windowManager, workspaceManager, styleTrigger) {
+    constructor(display, windowManager, workspaceManager, behaviour) {
         this.display = display;
         this.windowManager = windowManager;
         this.workspaceManager = workspaceManager;
-        this.styleTrigger = styleTrigger;
+        this.behaviour = behaviour;
 
         this.eventManager = new EventManager();
+        this.enabled = false;
 
         this.stateChangeCallback = () => {};
 
@@ -134,12 +105,17 @@ export default class WindowEvents {
      * Sets up all event listeners and initializes the current state
      */
     enable() {
+        if (this.enabled)
+            return;
+
+        this.enabled = true;
+
         /**
          * Handles window size change events
          *
          * @param {Meta.Window} window - The window that changed size
          */
-        const onWindowGeometryChange = () => this.updateState();
+        const onWindowChange = () => this.updateState();
 
         /**
          * Handles workspace change events
@@ -173,21 +149,10 @@ export default class WindowEvents {
             if (isDesktopIconsNG(window))
                 return;
 
-            this.eventManager.attachWindowEventOnce(
-                SIZE_CHANGE_EVENT,
+            this.behaviour.attachWindowEvents(
+                this.eventManager,
                 window,
-                onWindowGeometryChange
-            );
-            this.eventManager.attachWindowEventOnce(
-                POSITION_CHANGE_EVENT,
-                window,
-                onWindowGeometryChange
-            );
-
-            this.eventManager.attachWindowEventOnce(
-                WINDOW_WORKSPACE_CHANGED,
-                window,
-                () => this.updateState()
+                onWindowChange
             );
         };
 
@@ -251,10 +216,9 @@ export default class WindowEvents {
             this.display,
             () => this.updateState()
         );
-        this.eventManager.attachGlobalEventOnce(
-            MONITORS_CHANGED_EVENT,
-            layoutManager,
-            () => this.updateState(true)
+        this.behaviour.attachGlobalEvents(
+            this.eventManager,
+            force => this.updateState(force)
         );
 
         // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
@@ -298,6 +262,7 @@ export default class WindowEvents {
         this.triggerWindows = new Set();
         this.inOverview = null;
         this.lastState = null;
+        this.enabled = false;
     }
 
     /**
@@ -306,24 +271,29 @@ export default class WindowEvents {
      * @returns {Set<number>} A set containing the triggering window IDs
      */
     getTriggerWindowIds() {
-        const { primaryMonitor } = layoutManager;
-        if (!primaryMonitor || !this.workspace)
+        if (!this.workspace)
             return new Set();
-
-        const panelBottom = primaryMonitor.y + panel.get_height() + 5;
 
         return new Set(
             this.workspace
                 .list_windows()
                 .filter(isVisibleApplicationWindow)
-                .filter(window => this.styleTrigger === STYLE_TRIGGER.PROXIMITY
-                    ? window.get_frame_rect().y <= panelBottom
-                    : isMaximized(window))
+                .filter(window => this.behaviour.matches(window))
                 .map(window => window.get_id())
         );
     }
 
-    setStyleTrigger(styleTrigger) {
-        this.styleTrigger = styleTrigger;
+    setBehaviour(behaviour) {
+        if (this.behaviour.constructor === behaviour.constructor)
+            return;
+
+        const wasEnabled = this.enabled;
+        if (wasEnabled)
+            this.disable();
+
+        this.behaviour = behaviour;
+
+        if (wasEnabled)
+            this.enable();
     }
 }
