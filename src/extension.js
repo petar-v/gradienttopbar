@@ -3,6 +3,7 @@ import { applyGradientStyle, toggleGradient, unloadGradientStylesheet } from './
 import {
     getConfig,
     getMaximizedBehavior,
+    getStyleTrigger,
     attachSettingsListeners,
     detachSettingsListeners
 } from './config.js';
@@ -10,22 +11,13 @@ import { MAXIMIZED_BEHAVIOR } from './constants.js';
 
 import WindowEvents from './events/windowEvents.js';
 
-const isOnPrimaryMonitor = win => {
-    if (win?.is_on_primary_monitor)
-        return win.is_on_primary_monitor();
-
-    if (win?.get_monitor && global.display?.get_primary_monitor)
-        return win.get_monitor() === global.display.get_primary_monitor();
-
-    return true;
-};
-
 export default class GradientTopBar extends Extension {
     onSettingsChanged(settings) {
         const config = getConfig(settings);
         applyGradientStyle(config, this.path);
 
         const maximizedBehavior = getMaximizedBehavior(settings);
+        this.windowEvents.setStyleTrigger(getStyleTrigger(settings));
 
 
         // If set to keep-gradient, disable window events to save resources
@@ -38,43 +30,37 @@ export default class GradientTopBar extends Extension {
         }
 
         this.windowEvents.enable();
-        this.windowEvents.forceStateUpdate();
+        this.windowEvents.updateState(true);
     }
 
-    toggleGradient(enabled, hasMaximizedWindows = false) {
+    toggleGradient(enabled, useAlternateStyle = false) {
         // this checks if the gradient state has changed
         // so we don't add classes multiple times.
-        if (this.isEffectApplied === enabled && this.hasMaximizedWindows === hasMaximizedWindows)
+        if (this.isEffectApplied === enabled && this.isAlternateStyleApplied === useAlternateStyle)
             return;
 
-        toggleGradient(enabled, hasMaximizedWindows);
+        toggleGradient(enabled, useAlternateStyle);
         this.isEffectApplied = enabled;
-        this.hasMaximizedWindows = hasMaximizedWindows;
+        this.isAlternateStyleApplied = useAlternateStyle;
     }
 
     setWindowStateCallback() {
         this.windowEvents.setStateChangeCallback(
-            ({ maximizedWindows, currentWorkspace, inOverview }) => {
+            ({ triggerWindows, inOverview }) => {
                 if (inOverview) {
                     this.toggleGradient(true, false);
                     return;
                 }
 
-                const workspaceDisplayMaximizedWindows = currentWorkspace
-          .list_windows()
-          // filter windows only on the primary monitor
-          .filter(isOnPrimaryMonitor)
-          // filter maximized windows on the primary monitor
-          .filter(window => maximizedWindows.has(window.get_id()));
-                const hasMaximizedWindows = workspaceDisplayMaximizedWindows.length > 0;
+                const hasTriggeredWindows = triggerWindows.size > 0;
                 const maximizedBehavior = getMaximizedBehavior(this._settings);
 
-                if (!hasMaximizedWindows) {
-                    // No maximized windows, apply normal gradient
+                if (!hasTriggeredWindows) {
+                    // No triggering windows, apply normal gradient
                     this.toggleGradient(true, false);
                     return;
                 }
-                // Handle different behaviors for maximized windows
+                // Handle the configured behavior for triggering windows
                 switch (maximizedBehavior) {
                     case MAXIMIZED_BEHAVIOR.KEEP_GRADIENT:
                         // Keep the normal gradient
@@ -85,7 +71,7 @@ export default class GradientTopBar extends Extension {
                         this.toggleGradient(false, false);
                         break;
                     case MAXIMIZED_BEHAVIOR.APPLY_STYLE:
-                        // Apply the maximized gradient style
+                        // Apply the alternate gradient style
                         this.toggleGradient(true, true);
                         break;
                 }
@@ -95,7 +81,7 @@ export default class GradientTopBar extends Extension {
 
     enable() {
         this.isEffectApplied = false;
-        this.hasMaximizedWindows = false;
+        this.isAlternateStyleApplied = false;
         this._settings = this.getSettings();
         this._settingsHandlerIds = attachSettingsListeners(
             this._settings,
@@ -105,7 +91,8 @@ export default class GradientTopBar extends Extension {
         this.windowEvents = new WindowEvents(
             global.display,
             global.window_manager,
-            global.get_workspace_manager()
+            global.get_workspace_manager(),
+            getStyleTrigger(this._settings)
         );
         this.setWindowStateCallback();
 
