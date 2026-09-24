@@ -47,7 +47,7 @@ export const applyGradientStyle = (config, extensionPath) => {
     theme.load_stylesheet(userStylesheet);
 };
 
-export const removeGradientStyle = extensionPath => {
+export const unloadGradientStylesheet = extensionPath => {
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
     theme.unload_stylesheet(getUserStylesheet(extensionPath));
 };

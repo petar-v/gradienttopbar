@@ -1,5 +1,5 @@
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
-import { applyGradientStyle, removeGradientStyle, toggleGradient } from './gradient.js';
+import { applyGradientStyle, toggleGradient, unloadGradientStylesheet } from './gradient.js';
 import {
     getConfig,
     getMaximizedBehavior,
@@ -127,7 +127,7 @@ export default class GradientTopBar extends Extension {
         }
 
         this.toggleGradient(false);
-        removeGradientStyle(this.path);
+        unloadGradientStylesheet(this.path);
         detachSettingsListeners(this._settings, this._settingsHandlerIds);
 
         this.isEffectApplied = false;
