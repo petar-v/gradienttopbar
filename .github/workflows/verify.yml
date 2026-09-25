@@ -8,7 +8,7 @@ permissions: {}
 
 jobs:
   lint:
-    name: ESLint
+    name: ESLint and schemas
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -20,6 +20,7 @@ jobs:
       - run: corepack enable
       - run: yarn install --immutable
       - run: yarn lint
+      - run: yarn validate-schemas
 
   shexli:
     name: Shexli
