@@ -58,15 +58,15 @@ export default class GradientTopBar extends Extension {
         this.isAlternateStyleApplied = useAlternateStyle;
     }
 
-    updateProximityTransition(progress) {
-        // TODO: maybe put this in a util function with a descriptive name
-        const enabled =
-            !this.windowEvents?.inOverview &&
+    isProximityTransitionEnabled() {
+        return !this.windowEvents?.inOverview &&
             getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY &&
             getProximityTransition(this._settings) &&
             getMaximizedBehavior(this._settings) === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
+    }
 
-        if (!enabled) {
+    updateProximityTransition(progress) {
+        if (!this.isProximityTransitionEnabled()) {
             removeGradientTransition();
             return;
         }
@@ -86,12 +86,8 @@ export default class GradientTopBar extends Extension {
 
                 const hasTriggeredWindows = triggerWindows.size > 0;
                 const maximizedBehavior = getMaximizedBehavior(this._settings);
-                const useTransition =
-                    getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY &&
-                    getProximityTransition(this._settings) &&
-                    maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
 
-                if (useTransition)
+                if (this.isProximityTransitionEnabled())
                     return;
 
                 removeGradientTransition();
