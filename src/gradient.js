@@ -8,6 +8,7 @@ const GRADIENT_CLASS = 'panel-gradient';
 const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
 
 let transitionActor = null;
+let appliedGradientClass = null;
 
 const allocateTransitionActor = () => {
     const box = new Clutter.ActorBox();
@@ -89,10 +90,18 @@ export const removeGradientTransition = () => {
 };
 
 export const toggleGradient = (enabled, useAlternateStyle = false) => {
-    // Remove all styles first
-    panel.remove_style_class_name(GRADIENT_CLASS);
-    panel.remove_style_class_name(MAXIMIZED_GRADIENT_CLASS);
-
+    let gradientClass = null;
     if (enabled)
-        panel.add_style_class_name(useAlternateStyle ? MAXIMIZED_GRADIENT_CLASS : GRADIENT_CLASS);
+        gradientClass = useAlternateStyle ? MAXIMIZED_GRADIENT_CLASS : GRADIENT_CLASS;
+
+    if (gradientClass === appliedGradientClass)
+        return;
+
+    if (appliedGradientClass)
+        panel.remove_style_class_name(appliedGradientClass);
+
+    if (gradientClass)
+        panel.add_style_class_name(gradientClass);
+
+    appliedGradientClass = gradientClass;
 };
