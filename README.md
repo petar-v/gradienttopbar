@@ -62,6 +62,7 @@ Before you start development, make sure you have the following installed:
 
 - GNOME Shell (version 45 or higher)
 - Node.js and Yarn (the project uses Yarn 4.0.1)
+- Python 3.12 or newer
 - Git
 
 ## Setting Up the Development Environment
@@ -75,6 +76,7 @@ Before you start development, make sure you have the following installed:
 2. Install dependencies:
    ```bash
    yarn install
+   yarn setup-python
    ```
 
 ## Development Tools
@@ -98,12 +100,14 @@ The project includes several scripts to help with development:
 
 - `yarn prettify`: Formats code using Prettier.
 - `yarn lint`: Lints the code using ESLint.
+- `yarn shexli`: Runs the extensions.gnome.org static analyzer.
+- `yarn verify`: Runs ESLint and Shexli.
 - `yarn precommit`: Runs lint-staged for pre-commit hooks.
 
 ## Workflow
 
 1. Make your changes to the code.
-2. Run `yarn prettify` and `yarn lint` to ensure code quality.
+2. Run `yarn prettify` and `yarn verify` to ensure code quality.
 3. Test your changes using `yarn local-install` and `yarn open-prefs`.
 4. If needed, debug using `yarn pref-debug` or `yarn nested-wayland`.
 5. Submit a pull request with your changes.
