@@ -279,7 +279,7 @@ export default class WindowEvents {
 
         return new Set(
             this.behaviour
-                .evaluate(windows)
+                .getTriggerWindows(windows)
                 .map(window => window.get_id())
         );
     }

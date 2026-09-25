@@ -63,6 +63,9 @@ export const unloadGradientStylesheet = extensionPath => {
 };
 
 export const setGradientTransition = progress => {
+    if (!transitionActor && progress === 0)
+        return;
+
     if (!transitionActor) {
         transitionActor = new St.Widget({
             style_class: MAXIMIZED_GRADIENT_CLASS,

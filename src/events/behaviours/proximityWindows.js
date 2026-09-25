@@ -14,7 +14,7 @@ export default class ProximityWindows {
         this.onProgressChanged = onProgressChanged;
     }
 
-    evaluate(windows) {
+    getTriggerWindows(windows) {
         const { primaryMonitor } = layoutManager;
         if (!primaryMonitor) {
             this.onProgressChanged(0);

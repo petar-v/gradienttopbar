@@ -5,6 +5,7 @@ const { VERTICAL, BOTH } = Meta.MaximizeFlags;
 // Detects windows that occupy the full monitor or are vertically maximized.
 // This behaviour deliberately avoids layout and position-change dependencies.
 export default class MaximizedWindows {
+    // TODO: Handle tiled windows and monitor-sized windows that were not snapped.
     matches(window) {
         if (window.is_monitor_sized() || window.is_screen_sized())
             return true;
@@ -12,7 +13,7 @@ export default class MaximizedWindows {
         return [BOTH, VERTICAL].includes(window.get_maximize_flags());
     }
 
-    evaluate(windows) {
+    getTriggerWindows(windows) {
         return windows.filter(window => this.matches(window));
     }
 
