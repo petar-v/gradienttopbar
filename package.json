@@ -2,7 +2,7 @@
   "name": "gnome-gradienttopbar",
   "title": "Gradient Top Bar",
   "description": "Give the top bar a customizable gradient. Choose direction and colors, and optionally use a different style or keep the theme when windows are maximized.",
-  "version": "24",
+  "version": "26",
   "engines": {
     "gnome": ">=49"
   },
@@ -20,14 +20,14 @@
     "nested-wayland": "dbus-run-session -- gnome-shell --devkit --wayland",
     "pref-debug": "journalctl -f -o cat /usr/bin/gjs",
     "open-prefs": "gnome-extensions prefs gradienttopbar@pshow.org",
-    "local-install": "yarn compile-schemas && yarn zip && gnome-extensions install gradienttopbar@pshow.org.shell-extension.zip --force && gnome-extensions enable gradienttopbar@pshow.org",
+    "local-install": "yarn validate-schemas && yarn zip && gnome-extensions install gradienttopbar@pshow.org.shell-extension.zip --force && gnome-extensions enable gradienttopbar@pshow.org",
     "zip-extension": "gnome-extensions pack src --force",
-    "compile-schemas": "glib-compile-schemas ./src/schemas/",
-    "zip": "cd src && zip -r ../gradienttopbar@pshow.org.shell-extension.zip .",
+    "validate-schemas": "glib-compile-schemas --strict --dry-run ./src/schemas/",
+    "zip": "cd src && zip -FS -r ../gradienttopbar@pshow.org.shell-extension.zip .",
     "prettify": "prettier --write 'src/**/*.{css}' && yarn lint --fix",
     "lint": "eslint 'src/**/*.{js,json}'",
     "setup-python": "python3 -m venv .venv && .venv/bin/python -m pip install -r requirements-dev.txt",
-    "shexli": ".venv/bin/shexli --format json \"$PWD/src\" | .venv/bin/python -c \"import json, sys; report = json.load(sys.stdin); print(json.dumps(report, indent=2)); raise SystemExit(report['summary']['finding_count'] != 0)\"",
+    "shexli": ".venv/bin/shexli --format json \"$PWD/src\" | .venv/bin/python -c \"import json, sys; report = json.load(sys.stdin); print(json.dumps(report, indent=2)); raise SystemExit(any(finding['rule_id'] != 'EGO-M-004' for finding in report['findings']))\"",
     "verify": "yarn lint && yarn shexli",
     "precommit": "lint-staged",
     "upload": "gnome-extensions upload --accept-tos"

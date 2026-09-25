@@ -52,11 +52,11 @@ export const unloadGradientStylesheet = extensionPath => {
     theme.unload_stylesheet(getUserStylesheet(extensionPath));
 };
 
-export const toggleGradient = (enabled, isMaximized = false) => {
+export const toggleGradient = (enabled, useAlternateStyle = false) => {
     // Remove all styles first
     panel.remove_style_class_name(GRADIENT_CLASS);
     panel.remove_style_class_name(MAXIMIZED_GRADIENT_CLASS);
 
     if (enabled)
-        panel.add_style_class_name(isMaximized ? MAXIMIZED_GRADIENT_CLASS : GRADIENT_CLASS);
+        panel.add_style_class_name(useAlternateStyle ? MAXIMIZED_GRADIENT_CLASS : GRADIENT_CLASS);
 };

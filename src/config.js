@@ -1,6 +1,10 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { DEFAULT_PROXIMITY_DISTANCE } from './constants.js';
+
+Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
+
 export const SETTINGS_GSCHEMA =
   'org.gnome.shell.extensions.org.pshow.gradienttopbar';
 
@@ -8,6 +12,8 @@ const SETTINGS_GSCHEMA_PATH = `/${SETTINGS_GSCHEMA.replaceAll('.', '/')}/`;
 
 // Settings keys
 export const MAXIMIZED_BEHAVIOR = 'maximized-behavior';
+export const STYLE_TRIGGER = 'style-trigger';
+export const PROXIMITY_DISTANCE = 'proximity-distance';
 export const GRADIENT_DIRECTION = 'gradient-direction';
 export const MAXIMIZED_GRADIENT_DIRECTION = 'maximized-gradient-direction';
 export const COLORS = 'colors';
@@ -21,6 +27,8 @@ export const MAXIMIZED_COLORS = 'maximized-colors';
  */
 export const getConfig = settings => {
     const maximizedBehavior = settings.get_string(MAXIMIZED_BEHAVIOR);
+    const styleTrigger = settings.get_string(STYLE_TRIGGER);
+    const proximityDistance = settings.get_int(PROXIMITY_DISTANCE);
     const colors = settings.get_value(COLORS).deep_unpack();
     const gradientDirection = settings.get_string(GRADIENT_DIRECTION);
     const maximizedColors = settings.get_value(MAXIMIZED_COLORS).deep_unpack();
@@ -28,6 +36,8 @@ export const getConfig = settings => {
 
     return {
         maximizedBehavior,
+        styleTrigger,
+        proximityDistance,
         gradientDirection,
         colors: {
             start: colors[0],
@@ -59,6 +69,19 @@ export const getMaximizedBehavior = settings => {
  */
 export const setMaximizedBehavior = (settings, value) => {
     settings.set_string(MAXIMIZED_BEHAVIOR, value);
+};
+
+export const getStyleTrigger = settings => settings.get_string(STYLE_TRIGGER);
+
+export const setStyleTrigger = (settings, value) => {
+    settings.set_string(STYLE_TRIGGER, value);
+};
+
+export const getProximityDistance = settings =>
+    settings?.get_int(PROXIMITY_DISTANCE) ?? DEFAULT_PROXIMITY_DISTANCE;
+
+export const setProximityDistance = (settings, value) => {
+    settings.set_int(PROXIMITY_DISTANCE, value);
 };
 
 /**
@@ -153,6 +176,8 @@ export const attachSettingsListeners = (settings, listener) => {
     return [
         GRADIENT_DIRECTION,
         MAXIMIZED_BEHAVIOR,
+        STYLE_TRIGGER,
+        PROXIMITY_DISTANCE,
         COLORS,
         MAXIMIZED_COLORS,
         MAXIMIZED_GRADIENT_DIRECTION
@@ -174,14 +199,19 @@ export const detachSettingsListeners = (settings, handlerIds) => {
  *
  * @param {Gio.File} file - The file to export settings to
  */
-export const exportSettingsToFile = file => {
+export const exportSettingsToFile = async file => {
+    const process = Gio.Subprocess.new(
+        ['dconf', 'dump', SETTINGS_GSCHEMA_PATH],
+        Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
+    );
+    const [stdout, stderr] = await process.communicate_utf8_async(null, null);
+
+    if (!process.get_successful())
+        throw new Error(stderr.trim() || 'Failed to export settings');
+
     const raw = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
     const out = Gio.BufferedOutputStream.new_sized(raw, 4096);
-
-    const settings = GLib.spawn_command_line_sync(
-        `dconf dump ${SETTINGS_GSCHEMA_PATH}`
-    )[1];
-    out.write_all(settings, null);
+    out.write_all(new TextEncoder().encode(stdout), null);
     out.close(null);
 };
 

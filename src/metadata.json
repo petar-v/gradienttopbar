@@ -9,7 +9,7 @@
   },
   "shell-version": ["49", "50", "51"],
   "url": "https://github.com/petar-v/gradienttopbar",
-  "version": 24,
+  "version": 26,
   "gettext-domain": "org.pshow.gradienttopbar",
   "settings-schema": "org.gnome.shell.extensions.org.pshow.gradienttopbar",
   "hasPrefs": true

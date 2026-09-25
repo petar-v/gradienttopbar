@@ -1,14 +1,13 @@
 name: Verify
 
 on:
-  push:
   pull_request:
 
 permissions: {}
 
 jobs:
   lint:
-    name: ESLint
+    name: ESLint and schemas
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -20,6 +19,7 @@ jobs:
       - run: corepack enable
       - run: yarn install --immutable
       - run: yarn lint
+      - run: yarn validate-schemas
 
   shexli:
     name: Shexli
@@ -36,5 +36,6 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: corepack enable
+      - run: yarn install --immutable
       - run: yarn setup-python
       - run: yarn shexli

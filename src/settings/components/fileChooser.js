@@ -35,10 +35,10 @@ export const saveFileDialog = ({ onSelected, onError, transientFor }) => {
     });
     dialog.set_accept_label('Save');
 
-    dialog.save(transientFor, null, (self, res) => {
+    dialog.save(transientFor, null, async (self, res) => {
         try {
             const file = self.save_finish(res);
-            onSelected(file);
+            await onSelected(file);
         } catch (error) {
             if (
                 error instanceof Gtk.DialogError &&
