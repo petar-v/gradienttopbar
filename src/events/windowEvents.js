@@ -135,9 +135,8 @@ export default class WindowEvents {
          */
         const onWindowDestroy = (_, windowActor) => {
             const window = windowActor.get_meta_window();
-            this.triggerWindows.delete(window.get_id());
             this.eventManager.disconnectWindowEvents(window);
-            this.emitStateChange();
+            this.updateState(false, window.get_id());
         };
 
         /**
@@ -163,8 +162,7 @@ export default class WindowEvents {
          * @param {Meta.WindowActor} windowActor - The window actor being minimized
          */
         const onWindowMinimize = (_, windowActor) => {
-            this.triggerWindows.delete(windowActor.get_meta_window().get_id());
-            this.emitStateChange();
+            this.updateState(false, windowActor.get_meta_window().get_id());
         };
 
         /**
@@ -232,7 +230,7 @@ export default class WindowEvents {
         });
         this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
             this.inOverview = false;
-            this.emitStateChange();
+            this.updateState(true);
         });
 
         this.display.list_all_windows().forEach(attachWindowEvents);
@@ -270,17 +268,16 @@ export default class WindowEvents {
      *
      * @returns {Set<number>} A set containing the triggering window IDs
      */
-    getTriggerWindowIds() {
+    getTriggerWindowIds(excludedWindowId = null) {
         if (!this.workspace)
             return new Set();
 
-        return new Set(
-            this.workspace
-                .list_windows()
-                .filter(isVisibleApplicationWindow)
-                .filter(window => this.behaviour.matches(window))
-                .map(window => window.get_id())
-        );
+        const windows = this.workspace
+            .list_windows()
+            .filter(isVisibleApplicationWindow)
+            .filter(window => window.get_id() !== excludedWindowId);
+
+        return this.behaviour.getTriggerWindowIds(windows);
     }
 
     setBehaviour(behaviour) {

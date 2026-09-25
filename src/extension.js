@@ -1,8 +1,15 @@
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
-import { applyGradientStyle, toggleGradient, unloadGradientStylesheet } from './gradient.js';
+import {
+    applyGradientStyle,
+    removeGradientTransition,
+    setGradientTransition,
+    toggleGradient,
+    unloadGradientStylesheet
+} from './gradient.js';
 import {
     getConfig,
     getMaximizedBehavior,
+    getProximityTransition,
     getStyleTrigger,
     attachSettingsListeners,
     detachSettingsListeners
@@ -17,11 +24,12 @@ export default class GradientTopBar extends Extension {
     onSettingsChanged(settings) {
         const config = getConfig(settings);
         applyGradientStyle(config, this.path);
+        removeGradientTransition();
 
         const maximizedBehavior = getMaximizedBehavior(settings);
         this.windowEvents.setBehaviour(
             getStyleTrigger(settings) === STYLE_TRIGGER.PROXIMITY
-                ? new ProximityWindows(settings)
+                ? new ProximityWindows(settings, this.updateProximityTransition.bind(this))
                 : new MaximizedWindows()
         );
 
@@ -50,16 +58,43 @@ export default class GradientTopBar extends Extension {
         this.isAlternateStyleApplied = useAlternateStyle;
     }
 
+    updateProximityTransition(progress) {
+        // TODO: maybe put this in a util function with a descriptive name
+        const enabled =
+            !this.windowEvents?.inOverview &&
+            getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY &&
+            getProximityTransition(this._settings) &&
+            getMaximizedBehavior(this._settings) === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
+
+        if (!enabled) {
+            removeGradientTransition();
+            return;
+        }
+
+        this.toggleGradient(true, false);
+        setGradientTransition(progress);
+    }
+
     setWindowStateCallback() {
         this.windowEvents.setStateChangeCallback(
             ({ triggerWindows, inOverview }) => {
                 if (inOverview) {
+                    removeGradientTransition();
                     this.toggleGradient(true, false);
                     return;
                 }
 
                 const hasTriggeredWindows = triggerWindows.size > 0;
                 const maximizedBehavior = getMaximizedBehavior(this._settings);
+                const useTransition =
+                    getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY &&
+                    getProximityTransition(this._settings) &&
+                    maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
+
+                if (useTransition)
+                    return;
+
+                removeGradientTransition();
 
                 if (!hasTriggeredWindows) {
                     // No triggering windows, apply normal gradient
@@ -99,7 +134,10 @@ export default class GradientTopBar extends Extension {
             global.window_manager,
             global.get_workspace_manager(),
             getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY
-                ? new ProximityWindows(this._settings)
+                ? new ProximityWindows(
+                    this._settings,
+                    this.updateProximityTransition.bind(this)
+                )
                 : new MaximizedWindows()
         );
         this.setWindowStateCallback();
@@ -122,6 +160,7 @@ export default class GradientTopBar extends Extension {
         }
 
         this.toggleGradient(false);
+        removeGradientTransition();
         unloadGradientStylesheet(this.path);
         detachSettingsListeners(this._settings, this._settingsHandlerIds);
 

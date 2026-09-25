@@ -4,19 +4,38 @@ import { getProximityDistance } from '../../config.js';
 
 // Keeps all panel-layout dependencies inside the proximity behaviour.
 export default class ProximityWindows {
-    constructor(settings) {
+    constructor(settings, onProgressChanged) {
         this.settings = settings;
+        this.onProgressChanged = onProgressChanged;
     }
 
-    matches(window) {
+    getTriggerWindowIds(windows) {
         const { primaryMonitor } = layoutManager;
-        if (!primaryMonitor)
-            return false;
+        if (!primaryMonitor) {
+            // reset on new montiors
+            this.onProgressChanged(0);
+            return new Set();
+        }
 
-        // Include a small tolerance below the panel to avoid an exact-edge requirement.
         const distance = getProximityDistance(this.settings);
-        const panelBottom = primaryMonitor.y + panel.get_height() + distance;
-        return window.get_frame_rect().y <= panelBottom;
+        const panelBottom = primaryMonitor.y + panel.get_height();
+        let triggerProgress = 0;
+        const triggerWindowIds = new Set();
+
+        windows.forEach(window => {
+            const windowDistance = window.get_frame_rect().y - panelBottom;
+            // TODO: extract this in a util method
+            const progress = distance === 0
+                ? Number(windowDistance <= 0)
+                : Math.max(0, Math.min(1, 1 - windowDistance / distance));
+
+            if (progress > 0)
+                triggerWindowIds.add(window.get_id());
+            triggerProgress = Math.max(triggerProgress, progress);
+        });
+
+        this.onProgressChanged(triggerProgress);
+        return triggerWindowIds;
     }
 
     // Proximity can change when a window moves, resizes, or changes workspace.
