@@ -2,9 +2,12 @@ import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 
 import St from 'gi://St';
 import Gio from 'gi://Gio';
+import Clutter from 'gi://Clutter';
 
 const GRADIENT_CLASS = 'panel-gradient';
 const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
+
+let transitionActor = null;
 
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
@@ -50,6 +53,27 @@ export const applyGradientStyle = (config, extensionPath) => {
 export const unloadGradientStylesheet = extensionPath => {
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
     theme.unload_stylesheet(getUserStylesheet(extensionPath));
+};
+
+export const setGradientTransition = progress => {
+    if (!transitionActor) {
+        transitionActor = new St.Widget({
+            style_class: MAXIMIZED_GRADIENT_CLASS,
+            reactive: false
+        });
+        transitionActor.add_constraint(new Clutter.BindConstraint({
+            source: panel,
+            coordinate: Clutter.BindCoordinate.SIZE
+        }));
+        panel.insert_child_at_index(transitionActor, 0);
+    }
+
+    transitionActor.opacity = Math.round(progress * 255);
+};
+
+export const removeGradientTransition = () => {
+    transitionActor?.destroy();
+    transitionActor = null;
 };
 
 export const toggleGradient = (enabled, useAlternateStyle = false) => {
