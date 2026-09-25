@@ -14,6 +14,7 @@ const SETTINGS_GSCHEMA_PATH = `/${SETTINGS_GSCHEMA.replaceAll('.', '/')}/`;
 export const MAXIMIZED_BEHAVIOR = 'maximized-behavior';
 export const STYLE_TRIGGER = 'style-trigger';
 export const PROXIMITY_DISTANCE = 'proximity-distance';
+export const PROXIMITY_TRANSITION = 'proximity-transition';
 export const GRADIENT_DIRECTION = 'gradient-direction';
 export const MAXIMIZED_GRADIENT_DIRECTION = 'maximized-gradient-direction';
 export const COLORS = 'colors';
@@ -29,6 +30,7 @@ export const getConfig = settings => {
     const maximizedBehavior = settings.get_string(MAXIMIZED_BEHAVIOR);
     const styleTrigger = settings.get_string(STYLE_TRIGGER);
     const proximityDistance = settings.get_int(PROXIMITY_DISTANCE);
+    const proximityTransition = settings.get_boolean(PROXIMITY_TRANSITION);
     const colors = settings.get_value(COLORS).deep_unpack();
     const gradientDirection = settings.get_string(GRADIENT_DIRECTION);
     const maximizedColors = settings.get_value(MAXIMIZED_COLORS).deep_unpack();
@@ -38,6 +40,7 @@ export const getConfig = settings => {
         maximizedBehavior,
         styleTrigger,
         proximityDistance,
+        proximityTransition,
         gradientDirection,
         colors: {
             start: colors[0],
@@ -82,6 +85,13 @@ export const getProximityDistance = settings =>
 
 export const setProximityDistance = (settings, value) => {
     settings.set_int(PROXIMITY_DISTANCE, value);
+};
+
+export const getProximityTransition = settings =>
+    settings.get_boolean(PROXIMITY_TRANSITION);
+
+export const setProximityTransition = (settings, value) => {
+    settings.set_boolean(PROXIMITY_TRANSITION, value);
 };
 
 /**
@@ -178,6 +188,7 @@ export const attachSettingsListeners = (settings, listener) => {
         MAXIMIZED_BEHAVIOR,
         STYLE_TRIGGER,
         PROXIMITY_DISTANCE,
+        PROXIMITY_TRANSITION,
         COLORS,
         MAXIMIZED_COLORS,
         MAXIMIZED_GRADIENT_DIRECTION

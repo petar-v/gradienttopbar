@@ -14,7 +14,9 @@ import {
     getStyleTrigger,
     setStyleTrigger,
     getProximityDistance,
-    setProximityDistance
+    setProximityDistance,
+    getProximityTransition,
+    setProximityTransition
 } from '../config.js';
 
 import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
@@ -85,6 +87,12 @@ class Behavior extends Adw.PreferencesPage {
             digits: 0
         });
 
+        const proximityTransitionRow = new Adw.SwitchRow({
+            title: gettext('Transition proximity style'),
+            subtitle: gettext('Blend the alternate style as windows approach the panel'),
+            active: getProximityTransition(this._settings)
+        });
+
         // Create model for maximized behavior dropdown
         const maximizedBehaviorModel = new Gio.ListStore({
             item_type: MaximizedBehavior
@@ -123,6 +131,15 @@ class Behavior extends Adw.PreferencesPage {
         proximityDistanceRow.set_sensitive(
             getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY
         );
+        const updateProximityControls = () => {
+            const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
+            proximityDistanceRow.set_sensitive(usesProximity);
+            proximityTransitionRow.set_sensitive(
+                usesProximity &&
+                getMaximizedBehavior(this._settings) === MAXIMIZED_BEHAVIOR.APPLY_STYLE
+            );
+        };
+        updateProximityControls();
 
         // Connect to changes
         maximizedBehaviorRow.connect('notify::selected', () => {
@@ -135,9 +152,13 @@ class Behavior extends Adw.PreferencesPage {
         proximityDistanceRow.connect('notify::value', () => {
             setProximityDistance(this._settings, Math.round(proximityDistanceRow.value));
         });
+        proximityTransitionRow.connect('notify::active', () => {
+            setProximityTransition(this._settings, proximityTransitionRow.active);
+        });
 
         behaviorGroup.add(triggerRow);
         behaviorGroup.add(proximityDistanceRow);
+        behaviorGroup.add(proximityTransitionRow);
         behaviorGroup.add(maximizedBehaviorRow);
         this.add(behaviorGroup);
 
@@ -146,7 +167,8 @@ class Behavior extends Adw.PreferencesPage {
             setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
             setMaximizedBehaviorOnRow(triggerRow, config.styleTrigger);
             proximityDistanceRow.set_value(config.proximityDistance);
-            proximityDistanceRow.set_sensitive(config.styleTrigger === STYLE_TRIGGER.PROXIMITY);
+            proximityTransitionRow.set_active(config.proximityTransition);
+            updateProximityControls();
         };
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
