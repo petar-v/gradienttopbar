@@ -92,7 +92,7 @@ The project includes several scripts to help with development:
 
 ### Building and Installation
 
-- `yarn compile-schemas`: Compiles the GSettings schemas.
+- `yarn validate-schemas`: Validates the GSettings schemas.
 - `yarn zip`: Creates a zip archive of the extension.
 - `yarn zip-extension`: Packs the extension using GNOME's extension tools.
 - `yarn local-install`: Compiles schemas, zips the extension, installs it locally, and enables it (all-in-one command for testing changes).
