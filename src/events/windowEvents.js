@@ -277,7 +277,11 @@ export default class WindowEvents {
             .filter(isVisibleApplicationWindow)
             .filter(window => window.get_id() !== excludedWindowId);
 
-        return this.behaviour.getTriggerWindowIds(windows);
+        return new Set(
+            this.behaviour
+                .evaluate(windows)
+                .map(window => window.get_id())
+        );
     }
 
     setBehaviour(behaviour) {
