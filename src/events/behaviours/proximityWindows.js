@@ -9,34 +9,25 @@ const calculateProgress = (windowDistance, proximityDistance) =>
 
 // Keeps all panel-layout dependencies inside the proximity behaviour.
 export default class ProximityWindows {
-    constructor(settings, onProgressChanged) {
+    constructor(settings) {
         this.settings = settings;
-        this.onProgressChanged = onProgressChanged;
     }
 
-    getTriggerWindows(windows) {
+    getEffectStrength(windows) {
         const { primaryMonitor } = layoutManager;
-        if (!primaryMonitor) {
-            this.onProgressChanged(0);
-            return [];
-        }
+        if (!primaryMonitor)
+            return 0;
 
         const distance = getProximityDistance(this.settings);
         const panelBottom = primaryMonitor.y + panel.get_height();
-        let triggerProgress = 0;
-        const triggerWindows = [];
 
-        windows.forEach(window => {
+        return windows.reduce((effectStrength, window) => {
             const windowDistance = window.get_frame_rect().y - panelBottom;
-            const progress = calculateProgress(windowDistance, distance);
-
-            if (progress > 0)
-                triggerWindows.push(window);
-            triggerProgress = Math.max(triggerProgress, progress);
-        });
-
-        this.onProgressChanged(triggerProgress);
-        return triggerWindows;
+            return Math.max(
+                effectStrength,
+                calculateProgress(windowDistance, distance)
+            );
+        }, 0);
     }
 
     // Proximity can change when a window moves, resizes, or changes workspace.

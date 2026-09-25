@@ -28,8 +28,7 @@ const isVisibleApplicationWindow = window =>
     !window.skip_taskbar;
 
 /**
- * Manages window events and tracks window state changes
- * Used to detect windows that trigger alternate panel styling
+ * Manages window events and tracks the behaviour detector's effect strength.
  */
 export default class WindowEvents {
     /**
@@ -39,11 +38,11 @@ export default class WindowEvents {
      * @param {Meta.WindowManager} windowManager - The GNOME Shell window manager
      * @param {Meta.WorkspaceManager} workspaceManager - The GNOME Shell workspace manager
      */
-    constructor(display, windowManager, workspaceManager, behaviour) {
+    constructor(display, windowManager, workspaceManager) {
         this.display = display;
         this.windowManager = windowManager;
         this.workspaceManager = workspaceManager;
-        this.behaviour = behaviour;
+        this.behaviourDetector = null;
 
         this.eventManager = new EventManager();
         this.enabled = false;
@@ -52,7 +51,7 @@ export default class WindowEvents {
 
         this.workspace = null;
         this.inOverview = false;
-        this.triggerWindows = new Set();
+        this.effectStrength = 0;
         this.lastState = null;
     }
 
@@ -68,11 +67,11 @@ export default class WindowEvents {
     /**
      * Gets the current window state
      *
-     * @returns {Object} The current trigger, workspace, and overview state
+     * @returns {Object} The current effect strength, workspace, and overview state
      */
     getCurrentState() {
         return {
-            triggerWindows: this.triggerWindows,
+            effectStrength: this.inOverview ? 0 : this.effectStrength,
             currentWorkspace: this.workspace,
             inOverview: this.inOverview
         };
@@ -92,11 +91,11 @@ export default class WindowEvents {
     }
 
     /**
-     * Forces a state update by re-evaluating maximized windows and emitting a state change
+     * Re-evaluates the active behaviour detector and emits a state change.
      * Used when the state needs to be refreshed regardless of detected changes
      */
     updateState(force = false, excludedWindowId = null) {
-        this.triggerWindows = this.getTriggerWindowIds(excludedWindowId);
+        this.effectStrength = this.getEffectStrength(excludedWindowId);
         this.emitStateChange(force);
     }
 
@@ -148,7 +147,7 @@ export default class WindowEvents {
             if (isDesktopIconsNG(window))
                 return;
 
-            this.behaviour.attachWindowEvents(
+            this.behaviourDetector.attachWindowEvents(
                 this.eventManager,
                 window,
                 onWindowChange
@@ -214,7 +213,7 @@ export default class WindowEvents {
             this.display,
             () => this.updateState()
         );
-        this.behaviour.attachGlobalEvents(
+        this.behaviourDetector.attachGlobalEvents(
             this.eventManager,
             force => this.updateState(force)
         );
@@ -235,7 +234,7 @@ export default class WindowEvents {
 
         this.display.list_all_windows().forEach(attachWindowEvents);
 
-        this.triggerWindows = this.getTriggerWindowIds();
+        this.effectStrength = this.getEffectStrength();
 
         // Add screen lock/unlock event handling
         this.eventManager.attachUnlockScreenEvent(() => {
@@ -257,42 +256,38 @@ export default class WindowEvents {
         });
 
         this.workspace = null;
-        this.triggerWindows = new Set();
+        this.effectStrength = 0;
         this.inOverview = null;
         this.lastState = null;
         this.enabled = false;
     }
 
     /**
-     * Gets the IDs of windows that currently trigger alternate styling
+     * Gets the current effect strength from visible windows
      *
-     * @returns {Set<number>} A set containing the triggering window IDs
+     * @returns {number} The effect strength from zero to one
      */
-    getTriggerWindowIds(excludedWindowId = null) {
+    getEffectStrength(excludedWindowId = null) {
         if (!this.workspace)
-            return new Set();
+            return 0;
 
         const windows = this.workspace
             .list_windows()
             .filter(isVisibleApplicationWindow)
             .filter(window => window.get_id() !== excludedWindowId);
 
-        return new Set(
-            this.behaviour
-                .getTriggerWindows(windows)
-                .map(window => window.get_id())
-        );
+        return this.behaviourDetector.getEffectStrength(windows);
     }
 
-    setBehaviour(behaviour) {
-        if (this.behaviour.constructor === behaviour.constructor)
+    setBehaviourDetector(behaviourDetector) {
+        if (this.behaviourDetector?.constructor === behaviourDetector.constructor)
             return;
 
         const wasEnabled = this.enabled;
         if (wasEnabled)
             this.disable();
 
-        this.behaviour = behaviour;
+        this.behaviourDetector = behaviourDetector;
 
         if (wasEnabled)
             this.enable();

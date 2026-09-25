@@ -13,8 +13,8 @@ export default class MaximizedWindows {
         return [BOTH, VERTICAL].includes(window.get_maximize_flags());
     }
 
-    getTriggerWindows(windows) {
-        return windows.filter(window => this.matches(window));
+    getEffectStrength(windows) {
+        return Number(windows.some(window => this.matches(window)));
     }
 
     // Maximization changes window size; moving an unmaximized window is irrelevant.
