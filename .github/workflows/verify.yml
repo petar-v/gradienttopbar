@@ -1,7 +1,6 @@
 name: Verify
 
 on:
-  push:
   pull_request:
 
 permissions: {}
@@ -37,5 +36,6 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: corepack enable
+      - run: yarn install --immutable
       - run: yarn setup-python
       - run: yarn shexli

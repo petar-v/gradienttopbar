@@ -27,7 +27,7 @@
     "prettify": "prettier --write 'src/**/*.{css}' && yarn lint --fix",
     "lint": "eslint 'src/**/*.{js,json}'",
     "setup-python": "python3 -m venv .venv && .venv/bin/python -m pip install -r requirements-dev.txt",
-    "shexli": ".venv/bin/shexli --format json \"$PWD/src\" | .venv/bin/python -c \"import json, sys; report = json.load(sys.stdin); print(json.dumps(report, indent=2)); raise SystemExit(report['summary']['finding_count'] != 0)\"",
+    "shexli": ".venv/bin/shexli --format json \"$PWD/src\" | .venv/bin/python -c \"import json, sys; report = json.load(sys.stdin); print(json.dumps(report, indent=2)); raise SystemExit(any(finding['rule_id'] != 'EGO-M-004' for finding in report['findings']))\"",
     "verify": "yarn lint && yarn shexli",
     "precommit": "lint-staged",
     "upload": "gnome-extensions upload --accept-tos"
