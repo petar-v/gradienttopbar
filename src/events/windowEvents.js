@@ -95,8 +95,8 @@ export default class WindowEvents {
      * Forces a state update by re-evaluating maximized windows and emitting a state change
      * Used when the state needs to be refreshed regardless of detected changes
      */
-    updateState(force = false) {
-        this.triggerWindows = this.getTriggerWindowIds();
+    updateState(force = false, excludedWindowId = null) {
+        this.triggerWindows = this.getTriggerWindowIds(excludedWindowId);
         this.emitStateChange(force);
     }
 

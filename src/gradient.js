@@ -9,6 +9,13 @@ const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
 
 let transitionActor = null;
 
+const allocateTransitionActor = () => {
+    const box = new Clutter.ActorBox();
+    box.x2 = panel.width;
+    box.y2 = panel.height;
+    transitionActor.allocate(box);
+};
+
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
     return `.${GRADIENT_CLASS} {
@@ -61,11 +68,13 @@ export const setGradientTransition = progress => {
             style_class: MAXIMIZED_GRADIENT_CLASS,
             reactive: false
         });
-        transitionActor.add_constraint(new Clutter.BindConstraint({
-            source: panel,
-            coordinate: Clutter.BindCoordinate.SIZE
-        }));
         panel.insert_child_at_index(transitionActor, 0);
+        panel.connectObject(
+            'notify::allocation',
+            allocateTransitionActor,
+            transitionActor
+        );
+        allocateTransitionActor();
     }
 
     transitionActor.opacity = Math.round(progress * 255);
