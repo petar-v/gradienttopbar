@@ -6,6 +6,7 @@ import Clutter from 'gi://Clutter';
 
 const GRADIENT_CLASS = 'panel-gradient';
 const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
+const TRANSITION_DURATION_MS = 200;
 
 let transitionActor = null;
 let appliedGradientClass = null;
@@ -19,7 +20,10 @@ const allocateTransitionActor = () => {
 
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
-    return `.${GRADIENT_CLASS} {
+    return `#panel {
+            transition-duration: ${TRANSITION_DURATION_MS}ms;
+          }
+          .${GRADIENT_CLASS} {
             background-color: transparent;
             background-gradient-direction: ${gradientDirection};
             background-gradient-start: ${colors.start};
@@ -70,6 +74,7 @@ export const setGradientTransition = progress => {
     if (!transitionActor) {
         transitionActor = new St.Widget({
             style_class: MAXIMIZED_GRADIENT_CLASS,
+            opacity: 0,
             reactive: false
         });
         panel.insert_child_at_index(transitionActor, 0);
@@ -81,7 +86,11 @@ export const setGradientTransition = progress => {
         allocateTransitionActor();
     }
 
-    transitionActor.opacity = Math.round(progress * 255);
+    transitionActor.ease({
+        opacity: Math.round(progress * 255),
+        duration: TRANSITION_DURATION_MS,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD
+    });
 };
 
 export const removeGradientTransition = () => {

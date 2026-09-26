@@ -1,4 +1,8 @@
-import { toggleGradient } from '../gradient.js';
+import {
+    removeGradientTransition,
+    setGradientTransition,
+    toggleGradient
+} from '../gradient.js';
 import { MAXIMIZED_BEHAVIOR } from '../constants.js';
 
 export default class DiscreteEffect {
@@ -9,6 +13,7 @@ export default class DiscreteEffect {
     apply(effectStrength) {
         if (effectStrength === 0 || this.triggeredBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT) {
             toggleGradient(true, false);
+            setGradientTransition(0);
             return;
         }
 
@@ -17,10 +22,12 @@ export default class DiscreteEffect {
             return;
         }
 
-        toggleGradient(true, true);
+        toggleGradient(true, false);
+        setGradientTransition(1);
     }
 
     destroy() {
+        removeGradientTransition();
         toggleGradient(false);
     }
 }
