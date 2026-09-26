@@ -1,8 +1,11 @@
 import Meta from 'gi://Meta';
-import { overview } from 'resource:///org/gnome/shell/ui/main.js';
+import { overview, wm } from 'resource:///org/gnome/shell/ui/main.js';
 
 import EventManager from './eventManager.js';
-import { areSameState } from './states.js';
+import {
+    areSameState,
+    getWorkspaceTransition
+} from './states.js';
 
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
 const WINDOW_CREATE_EVENT = 'window-created';
@@ -15,21 +18,20 @@ const WINDOW_EXIT_MONITOR = 'window-left-monitor';
 // const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
 const OVERVIEW_SHOWING = 'showing';
 const OVERVIEW_HIDING = 'hiding';
+const WORKSPACE_SWIPE_BEGIN = 'begin';
 
 // FIXME: this causes the overview to close on login
 const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
 
-const isVisibleApplicationWindow = window =>
+const isApplicationWindow = window =>
     !isDesktopIconsNG(window) &&
     window.is_on_primary_monitor() &&
-    window.showing_on_its_workspace() &&
-    !window.is_hidden() &&
+    !window.minimized &&
     window.get_window_type() !== Meta.WindowType.DESKTOP &&
     !window.skip_taskbar;
 
 /**
- * Manages window events and tracks window state changes
- * Used to detect windows that trigger alternate panel styling
+ * Manages window events and tracks the behaviour detector's effect strength.
  */
 export default class WindowEvents {
     /**
@@ -39,11 +41,11 @@ export default class WindowEvents {
      * @param {Meta.WindowManager} windowManager - The GNOME Shell window manager
      * @param {Meta.WorkspaceManager} workspaceManager - The GNOME Shell workspace manager
      */
-    constructor(display, windowManager, workspaceManager, behaviour) {
+    constructor(display, windowManager, workspaceManager) {
         this.display = display;
         this.windowManager = windowManager;
         this.workspaceManager = workspaceManager;
-        this.behaviour = behaviour;
+        this.behaviourDetector = null;
 
         this.eventManager = new EventManager();
         this.enabled = false;
@@ -52,8 +54,11 @@ export default class WindowEvents {
 
         this.workspace = null;
         this.inOverview = false;
-        this.triggerWindows = new Set();
+        this.effectStrength = 0;
         this.lastState = null;
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
     }
 
     /**
@@ -68,11 +73,11 @@ export default class WindowEvents {
     /**
      * Gets the current window state
      *
-     * @returns {Object} The current trigger, workspace, and overview state
+     * @returns {Object} The current effect strength, workspace, and overview state
      */
     getCurrentState() {
         return {
-            triggerWindows: this.triggerWindows,
+            effectStrength: this.inOverview ? 0 : this.effectStrength,
             currentWorkspace: this.workspace,
             inOverview: this.inOverview
         };
@@ -92,12 +97,118 @@ export default class WindowEvents {
     }
 
     /**
-     * Forces a state update by re-evaluating maximized windows and emitting a state change
+     * Re-evaluates the active behaviour detector and emits a state change.
      * Used when the state needs to be refreshed regardless of detected changes
      */
-    updateState(force = false) {
-        this.triggerWindows = this.getTriggerWindowIds();
-        this.emitStateChange(force);
+    updateState(force = false, excludedWindowId = null) {
+        this.effectStrength = this.getEffectStrength(excludedWindowId);
+        if (!this.workspaceTransitionGroup)
+            this.emitStateChange(force);
+    }
+
+    getWorkspaceAnimationController() {
+        return wm?._workspaceAnimation;
+    }
+
+    getWorkspaceTransitionState(monitorGroup) {
+        if (!Array.isArray(monitorGroup?._workspaceGroups) ||
+            typeof monitorGroup.getSnapPoints !== 'function')
+            return null;
+
+        const workspaces = monitorGroup._workspaceGroups
+            .map(group => group.workspace);
+
+        return getWorkspaceTransition(
+            workspaces,
+            monitorGroup.getSnapPoints(),
+            monitorGroup.progress
+        );
+    }
+
+    updateWorkspaceTransition(monitorGroup) {
+        const transition = this.getWorkspaceTransitionState(monitorGroup);
+        if (!transition)
+            return;
+
+        const startStrength = this.getEffectStrengthForWorkspace(
+            transition.startWorkspace
+        );
+        const endStrength = this.getEffectStrengthForWorkspace(
+            transition.endWorkspace
+        );
+
+        this.stateChangeCallback({
+            ...this.getCurrentState(),
+            workspaceTransition: 'progress',
+            startEffectStrength: startStrength,
+            endEffectStrength: endStrength,
+            transitionProgress: transition.progress
+        });
+    }
+
+    finishWorkspaceTransition() {
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
+        this.workspace = this.workspaceManager.get_active_workspace();
+        this.effectStrength = this.getEffectStrength();
+
+        const currentState = this.getCurrentState();
+        this.lastState = currentState;
+        this.stateChangeCallback({
+            ...currentState,
+            workspaceTransition: 'complete'
+        });
+    }
+
+    startWorkspaceTransition() {
+        const monitorGroup = this.getWorkspaceAnimationController()
+            ?._switchData?.baseMonitorGroup;
+        if (!monitorGroup || monitorGroup === this.workspaceTransitionGroup)
+            return;
+
+        this.workspaceTransitionGroup = monitorGroup;
+        this.workspaceTransitionProgressHandlerId = monitorGroup.connect(
+            'notify::progress',
+            group => this.updateWorkspaceTransition(group)
+        );
+        this.workspaceTransitionDestroyHandlerId = monitorGroup.connect(
+            'destroy',
+            () => this.finishWorkspaceTransition()
+        );
+        this.updateWorkspaceTransition(monitorGroup);
+    }
+
+    attachWorkspaceTransitionEvents() {
+        const swipeTracker = this.getWorkspaceAnimationController()
+            ?._swipeTracker;
+        if (!swipeTracker)
+            return;
+
+        this.eventManager.attachGlobalEventOnce(
+            WORKSPACE_SWIPE_BEGIN,
+            swipeTracker,
+            () => this.startWorkspaceTransition()
+        );
+    }
+
+    detachWorkspaceTransitionEvents() {
+        if (this.workspaceTransitionGroup &&
+            this.workspaceTransitionProgressHandlerId) {
+            this.workspaceTransitionGroup.disconnect(
+                this.workspaceTransitionProgressHandlerId
+            );
+        }
+        if (this.workspaceTransitionGroup &&
+            this.workspaceTransitionDestroyHandlerId) {
+            this.workspaceTransitionGroup.disconnect(
+                this.workspaceTransitionDestroyHandlerId
+            );
+        }
+
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
     }
 
     /**
@@ -124,7 +235,7 @@ export default class WindowEvents {
          */
         const onWorkspaceChanged = workspaceManager => {
             this.workspace = workspaceManager.get_active_workspace();
-            this.updateState();
+            this.updateState(true);
         };
 
         /**
@@ -135,9 +246,8 @@ export default class WindowEvents {
          */
         const onWindowDestroy = (_, windowActor) => {
             const window = windowActor.get_meta_window();
-            this.triggerWindows.delete(window.get_id());
             this.eventManager.disconnectWindowEvents(window);
-            this.emitStateChange();
+            this.updateState(false, window.get_id());
         };
 
         /**
@@ -149,7 +259,7 @@ export default class WindowEvents {
             if (isDesktopIconsNG(window))
                 return;
 
-            this.behaviour.attachWindowEvents(
+            this.behaviourDetector.attachWindowEvents(
                 this.eventManager,
                 window,
                 onWindowChange
@@ -163,8 +273,7 @@ export default class WindowEvents {
          * @param {Meta.WindowActor} windowActor - The window actor being minimized
          */
         const onWindowMinimize = (_, windowActor) => {
-            this.triggerWindows.delete(windowActor.get_meta_window().get_id());
-            this.emitStateChange();
+            this.updateState(false, windowActor.get_meta_window().get_id());
         };
 
         /**
@@ -216,10 +325,11 @@ export default class WindowEvents {
             this.display,
             () => this.updateState()
         );
-        this.behaviour.attachGlobalEvents(
+        this.behaviourDetector.attachGlobalEvents(
             this.eventManager,
             force => this.updateState(force)
         );
+        this.attachWorkspaceTransitionEvents();
 
         // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
         // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, () => this.forceStateUpdate());
@@ -232,12 +342,12 @@ export default class WindowEvents {
         });
         this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
             this.inOverview = false;
-            this.emitStateChange();
+            this.updateState(true);
         });
 
         this.display.list_all_windows().forEach(attachWindowEvents);
 
-        this.triggerWindows = this.getTriggerWindowIds();
+        this.effectStrength = this.getEffectStrength();
 
         // Add screen lock/unlock event handling
         this.eventManager.attachUnlockScreenEvent(() => {
@@ -253,45 +363,55 @@ export default class WindowEvents {
      * Cleans up all event listeners and resets the state
      */
     disable() {
+        this.detachWorkspaceTransitionEvents();
         this.eventManager.disconnectAllEvents();
         this.display.list_all_windows().forEach(window => {
             this.eventManager.disconnectWindowEvents(window);
         });
 
         this.workspace = null;
-        this.triggerWindows = new Set();
+        this.effectStrength = 0;
         this.inOverview = null;
         this.lastState = null;
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
         this.enabled = false;
     }
 
     /**
-     * Gets the IDs of windows that currently trigger alternate styling
+     * Gets the current effect strength from visible windows
      *
-     * @returns {Set<number>} A set containing the triggering window IDs
+     * @returns {number} The effect strength from zero to one
      */
-    getTriggerWindowIds() {
-        if (!this.workspace)
-            return new Set();
-
-        return new Set(
-            this.workspace
-                .list_windows()
-                .filter(isVisibleApplicationWindow)
-                .filter(window => this.behaviour.matches(window))
-                .map(window => window.get_id())
+    getEffectStrength(excludedWindowId = null) {
+        return this.getEffectStrengthForWorkspace(
+            this.workspace,
+            excludedWindowId
         );
     }
 
-    setBehaviour(behaviour) {
-        if (this.behaviour.constructor === behaviour.constructor)
+    getEffectStrengthForWorkspace(workspace, excludedWindowId = null) {
+        if (!workspace)
+            return 0;
+
+        const windows = workspace
+            .list_windows()
+            .filter(isApplicationWindow)
+            .filter(window => window.get_id() !== excludedWindowId);
+
+        return this.behaviourDetector.getEffectStrength(windows);
+    }
+
+    setBehaviourDetector(behaviourDetector) {
+        if (this.behaviourDetector?.constructor === behaviourDetector.constructor)
             return;
 
         const wasEnabled = this.enabled;
         if (wasEnabled)
             this.disable();
 
-        this.behaviour = behaviour;
+        this.behaviourDetector = behaviourDetector;
 
         if (wasEnabled)
             this.enable();

@@ -2,6 +2,7 @@ import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -14,10 +15,14 @@ import {
     getStyleTrigger,
     setStyleTrigger,
     getProximityDistance,
-    setProximityDistance
+    setProximityDistance,
+    getProximityTransition,
+    setProximityTransition
 } from '../config.js';
 
 import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
+
+const PROXIMITY_DISTANCE_SAVE_DELAY_MS = 300;
 
 const MaximizedBehavior = GObject.registerClass(
     {
@@ -54,6 +59,39 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         this._settings = settings;
+        let proximityDistanceTimeoutId = null;
+
+        const commitProximityDistance = () => {
+            if (proximityDistanceTimeoutId) {
+                GLib.Source.remove(proximityDistanceTimeoutId);
+                proximityDistanceTimeoutId = null;
+            }
+
+            const value = Math.round(proximityDistanceRow.value);
+            if (value !== getProximityDistance(this._settings))
+                setProximityDistance(this._settings, value);
+        };
+
+        const scheduleProximityDistanceSave = () => {
+            if (proximityDistanceTimeoutId) {
+                GLib.Source.remove(proximityDistanceTimeoutId);
+                proximityDistanceTimeoutId = null;
+            }
+
+            const value = Math.round(proximityDistanceRow.value);
+            if (value === getProximityDistance(this._settings))
+                return;
+
+            proximityDistanceTimeoutId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                PROXIMITY_DISTANCE_SAVE_DELAY_MS,
+                () => {
+                    proximityDistanceTimeoutId = null;
+                    setProximityDistance(this._settings, value);
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+        };
 
         const behaviorGroup = new Adw.PreferencesGroup({
             title: gettext('Behavior')
@@ -83,6 +121,12 @@ class Behavior extends Adw.PreferencesPage {
                 value: getProximityDistance(this._settings)
             }),
             digits: 0
+        });
+
+        const proximityTransitionRow = new Adw.SwitchRow({
+            title: gettext('Transition proximity style'),
+            subtitle: gettext('Blend the alternate style as windows approach the panel'),
+            active: getProximityTransition(this._settings)
         });
 
         // Create model for maximized behavior dropdown
@@ -123,6 +167,15 @@ class Behavior extends Adw.PreferencesPage {
         proximityDistanceRow.set_sensitive(
             getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY
         );
+        const updateProximityControls = () => {
+            const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
+            proximityDistanceRow.set_sensitive(usesProximity);
+            proximityTransitionRow.set_sensitive(
+                usesProximity &&
+                getMaximizedBehavior(this._settings) === MAXIMIZED_BEHAVIOR.APPLY_STYLE
+            );
+        };
+        updateProximityControls();
 
         // Connect to changes
         maximizedBehaviorRow.connect('notify::selected', () => {
@@ -133,11 +186,15 @@ class Behavior extends Adw.PreferencesPage {
             setStyleTrigger(this._settings, triggerRow.selectedItem.value);
         });
         proximityDistanceRow.connect('notify::value', () => {
-            setProximityDistance(this._settings, Math.round(proximityDistanceRow.value));
+            scheduleProximityDistanceSave();
+        });
+        proximityTransitionRow.connect('notify::active', () => {
+            setProximityTransition(this._settings, proximityTransitionRow.active);
         });
 
         behaviorGroup.add(triggerRow);
         behaviorGroup.add(proximityDistanceRow);
+        behaviorGroup.add(proximityTransitionRow);
         behaviorGroup.add(maximizedBehaviorRow);
         this.add(behaviorGroup);
 
@@ -146,10 +203,12 @@ class Behavior extends Adw.PreferencesPage {
             setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
             setMaximizedBehaviorOnRow(triggerRow, config.styleTrigger);
             proximityDistanceRow.set_value(config.proximityDistance);
-            proximityDistanceRow.set_sensitive(config.styleTrigger === STYLE_TRIGGER.PROXIMITY);
+            proximityTransitionRow.set_active(config.proximityTransition);
+            updateProximityControls();
         };
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
+            commitProximityDistance();
             detachSettingsListeners(settings, settingsHandlerIds);
         });
     }
