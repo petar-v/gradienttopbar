@@ -18,6 +18,33 @@ const allocateTransitionActor = () => {
     transitionActor.allocate(box);
 };
 
+const getTransitionActor = styleClass => {
+    if (!transitionActor) {
+        transitionActor = new St.Widget({
+            style_class: styleClass,
+            opacity: 0,
+            reactive: false
+        });
+        panel.insert_child_at_index(transitionActor, 0);
+        panel.connectObject(
+            'notify::allocation',
+            allocateTransitionActor,
+            transitionActor
+        );
+        allocateTransitionActor();
+    } else {
+        transitionActor.set_style_class_name(styleClass);
+    }
+
+    return transitionActor;
+};
+
+const setTransitionProgress = (styleClass, progress) => {
+    const actor = getTransitionActor(styleClass);
+    actor.remove_transition('opacity');
+    actor.opacity = Math.round(progress * 255);
+};
+
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
     return `#panel {
@@ -71,25 +98,36 @@ export const setGradientTransition = progress => {
     if (!transitionActor && progress === 0)
         return;
 
-    if (!transitionActor) {
-        transitionActor = new St.Widget({
-            style_class: MAXIMIZED_GRADIENT_CLASS,
-            opacity: 0,
-            reactive: false
-        });
-        panel.insert_child_at_index(transitionActor, 0);
-        panel.connectObject(
-            'notify::allocation',
-            allocateTransitionActor,
-            transitionActor
-        );
-        allocateTransitionActor();
-    }
-
-    transitionActor.ease({
+    getTransitionActor(MAXIMIZED_GRADIENT_CLASS).ease({
         opacity: Math.round(progress * 255),
         duration: TRANSITION_DURATION_MS,
         mode: Clutter.AnimationMode.EASE_OUT_QUAD
+    });
+};
+
+export const scrubAlternateGradient = progress => {
+    setTransitionProgress(MAXIMIZED_GRADIENT_CLASS, progress);
+};
+
+export const scrubOriginalTheme = progress => {
+    setTransitionProgress(GRADIENT_CLASS, 1 - progress);
+};
+
+export const finishOriginalThemeTransition = showGradient => {
+    if (!transitionActor || !showGradient) {
+        removeGradientTransition();
+        return;
+    }
+
+    const actor = transitionActor;
+    actor.ease({
+        opacity: 0,
+        duration: TRANSITION_DURATION_MS,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        onComplete: () => {
+            if (transitionActor === actor)
+                removeGradientTransition();
+        }
     });
 };
 

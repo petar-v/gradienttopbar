@@ -1,8 +1,11 @@
 import Meta from 'gi://Meta';
-import { overview } from 'resource:///org/gnome/shell/ui/main.js';
+import { overview, wm } from 'resource:///org/gnome/shell/ui/main.js';
 
 import EventManager from './eventManager.js';
-import { areSameState } from './states.js';
+import {
+    areSameState,
+    getWorkspaceTransition
+} from './states.js';
 
 const WORKSPACE_CHANGE_EVENT = 'workspace-switched';
 const WINDOW_CREATE_EVENT = 'window-created';
@@ -15,15 +18,15 @@ const WINDOW_EXIT_MONITOR = 'window-left-monitor';
 // const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
 const OVERVIEW_SHOWING = 'showing';
 const OVERVIEW_HIDING = 'hiding';
+const WORKSPACE_SWIPE_BEGIN = 'begin';
 
 // FIXME: this causes the overview to close on login
 const isDesktopIconsNG = window => window.customJS_ding !== undefined; // this is to ignore "Desktop Icons NG"'s window hacks
 
-const isVisibleApplicationWindow = window =>
+const isApplicationWindow = window =>
     !isDesktopIconsNG(window) &&
     window.is_on_primary_monitor() &&
-    window.showing_on_its_workspace() &&
-    !window.is_hidden() &&
+    !window.minimized &&
     window.get_window_type() !== Meta.WindowType.DESKTOP &&
     !window.skip_taskbar;
 
@@ -53,6 +56,9 @@ export default class WindowEvents {
         this.inOverview = false;
         this.effectStrength = 0;
         this.lastState = null;
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
     }
 
     /**
@@ -96,7 +102,113 @@ export default class WindowEvents {
      */
     updateState(force = false, excludedWindowId = null) {
         this.effectStrength = this.getEffectStrength(excludedWindowId);
-        this.emitStateChange(force);
+        if (!this.workspaceTransitionGroup)
+            this.emitStateChange(force);
+    }
+
+    getWorkspaceAnimationController() {
+        return wm?._workspaceAnimation;
+    }
+
+    getWorkspaceTransitionState(monitorGroup) {
+        if (!Array.isArray(monitorGroup?._workspaceGroups) ||
+            typeof monitorGroup.getSnapPoints !== 'function')
+            return null;
+
+        const workspaces = monitorGroup._workspaceGroups
+            .map(group => group.workspace);
+
+        return getWorkspaceTransition(
+            workspaces,
+            monitorGroup.getSnapPoints(),
+            monitorGroup.progress
+        );
+    }
+
+    updateWorkspaceTransition(monitorGroup) {
+        const transition = this.getWorkspaceTransitionState(monitorGroup);
+        if (!transition)
+            return;
+
+        const startStrength = this.getEffectStrengthForWorkspace(
+            transition.startWorkspace
+        );
+        const endStrength = this.getEffectStrengthForWorkspace(
+            transition.endWorkspace
+        );
+
+        this.stateChangeCallback({
+            ...this.getCurrentState(),
+            workspaceTransition: 'progress',
+            startEffectStrength: startStrength,
+            endEffectStrength: endStrength,
+            transitionProgress: transition.progress
+        });
+    }
+
+    finishWorkspaceTransition() {
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
+        this.workspace = this.workspaceManager.get_active_workspace();
+        this.effectStrength = this.getEffectStrength();
+
+        const currentState = this.getCurrentState();
+        this.lastState = currentState;
+        this.stateChangeCallback({
+            ...currentState,
+            workspaceTransition: 'complete'
+        });
+    }
+
+    startWorkspaceTransition() {
+        const monitorGroup = this.getWorkspaceAnimationController()
+            ?._switchData?.baseMonitorGroup;
+        if (!monitorGroup || monitorGroup === this.workspaceTransitionGroup)
+            return;
+
+        this.workspaceTransitionGroup = monitorGroup;
+        this.workspaceTransitionProgressHandlerId = monitorGroup.connect(
+            'notify::progress',
+            group => this.updateWorkspaceTransition(group)
+        );
+        this.workspaceTransitionDestroyHandlerId = monitorGroup.connect(
+            'destroy',
+            () => this.finishWorkspaceTransition()
+        );
+        this.updateWorkspaceTransition(monitorGroup);
+    }
+
+    attachWorkspaceTransitionEvents() {
+        const swipeTracker = this.getWorkspaceAnimationController()
+            ?._swipeTracker;
+        if (!swipeTracker)
+            return;
+
+        this.eventManager.attachGlobalEventOnce(
+            WORKSPACE_SWIPE_BEGIN,
+            swipeTracker,
+            () => this.startWorkspaceTransition()
+        );
+    }
+
+    detachWorkspaceTransitionEvents() {
+        if (this.workspaceTransitionGroup &&
+            this.workspaceTransitionProgressHandlerId) {
+            this.workspaceTransitionGroup.disconnect(
+                this.workspaceTransitionProgressHandlerId
+            );
+        }
+        if (this.workspaceTransitionGroup &&
+            this.workspaceTransitionDestroyHandlerId) {
+            this.workspaceTransitionGroup.disconnect(
+                this.workspaceTransitionDestroyHandlerId
+            );
+        }
+
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
     }
 
     /**
@@ -123,7 +235,7 @@ export default class WindowEvents {
          */
         const onWorkspaceChanged = workspaceManager => {
             this.workspace = workspaceManager.get_active_workspace();
-            this.updateState();
+            this.updateState(true);
         };
 
         /**
@@ -217,6 +329,7 @@ export default class WindowEvents {
             this.eventManager,
             force => this.updateState(force)
         );
+        this.attachWorkspaceTransitionEvents();
 
         // FIXME: the workspace changes so this needs to be attached to every workspace as it is created/deleted
         // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, () => this.forceStateUpdate());
@@ -250,6 +363,7 @@ export default class WindowEvents {
      * Cleans up all event listeners and resets the state
      */
     disable() {
+        this.detachWorkspaceTransitionEvents();
         this.eventManager.disconnectAllEvents();
         this.display.list_all_windows().forEach(window => {
             this.eventManager.disconnectWindowEvents(window);
@@ -259,6 +373,9 @@ export default class WindowEvents {
         this.effectStrength = 0;
         this.inOverview = null;
         this.lastState = null;
+        this.workspaceTransitionGroup = null;
+        this.workspaceTransitionProgressHandlerId = null;
+        this.workspaceTransitionDestroyHandlerId = null;
         this.enabled = false;
     }
 
@@ -268,12 +385,19 @@ export default class WindowEvents {
      * @returns {number} The effect strength from zero to one
      */
     getEffectStrength(excludedWindowId = null) {
-        if (!this.workspace)
+        return this.getEffectStrengthForWorkspace(
+            this.workspace,
+            excludedWindowId
+        );
+    }
+
+    getEffectStrengthForWorkspace(workspace, excludedWindowId = null) {
+        if (!workspace)
             return 0;
 
-        const windows = this.workspace
+        const windows = workspace
             .list_windows()
-            .filter(isVisibleApplicationWindow)
+            .filter(isApplicationWindow)
             .filter(window => window.get_id() !== excludedWindowId);
 
         return this.behaviourDetector.getEffectStrength(windows);

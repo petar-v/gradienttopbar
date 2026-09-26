@@ -43,9 +43,23 @@ export default class GradientTopBar extends Extension {
     }
 
     setWindowStateCallback() {
-        this.windowEvents.setStateChangeCallback(
-            ({ effectStrength }) => this.effect.apply(effectStrength)
-        );
+        this.windowEvents.setStateChangeCallback(state => {
+            if (state.workspaceTransition === 'progress') {
+                this.effect.scrub(
+                    state.startEffectStrength,
+                    state.endEffectStrength,
+                    state.transitionProgress
+                );
+                return;
+            }
+
+            if (state.workspaceTransition === 'complete') {
+                this.effect.settle(state.effectStrength);
+                return;
+            }
+
+            this.effect.apply(state.effectStrength);
+        });
     }
 
     enable() {
