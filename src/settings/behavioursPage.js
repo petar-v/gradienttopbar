@@ -43,7 +43,7 @@ const MaximizedBehavior = GObject.registerClass(
             )
         }
     },
-    class MaximizedBehavior extends GObject.Object {
+    class MaximizedBehaviorOption extends GObject.Object {
         _init(name, value) {
             super._init({ name, value });
         }
