@@ -4,9 +4,16 @@ Give GNOME’s top bar a customizable gradient.
 
 - Choose start and end colors of the gradient
 - Vertical or horizontal orientation
-- Trigger an alternate style for maximized windows or windows within a configurable distance of the panel
+- Trigger an alternate style when windows are maximized or near the panel
 - Keep the gradient, restore the original theme, or apply a custom gradient when triggered
-- Simple preferences dialog
+- Set the proximity distance from 0 to 100 px
+- Optionally blend gradually into the alternate style as a window approaches the panel
+- Smooth transitions when switching between workspaces with different top-bar styles
+- Configure the style trigger, proximity distance, and transition controls in the preferences dialog
+
+Note:
+
+If you use a tiling extension, switching the style trigger from **Maximized windows** to **Proximity** can improve detection and styling. Set the proximity distance to **0 px** to trigger the alternate (maximized) style when a window touches the top bar.
 
 
 ## Screenshot
