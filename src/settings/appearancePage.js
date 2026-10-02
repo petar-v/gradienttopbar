@@ -38,7 +38,7 @@ const GradientDirection = GObject.registerClass(
             )
         }
     },
-    class GradientDirection extends GObject.Object {
+    class GradientDirectionOption extends GObject.Object {
         _init(name, value) {
             super._init({ name, value });
         }

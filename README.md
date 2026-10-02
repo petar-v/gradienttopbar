@@ -62,7 +62,7 @@ This section provides information for developers who want to contribute to the G
 Before you start development, make sure you have the following installed:
 
 - GNOME Shell (version 45 or higher)
-- Node.js and Yarn (the project uses Yarn 4.0.1)
+- Node.js and Yarn (the project uses Yarn 4.18.1)
 - Python 3.12 or newer
 - Git
 
