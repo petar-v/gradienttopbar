@@ -17,6 +17,9 @@
   "author": "Petar Vasilev <petar@pshow.org>",
   "type": "module",
   "scripts": {
+    "demo": "bash resources/demos/scripts/all.sh",
+    "demo:check": "bash resources/demos/scripts/check.sh",
+    "demo:export": "bash resources/demos/scripts/export.sh",
     "nested-wayland": "dbus-run-session -- gnome-shell --devkit --wayland",
     "pref-debug": "journalctl -f -o cat /usr/bin/gjs",
     "open-prefs": "gnome-extensions prefs gradienttopbar@pshow.org",
