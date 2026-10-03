@@ -162,8 +162,8 @@ The project includes several scripts to help with development:
 - [ ] Add box shadow settings
 - [ ] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
 - [x] Add demo videos
-- [ ] Figure out reliable testing methods or at least unit tests
-- [ ] Make it work with something like tiling when the window occupies the whole top horizontally (to test with Tiling Assistant)
+- [x] Figure out reliable testing methods or at least unit tests - the [demo recording scripts](resources/demos/README.md) provide reproducible scenarios for visual testing.
+- [x] Make it work with something like tiling when the window occupies the whole top horizontally - proximity mode detects tiled windows near or touching the panel, resolving the styling issue without relying on maximized-window detection.
 
 # Credits
 This extension is a fork of [the Original Gradient Top Bar extension](https://extensions.gnome.org/extension/1264/gradient-top-bar/) by [Julien/jpec](https://peclu.net/).
