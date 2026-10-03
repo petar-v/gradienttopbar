@@ -1,6 +1,6 @@
 # Demo recordings
 
-The named scripts in `scripts/` reproduce the extension demos in a disposable GNOME Shell 51 Wayland devkit session. They use `wallpaper.jpg`, a vertical black-to-transparent normal panel, and a horizontal gold-to-teal alternate panel.
+The recorder in `scripts/` reproduces the extension demos in a disposable GNOME Shell 51 Wayland devkit session. It uses `wallpaper.jpg`, a vertical black-to-transparent normal panel, and a horizontal gold-to-teal alternate panel.
 
 Final MP4s, the wallpaper, and scripts belong in Git. Generated masters and logs live under `output/`, which is ignored. Extension packaging includes only `src/`, so none of these demo assets enter the extension ZIP.
 
@@ -15,31 +15,31 @@ Exporting needs FFmpeg with `libx264`. Validation also needs Node.js, Yarn, `gst
 From the project root:
 
 ```sh
-yarn demo
+yarn demo all
 ```
 
-`scripts/all.sh` calls the six named scripts sequentially and stops on the first failure. Each run creates `output/<timestamp>/masters/` and `output/<timestamp>/logs/`. To choose the run directory:
+`scripts/record.sh` records the six scenarios sequentially and stops on the first failure. Omitting the scenario also records all six. Each run creates `output/<timestamp>/masters/` and `output/<timestamp>/logs/`. To choose the run directory:
 
 ```sh
-yarn demo resources/demos/output/my-run
+yarn demo all resources/demos/output/my-run
 ```
 
-Run one scenario with its named script. The optional argument is a run directory:
+Run one scenario by name. The optional second argument is a run directory:
 
 ```sh
-bash resources/demos/scripts/proximity.sh
-bash resources/demos/scripts/tiling.sh resources/demos/output/tiling-run
-bash resources/demos/scripts/preferences.sh resources/demos/output/preferences-run
+yarn demo proximity
+yarn demo tiling resources/demos/output/tiling-run
+yarn demo preferences resources/demos/output/preferences-run
 ```
 
-| Script | Approximate length | What it records |
+| Scenario | Approximate length | What it records |
 | --- | --- | --- |
-| `proximity.sh` | 6 seconds | A window approaches the panel, blends into the alternate style, then moves away. |
-| `touch.sh` | 4 seconds | With a 0 px distance, an unmaximized window touches the panel and moves away. |
-| `workspace.sh` | 6 seconds | A native workspace swipe moves between alternate and normal panel styles, then back. |
-| `maximized.sh` | 4 seconds | A window maximizes and restores. |
-| `tiling.sh` | 4–5 seconds | With proximity at 0 px, a floating window snaps to the left half, touches the panel and activates the alternate style, then restores. |
-| `preferences.sh` | 5 seconds | The actual Behaviour page switches to proximity, sets the distance to 0 and 100 px, and enables the gradual transition. |
+| `proximity` | 6 seconds | A window approaches the panel, blends into the alternate style, then moves away. |
+| `touch` | 4 seconds | With a 0 px distance, an unmaximized window touches the panel and moves away. |
+| `workspace` | 6 seconds | A native workspace swipe moves between alternate and normal panel styles, then back. |
+| `maximized` | 4 seconds | A window maximizes and restores. |
+| `tiling` | 4–5 seconds | With proximity at 0 px, a floating window snaps to the left half, touches the panel and activates the alternate style, then restores. |
+| `preferences` | 5 seconds | The actual Behaviour page switches to proximity, sets the distance to 0 and 100 px, and enables the gradual transition. |
 
 The recorder checks the private Shell PID, D-Bus bus, extension path, and Wayland display before controlling the session. Settings use private XDG directories, and cleanup closes the private Shell. The printed `/tmp/gradienttopbar-demo.*` profile is retained for troubleshooting; session and Shell logs are also saved in the run's `logs/` folder.
 
@@ -47,7 +47,7 @@ The tiling demo uses GNOME's native Super+Left shortcut, sent through a virtual 
 
 Capture uses the built-in GNOME recorder at native 1024×640 resolution, requesting 30 fps. H.264 encoding uses zero quantization, 4:4:4 color, the ultrafast preset, and two encoder threads. Encoding is lossless after conversion to YUV color. The original recording is copied into `masters/` without resizing or re-encoding.
 
-The preferences script is included, but its clip is still pending: the previous run stopped before capture because the private monitor reported 480×480 instead of 1024×640. The monitor check remains enforced.
+The preferences scenario is included, but its clip is still pending: the previous run stopped before capture because the private monitor reported 480×480 instead of 1024×640. The monitor check remains enforced.
 
 ## Export for the README
 
