@@ -25,6 +25,7 @@ let demoWindow;
 let recording = false;
 let recordingFilename;
 let gestureActive = false;
+let shellModuleLoaded = false;
 let exitCode = 0;
 
 function call(name, path, iface, method, args, signature) {
@@ -54,6 +55,11 @@ async function evaluate(code) {
     if (!ok)
         throw new Error(`Private Shell Eval failed: ${result}`);
     return result ? JSON.parse(result) : null;
+}
+
+// Eval is only the transport: all Shell operations live in a normal JS module.
+function shellCall(action, ...args) {
+    return evaluate(`global.demoActions[${JSON.stringify(action)}](...${JSON.stringify(args)})`);
 }
 
 async function stopRecording() {
@@ -87,14 +93,14 @@ async function preparePrivateSession() {
         throw new Error(`Refusing to control Shell PID ${pid}; expected private PID ${expectedPid}`);
 
     await pause(2500);
-    await evaluate('Main.overview.hide()');
-    const extension = await evaluate("(() => { const e = Main.extensionManager.lookup('gradienttopbar@pshow.org'); return {state: e?.state, path: e?.path}; })()");
+    const moduleUri = Gio.File.new_for_uri(import.meta.url).get_parent().get_child('shell-actions.js').get_uri();
+    await evaluate(`import(${JSON.stringify(moduleUri)}).then(module => { global.demoActions = module; return true; })`);
+    shellModuleLoaded = true;
+    const { extension, monitor, display } = await shellCall('getSessionInfo');
     if (extension.state !== 1 || extension.path !== `${profile}/extensions-data/gnome-shell/extensions/gradienttopbar@pshow.org`)
         throw new Error(`Private extension is not active: ${JSON.stringify(extension)}`);
-    const monitor = await evaluate('({width: Main.layoutManager.primaryMonitor.width, height: Main.layoutManager.primaryMonitor.height})');
     if (monitor.width !== desktopWidth || monitor.height !== desktopHeight)
         throw new Error(`Expected a ${desktopWidth}×${desktopHeight} private monitor: ${JSON.stringify(monitor)}`);
-    const display = await evaluate("GLib.getenv('WAYLAND_DISPLAY')");
     if (!display || display === GLib.getenv('demo_host_display'))
         throw new Error('A separate private Wayland display is required');
     GLib.setenv('WAYLAND_DISPLAY', display, true);
@@ -105,13 +111,7 @@ async function preparePrivateSession() {
 
 async function placeWindow(title, x, y, width, height) {
     for (let attempt = 0; attempt < 50; attempt++) {
-        const found = await evaluate(`(() => {
-            global.demoWindow = global.get_window_actors().map(a => a.meta_window)
-                .find(w => w.get_title() === ${JSON.stringify(title)});
-            if (!global.demoWindow) return false;
-            global.demoWindow.move_resize_frame(false, ${x}, ${y}, ${width}, ${height});
-            return true;
-        })()`);
+        const found = await shellCall('placeWindow', title, x, y, width, height);
         if (found) {
             await pause(500);
             return;
@@ -136,100 +136,56 @@ async function showDemoWindow() {
         margin_start: 40, margin_end: 40
     }));
     demoWindow.present();
-    const panelHeight = await evaluate('Math.round(Main.panel.height)');
+    const panelHeight = await shellCall('getPanelHeight');
     let gap = 130;
     if (scenario === 'touch')
         gap = 45;
     if (scenario === 'workspace')
         gap = 0;
     await placeWindow('Gradient Top Bar Demo', demoWindowX, panelHeight + gap, demoWindowWidth, 360);
-    await evaluate('global.demoWindow.change_workspace_by_index(0, false); global.workspace_manager.get_workspace_by_index(0).activate(0); true');
+    await shellCall('useFirstWorkspace');
     if (scenario === 'tiling')
-        await evaluate('global.demoWindow.activate(global.get_current_time()); true');
+        await shellCall('activateWindow');
     await pause(500);
 }
 
 async function toggleLeftTiling() {
-    // Send GNOME's native snap shortcut to the verified private Shell's own seat.
-    await evaluate(`(() => {
-        if (global.display.get_focus_window() !== global.demoWindow)
-            throw new Error('The private demo window must have focus before tiling');
-        const Clutter = imports.gi.Clutter;
-        global.demoKeyboard ??= global.stage.get_context().get_backend().get_default_seat()
-            .create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
-        const keyboard = global.demoKeyboard;
-        const time = GLib.get_monotonic_time();
-        keyboard.notify_keyval(time, Clutter.KEY_Super_L, Clutter.KeyState.PRESSED);
-        try {
-            keyboard.notify_keyval(time + 1000, Clutter.KEY_Left, Clutter.KeyState.PRESSED);
-        } finally {
-            keyboard.notify_keyval(time + 2000, Clutter.KEY_Left, Clutter.KeyState.RELEASED);
-            keyboard.notify_keyval(time + 3000, Clutter.KEY_Super_L, Clutter.KeyState.RELEASED);
-        }
-        return true;
-    })()`);
+    await shellCall('toggleLeftTiling');
     await pause(550);
 }
 
 async function recordTiling() {
     await toggleLeftTiling();
-    await evaluate(`(() => {
-        const window = global.demoWindow;
-        const frame = window.get_frame_rect();
-        const workArea = window.get_work_area_for_monitor(window.get_monitor());
-        const close = (actual, expected) => Math.abs(actual - expected) <= 2;
-        if (!close(frame.x, workArea.x) || !close(frame.y, workArea.y) ||
-            !close(frame.width, workArea.width / 2) || !close(frame.height, workArea.height) ||
-            frame.y > Main.layoutManager.primaryMonitor.y + Main.panel.height ||
-            window.is_maximized())
-            throw new Error('The private window did not snap to the left half and touch the panel');
-        return true;
-    })()`);
+    await shellCall('checkLeftTiling');
     await pause(1200);
     // Untiling restores the size but keeps GNOME's tile origin; move back away from the panel.
     await toggleLeftTiling();
-    await evaluate(`global.demoWindow.move_frame(false, ${demoWindowX}, Math.round(Main.panel.height) + 130); true`);
+    await shellCall('moveWindow', demoWindowX, 130);
     await pause(300);
-    await evaluate(`(() => {
-        const frame = global.demoWindow.get_frame_rect();
-        if (Math.abs(frame.x - ${demoWindowX}) > 2 ||
-            Math.abs(frame.width - ${demoWindowWidth}) > 2 ||
-            frame.y <= Main.layoutManager.primaryMonitor.y + Main.panel.height)
-            throw new Error('The private tiled window did not restore away from the panel');
-        return true;
-    })()`);
+    await shellCall('checkRestoredWindow', demoWindowX, demoWindowWidth);
     await pause(1100);
 }
 
 async function moveWindow(startGap, endGap, steps, interval) {
     for (let step = 0; step <= steps; step++) {
         const gap = Math.round(startGap + (endGap - startGap) * step / steps);
-        await evaluate(`global.demoWindow.move_frame(false, ${demoWindowX}, Math.round(Main.panel.height) + ${gap}); true`);
+        await shellCall('moveWindow', demoWindowX, gap);
         await pause(interval);
     }
 }
 
 async function swipeWorkspace(targetIndex) {
     gestureActive = true;
-    // Use GNOME 51's native gesture path so the extension receives swipe progress.
-    const { start, end } = await evaluate(`(() => {
-        const animation = Main.wm._workspaceAnimation;
-        const gesture = animation?._swipeTracker?._touchpadGesture;
-        if (!gesture) throw new Error('Native workspace gesture is unavailable');
-        gesture.emit('begin', Math.floor(GLib.get_monotonic_time() / 1000) >>> 0, ${desktopWidth / 2}, ${desktopHeight / 2});
-        const group = animation._switchData?.baseMonitorGroup;
-        if (!group) throw new Error('Private workspace gesture did not begin');
-        return {start: group.progress, end: group.getWorkspaceProgress(global.workspace_manager.get_workspace_by_index(${targetIndex}))};
-    })()`);
+    const { start, end } = await shellCall('beginWorkspaceSwipe', targetIndex, desktopWidth / 2, desktopHeight / 2);
     const steps = 55;
     for (let step = 0; step < steps; step++) {
-        await evaluate(`Main.wm._workspaceAnimation._swipeTracker._touchpadGesture.emit('update', Math.floor(GLib.get_monotonic_time() / 1000) >>> 0, ${(end - start) / steps}, 1.0); true`);
+        await shellCall('updateWorkspaceSwipe', (end - start) / steps);
         await pause(25);
     }
     await pause(150);
-    await evaluate("Main.wm._workspaceAnimation._swipeTracker._touchpadGesture.emit('end', Math.floor(GLib.get_monotonic_time() / 1000) >>> 0, 1.0); true");
+    await shellCall('endWorkspaceSwipe');
     await pause(500);
-    const index = await evaluate('global.workspace_manager.get_active_workspace_index()');
+    const index = await shellCall('getWorkspaceIndex');
     if (index !== targetIndex)
         throw new Error(`Workspace gesture ended on ${index}, expected ${targetIndex}`);
     gestureActive = false;
@@ -301,9 +257,9 @@ async function recordDemo() {
             await pause(300);
             break;
         case 'maximized':
-            await evaluate('global.demoWindow.maximize(3); true');
+            await shellCall('maximizeWindow');
             await pause(1500);
-            await evaluate('global.demoWindow.unmaximize(3); true');
+            await shellCall('restoreWindow');
             await pause(1300);
             break;
         case 'tiling':
@@ -336,18 +292,11 @@ recordDemo().catch(async error => {
         }
     }
 }).finally(async () => {
-    if (scenario === 'tiling') {
+    if (shellModuleLoaded) {
         try {
-            await evaluate('global.demoKeyboard = null; true');
+            await shellCall('cleanup', gestureActive);
         } catch (error) {
-            printerr(`Keyboard cleanup: ${error}`);
-        }
-    }
-    if (gestureActive) {
-        try {
-            await evaluate('Main.wm._workspaceAnimation?._swipeTracker?._interrupt(); true');
-        } catch (error) {
-            printerr(`Gesture cleanup: ${error}`);
+            printerr(`Shell cleanup: ${error}`);
         }
     }
     demoWindow?.close();

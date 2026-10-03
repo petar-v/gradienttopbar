@@ -17,7 +17,7 @@
   "author": "Petar Vasilev <petar@pshow.org>",
   "type": "module",
   "scripts": {
-    "demo": "bash resources/demos/scripts/all.sh",
+    "demo": "bash resources/demos/scripts/record.sh",
     "demo:check": "bash resources/demos/scripts/check.sh",
     "demo:export": "bash resources/demos/scripts/export.sh",
     "nested-wayland": "dbus-run-session -- gnome-shell --devkit --wayland",

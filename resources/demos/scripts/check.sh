@@ -5,9 +5,11 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 for script in "$script_dir/"*.sh; do
     bash -n "$script"
 done
-node --check "$script_dir/record.js"
+for script in "$script_dir/"*.js; do
+    node --check "$script"
+done
 cd -- "$script_dir/../../.."
-yarn exec eslint resources/demos/scripts/record.js
+yarn exec eslint resources/demos/scripts/*.js
 
 # Exercise the recorder's actual pipeline and compare its decoded pixels with the input.
 pipeline=$(node --input-type=module - "$script_dir/record.js" <<'JS'
