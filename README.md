@@ -27,11 +27,15 @@ If you use a tiling extension, switching the style trigger from **Maximized wind
   <a href="resources/demos/proximity.mp4">Watch the proximity blend demo</a>
 </video>
 
+[Watch the proximity blend demo (MP4)](resources/demos/proximity.mp4)
+
 **Touch detection, 0 px:** an unmaximized window touches the panel to activate the alternate style.
 
 <video controls src="resources/demos/touch.mp4" width="720">
   <a href="resources/demos/touch.mp4">Watch the touch detection demo</a>
 </video>
+
+[Watch the touch detection demo (MP4)](resources/demos/touch.mp4)
 
 **Workspace transition:** swipe between workspaces with different panel styles for a smooth transition.
 
@@ -39,17 +43,23 @@ If you use a tiling extension, switching the style trigger from **Maximized wind
   <a href="resources/demos/workspace.mp4">Watch the workspace transition demo</a>
 </video>
 
+[Watch the workspace transition demo (MP4)](resources/demos/workspace.mp4)
+
 **Maximized mode:** maximize and restore a window to switch panel styles.
 
 <video controls src="resources/demos/maximized.mp4" width="720">
   <a href="resources/demos/maximized.mp4">Watch the maximized mode demo</a>
 </video>
 
+[Watch the maximized mode demo (MP4)](resources/demos/maximized.mp4)
+
 **Tiling, 0 px:** snap a window to the left half to activate the alternate style, then restore and move it away.
 
 <video controls src="resources/demos/tiling.mp4" width="720">
   <a href="resources/demos/tiling.mp4">Watch the tiling demo</a>
 </video>
+
+[Watch the tiling demo (MP4)](resources/demos/tiling.mp4)
 
 The clips use the included [wallpaper](resources/demos/wallpaper.jpg), a black-to-transparent normal style, and a gold-to-teal alternate style. See the [demo guide](resources/demos/README.md) to reproduce them.
 
