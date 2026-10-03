@@ -19,6 +19,40 @@ If you use a tiling extension, switching the style trigger from **Maximized wind
 ## Screenshot
 ![gradient-bar-after](https://user-images.githubusercontent.com/3801306/236593253-bce6342f-67d4-4e68-9c1e-85db33074dfe.png)
 
+## Demos
+
+**Proximity blend:** the panel blends into the alternate style as a window approaches, then back as it moves away.
+
+<video controls src="resources/demos/proximity.mp4" width="720">
+  <a href="resources/demos/proximity.mp4">Watch the proximity blend demo</a>
+</video>
+
+**Touch detection, 0 px:** an unmaximized window touches the panel to activate the alternate style.
+
+<video controls src="resources/demos/touch.mp4" width="720">
+  <a href="resources/demos/touch.mp4">Watch the touch detection demo</a>
+</video>
+
+**Workspace transition:** swipe between workspaces with different panel styles for a smooth transition.
+
+<video controls src="resources/demos/workspace.mp4" width="720">
+  <a href="resources/demos/workspace.mp4">Watch the workspace transition demo</a>
+</video>
+
+**Maximized mode:** maximize and restore a window to switch panel styles.
+
+<video controls src="resources/demos/maximized.mp4" width="720">
+  <a href="resources/demos/maximized.mp4">Watch the maximized mode demo</a>
+</video>
+
+**Tiling, 0 px:** snap a window to the left half to activate the alternate style, then restore and move it away.
+
+<video controls src="resources/demos/tiling.mp4" width="720">
+  <a href="resources/demos/tiling.mp4">Watch the tiling demo</a>
+</video>
+
+The clips use the included [wallpaper](resources/demos/wallpaper.jpg), a black-to-transparent normal style, and a gold-to-teal alternate style. See the [demo guide](resources/demos/README.md) to reproduce them.
+
 
 # Compatibility
 
@@ -127,9 +161,9 @@ The project includes several scripts to help with development:
 
 - [ ] Add box shadow settings
 - [ ] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
-- [ ] Add a demo video
-- [ ] Figure out reliable testing methods or at least unit tests
-- [ ] Make it work with something like tiling when the window occupies the whole top horizontally (to test with Tiling Assistant)
+- [x] Add demo videos
+- [x] Figure out reliable testing methods or at least unit tests - the [demo recording scripts](resources/demos/README.md) provide reproducible scenarios for visual testing.
+- [x] Make it work with something like tiling when the window occupies the whole top horizontally - proximity mode detects tiled windows near or touching the panel, resolving the styling issue without relying on maximized-window detection.
 
 # Credits
 This extension is a fork of [the Original Gradient Top Bar extension](https://extensions.gnome.org/extension/1264/gradient-top-bar/) by [Julien/jpec](https://peclu.net/).

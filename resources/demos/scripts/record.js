@@ -1,0 +1,306 @@
+/* eslint-disable no-await-in-loop -- Animation steps and UI readiness checks run sequentially. */
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Gtk from 'gi://Gtk?version=4.0';
+
+const [expectedPid, profile, scenario] = ARGV;
+const scenarios = ['proximity', 'touch', 'workspace', 'maximized', 'tiling', 'preferences'];
+const desktopWidth = 1024;
+const desktopHeight = 640;
+// A half-screen tile needs a floating window narrower than half the desktop.
+const demoWindowWidth = scenario === 'tiling' ? 440 : 620;
+const demoWindowX = Math.round((desktopWidth - demoWindowWidth) / 2);
+if (ARGV.length !== 3 || !/^\d+$/.test(expectedPid ?? '') ||
+    !profile?.startsWith('/tmp/gradienttopbar-demo.') || !scenarios.includes(scenario) ||
+    GLib.getenv('XDG_CONFIG_HOME') !== `${profile}/config` ||
+    GLib.getenv('XDG_DATA_HOME') !== `${profile}/data` ||
+    !GLib.getenv('DBUS_SESSION_BUS_ADDRESS') ||
+    GLib.getenv('DBUS_SESSION_BUS_ADDRESS') === GLib.getenv('demo_parent_bus')) {
+    printerr('Run this recorder through a named scenario script');
+    imports.system.exit(1);
+}
+const bus = Gio.DBus.session;
+const loop = new GLib.MainLoop(null, false);
+let demoWindow;
+let recording = false;
+let recordingFilename;
+let gestureActive = false;
+let shellModuleLoaded = false;
+let exitCode = 0;
+
+function call(name, path, iface, method, args, signature) {
+    return new Promise((resolve, reject) => {
+        bus.call(name, path, iface, method, args,
+            new GLib.VariantType(signature), Gio.DBusCallFlags.NONE, 15000, null,
+            (connection, result) => {
+                try {
+                    resolve(connection.call_finish(result).deep_unpack());
+                } catch (error) {
+                    reject(error);
+                }
+            });
+    });
+}
+
+function pause(milliseconds) {
+    return new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, milliseconds, () => {
+        resolve();
+        return GLib.SOURCE_REMOVE;
+    }));
+}
+
+async function evaluate(code) {
+    const [ok, result] = await call('org.gnome.Shell', '/org/gnome/Shell',
+        'org.gnome.Shell', 'Eval', new GLib.Variant('(s)', [code]), '(bs)');
+    if (!ok)
+        throw new Error(`Private Shell Eval failed: ${result}`);
+    return result ? JSON.parse(result) : null;
+}
+
+// Eval is only the transport: all Shell operations live in a normal JS module.
+function shellCall(action, ...args) {
+    return evaluate(`global.demoActions[${JSON.stringify(action)}](...${JSON.stringify(args)})`);
+}
+
+async function stopRecording() {
+    const [ok] = await call('org.gnome.Shell.Screencast', '/org/gnome/Shell/Screencast',
+        'org.gnome.Shell.Screencast', 'StopScreencast', null, '(b)');
+    recording = false;
+    if (!ok)
+        throw new Error('Private screencast did not stop successfully');
+}
+
+async function startRecording() {
+    const [ok, filename] = await call('org.gnome.Shell.Screencast', '/org/gnome/Shell/Screencast',
+        'org.gnome.Shell.Screencast', 'ScreencastArea',
+        new GLib.Variant('(iiiisa{sv})', [0, 0, desktopWidth, desktopHeight, `${profile}/${scenario}`, {
+            'draw-cursor': new GLib.Variant('b', false),
+            'framerate': new GLib.Variant('i', 30),
+            'pipeline': new GLib.Variant('s', 'videoconvert ! video/x-raw,format=Y444 ! x264enc pass=quant quantizer=0 speed-preset=ultrafast tune=zerolatency threads=2 ! matroskamux')
+        }]), '(bs)');
+    if (!ok)
+        throw new Error('Private screencast failed to start');
+    recording = true;
+    recordingFilename = filename;
+    print(`Recording ${filename}`);
+}
+
+async function preparePrivateSession() {
+    const [pid] = await call('org.freedesktop.DBus', '/org/freedesktop/DBus',
+        'org.freedesktop.DBus', 'GetConnectionUnixProcessID',
+        new GLib.Variant('(s)', ['org.gnome.Shell']), '(u)');
+    if (pid !== Number(expectedPid))
+        throw new Error(`Refusing to control Shell PID ${pid}; expected private PID ${expectedPid}`);
+
+    await pause(2500);
+    const moduleUri = Gio.File.new_for_uri(import.meta.url).get_parent().get_child('shell-actions.js').get_uri();
+    await evaluate(`import(${JSON.stringify(moduleUri)}).then(module => { global.demoActions = module; return true; })`);
+    shellModuleLoaded = true;
+    const { extension, monitor, display } = await shellCall('getSessionInfo');
+    if (extension.state !== 1 || extension.path !== `${profile}/extensions-data/gnome-shell/extensions/gradienttopbar@pshow.org`)
+        throw new Error(`Private extension is not active: ${JSON.stringify(extension)}`);
+    if (monitor.width !== desktopWidth || monitor.height !== desktopHeight)
+        throw new Error(`Expected a ${desktopWidth}×${desktopHeight} private monitor: ${JSON.stringify(monitor)}`);
+    if (!display || display === GLib.getenv('demo_host_display'))
+        throw new Error('A separate private Wayland display is required');
+    GLib.setenv('WAYLAND_DISPLAY', display, true);
+    print(`Controlling private Shell PID ${pid} on ${display}`);
+
+    Gtk.init();
+}
+
+async function placeWindow(title, x, y, width, height) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+        const found = await shellCall('placeWindow', title, x, y, width, height);
+        if (found) {
+            await pause(500);
+            return;
+        }
+        await pause(100);
+    }
+    throw new Error(`Window missing from private Shell: ${title}`);
+}
+
+async function showDemoWindow() {
+    const labels = {
+        proximity: 'Proximity blend\n\nWatch the panel change as this window approaches.',
+        touch: 'Touch detection · 0 px\n\nTouch the panel to apply the alternate style.',
+        workspace: 'Workspace transition\n\nSwipe between different panel styles.',
+        maximized: 'Maximized mode\n\nMaximize and restore to switch panel styles.',
+        tiling: 'Tiling · proximity mode · 0 px\n\nSnap left to change the panel style.'
+    };
+    demoWindow = new Gtk.Window({ title: 'Gradient Top Bar Demo', default_width: demoWindowWidth, default_height: 360 });
+    demoWindow.set_child(new Gtk.Label({
+        label: labels[scenario],
+        justify: Gtk.Justification.CENTER, margin_top: 40, margin_bottom: 40,
+        margin_start: 40, margin_end: 40
+    }));
+    demoWindow.present();
+    const panelHeight = await shellCall('getPanelHeight');
+    let gap = 130;
+    if (scenario === 'touch')
+        gap = 45;
+    if (scenario === 'workspace')
+        gap = 0;
+    await placeWindow('Gradient Top Bar Demo', demoWindowX, panelHeight + gap, demoWindowWidth, 360);
+    await shellCall('useFirstWorkspace');
+    if (scenario === 'tiling')
+        await shellCall('activateWindow');
+    await pause(500);
+}
+
+async function toggleLeftTiling() {
+    await shellCall('toggleLeftTiling');
+    await pause(550);
+}
+
+async function recordTiling() {
+    await toggleLeftTiling();
+    await shellCall('checkLeftTiling');
+    await pause(1200);
+    // Untiling restores the size but keeps GNOME's tile origin; move back away from the panel.
+    await toggleLeftTiling();
+    await shellCall('moveWindow', demoWindowX, 130);
+    await pause(300);
+    await shellCall('checkRestoredWindow', demoWindowX, demoWindowWidth);
+    await pause(1100);
+}
+
+async function moveWindow(startGap, endGap, steps, interval) {
+    for (let step = 0; step <= steps; step++) {
+        const gap = Math.round(startGap + (endGap - startGap) * step / steps);
+        await shellCall('moveWindow', demoWindowX, gap);
+        await pause(interval);
+    }
+}
+
+async function swipeWorkspace(targetIndex) {
+    gestureActive = true;
+    const { start, end } = await shellCall('beginWorkspaceSwipe', targetIndex, desktopWidth / 2, desktopHeight / 2);
+    const steps = 55;
+    for (let step = 0; step < steps; step++) {
+        await shellCall('updateWorkspaceSwipe', (end - start) / steps);
+        await pause(25);
+    }
+    await pause(150);
+    await shellCall('endWorkspaceSwipe');
+    await pause(500);
+    const index = await shellCall('getWorkspaceIndex');
+    if (index !== targetIndex)
+        throw new Error(`Workspace gesture ended on ${index}, expected ${targetIndex}`);
+    gestureActive = false;
+}
+
+function findRow(widget, title) {
+    if (widget.get_title?.() === title)
+        return widget;
+    for (let child = widget.get_first_child(); child; child = child.get_next_sibling()) {
+        const found = findRow(child, title);
+        if (found)
+            return found;
+    }
+    return null;
+}
+
+async function showPreferences() {
+    Gio.Resource.load('/usr/share/gnome-shell/org.gnome.Shell.Extensions.src.gresource')._register();
+    imports.package.initFormat();
+    const Adw = (await import('gi://Adw?version=1')).default;
+    Adw.init();
+    const { extensionManager } = await import('resource:///org/gnome/Shell/Extensions/js/extensionsService.js');
+    const { ExtensionPrefsDialog } = await import('resource:///org/gnome/Shell/Extensions/js/extensionPrefsDialog.js');
+    const [serialized] = await call('org.gnome.Shell', '/org/gnome/Shell', 'org.gnome.Shell.Extensions',
+        'GetExtensionInfo', new GLib.Variant('(s)', ['gradienttopbar@pshow.org']), '(a{sv})');
+    const extension = extensionManager.createExtensionObject(serialized);
+    demoWindow = new ExtensionPrefsDialog(extension);
+    await new Promise(resolve => demoWindow.connect('loaded', resolve));
+    demoWindow.visible_page_name = 'Behavior';
+    if (demoWindow.visible_page_name !== 'Behavior')
+        throw new Error('The actual Behaviour preferences page did not load');
+    demoWindow.set_default_size(880, 560);
+    demoWindow.present();
+    await placeWindow(extension.metadata.name, 72, 50, 880, 560);
+    const trigger = findRow(demoWindow, 'Style trigger');
+    const distance = findRow(demoWindow, 'Proximity distance');
+    const transition = findRow(demoWindow, 'Transition proximity style');
+    if (!trigger || !distance || !transition)
+        throw new Error('The actual preferences controls were not found');
+    return { trigger, distance, transition };
+}
+
+async function recordDemo() {
+    await preparePrivateSession();
+    let controls;
+    if (scenario === 'preferences')
+        controls = await showPreferences();
+    else
+        await showDemoWindow();
+    await startRecording();
+    await pause(650);
+    switch (scenario) {
+        case 'proximity':
+            await moveWindow(130, 0, 50, 35);
+            await pause(500);
+            await moveWindow(0, 130, 50, 35);
+            await pause(500);
+            break;
+        case 'touch':
+            await moveWindow(45, 0, 30, 25);
+            await pause(650);
+            await moveWindow(0, 45, 30, 25);
+            await pause(650);
+            break;
+        case 'workspace':
+            await swipeWorkspace(1);
+            await pause(300);
+            await swipeWorkspace(0);
+            await pause(300);
+            break;
+        case 'maximized':
+            await shellCall('maximizeWindow');
+            await pause(1500);
+            await shellCall('restoreWindow');
+            await pause(1300);
+            break;
+        case 'tiling':
+            await recordTiling();
+            break;
+        case 'preferences':
+            controls.trigger.set_selected(1);
+            await pause(1100);
+            controls.distance.set_value(0);
+            await pause(1000);
+            controls.distance.set_value(100);
+            await pause(1100);
+            controls.transition.set_active(true);
+            await pause(1100);
+            break;
+    }
+    await stopRecording();
+    GLib.file_set_contents(`${profile}/recording.path`, recordingFilename);
+    print(`Demo complete: ${scenario}`);
+}
+
+recordDemo().catch(async error => {
+    printerr(`${error.message}\n${error.stack ?? ''}`);
+    exitCode = 1;
+    if (recording) {
+        try {
+            await stopRecording();
+        } catch (stopError) {
+            printerr(`Cleanup: ${stopError}`);
+        }
+    }
+}).finally(async () => {
+    if (shellModuleLoaded) {
+        try {
+            await shellCall('cleanup', gestureActive);
+        } catch (error) {
+            printerr(`Shell cleanup: ${error}`);
+        }
+    }
+    demoWindow?.close();
+    loop.quit();
+});
+loop.run();
+imports.system.exit(exitCode);

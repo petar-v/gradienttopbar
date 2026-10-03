@@ -3,6 +3,8 @@ node_modules
 .venv
 .idea/
 
+/resources/demos/output/
+
 .yarn/*
 .pnp.*
 !.yarn/cache
