@@ -1,7 +1,8 @@
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 
-import AppearancePage from './settings/appearancePage.js';
+import GradientsPage from './settings/gradientsPage.js';
+import ContentShadowsPage from './settings/contentShadowsPage.js';
 import BehaviorPage from './settings/behavioursPage.js';
 import AboutPage from './settings/aboutPage.js';
 
@@ -24,8 +25,8 @@ class GradientTopBarPreferences extends ExtensionPreferences {
         const settings = this.getSettings();
         window._settings = settings;
 
-        const appearancePage = new AppearancePage(window, settings);
-        window.add(appearancePage);
+        window.add(new GradientsPage(window, settings));
+        window.add(new ContentShadowsPage(window, settings));
 
         const behaviorPage = new BehaviorPage(window, settings);
         window.add(behaviorPage);

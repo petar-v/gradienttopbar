@@ -11,7 +11,7 @@ assert(GLib.getenv('GSETTINGS_BACKEND') === 'memory', 'Use the memory backend to
 Gio.Resource.load('/usr/share/gnome-shell/org.gnome.Shell.Extensions.src.gresource')._register();
 const { ExtensionPreferences } = await import('resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js');
 ExtensionPreferences.lookupByURL = () => ({ gettext: text => text });
-const { default: Appearance } = await import('../src/settings/appearancePage.js');
+const { default: Gradients } = await import('../src/settings/gradientsPage.js');
 const directory = GLib.dir_make_tmp('overview-settings-test-XXXXXX');
 const schemaName = `${SETTINGS_GSCHEMA}.gschema.xml`;
 Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_child(`src/schemas/${schemaName}`)
@@ -23,7 +23,8 @@ try {
     assert(getConfig(settings).overviewBehavior === 'keep-gradient', 'Upgrade must keep the main gradient in overview');
     Gtk.init();
     const window = new Adw.PreferencesWindow();
-    const page = new Appearance(window, settings);
+    const page = new Gradients(window, settings);
+    assert(page.title === 'Gradients', 'Gradient settings have their own tab');
     window.add(page);
     window.present();
     const find = (widget, predicate) => {

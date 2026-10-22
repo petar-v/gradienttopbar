@@ -2,12 +2,12 @@ import Gtk from 'gi://Gtk';
 import GLib from 'gi://GLib';
 
 import { getConfig } from '../../config.js';
-import { MAXIMIZED_BEHAVIOR } from '../../constants.js';
+import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR } from '../../constants.js';
 import { createGradientPreview } from './gradientEditor.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export const createShadowPreview = settings => {
-    const styles = [gettext('Normal'), gettext('Triggered')];
+    const styles = [gettext('Normal'), gettext('Triggered'), gettext('Overview')];
     let styleIndex = 0;
     const styleLabel = new Gtk.Label({ xalign: 0, css_classes: ['dim-label'] });
     const styleSwitch = new Gtk.Button({
@@ -16,16 +16,20 @@ export const createShadowPreview = settings => {
         css_classes: ['osd', 'circular'],
         valign: Gtk.Align.CENTER
     });
-    const background = createGradientPreview(() => {
+    const getGradient = () => {
         const config = getConfig(settings);
-        if (styleIndex === 1 && config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_THEME)
+        if ((styleIndex === 1 && config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_THEME) ||
+            (styleIndex === 2 && config.overviewBehavior === OVERVIEW_BEHAVIOR.KEEP_THEME))
             return null;
+        if (styleIndex === 2 && config.overviewBehavior === OVERVIEW_BEHAVIOR.APPLY_STYLE)
+            return { colors: config.overviewColors, direction: config.overviewGradientDirection };
         const alternate = styleIndex === 1 && config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
         return {
             colors: alternate ? config.maximizedColors : config.colors,
             direction: alternate ? config.maximizedGradientDirection : config.gradientDirection
         };
-    });
+    };
+    const background = createGradientPreview(getGradient);
     background.set_content_height(72);
     const sample = new Gtk.Overlay({ child: background, hexpand: true });
     const previewIcons = [
@@ -67,7 +71,7 @@ export const createShadowPreview = settings => {
     const refresh = () => {
         const config = getConfig(settings);
         const { shadowOffsetX, shadowOffsetY, shadowBlur, shadowColor } = config;
-        const originalTheme = styleIndex === 1 && config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_THEME;
+        const originalTheme = getGradient() === null;
         const shadow = config.contentShadows && !originalTheme
             ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}` : 'none';
         sampleStyle.load_from_string(`

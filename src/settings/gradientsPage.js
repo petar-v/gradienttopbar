@@ -7,11 +7,6 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
-    CONTENT_SHADOWS,
-    SHADOW_BLUR,
-    SHADOW_COLOR,
-    SHADOW_OFFSET_X,
-    SHADOW_OFFSET_Y,
     COLORS,
     GRADIENT_DIRECTION as GRADIENT_DIRECTION_KEY,
     MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
@@ -29,12 +24,10 @@ import {
     detachSettingsListeners
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
-import { createShadowEditor } from './components/shadowEditor.js';
-import { createShadowPreview } from './components/shadowPreview.js';
 import { createResetButton } from './components/resetButton.js';
 import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
 
-const AppearanceOption = GObject.registerClass(
+const GradientOption = GObject.registerClass(
     {
         Properties: {
             name: GObject.ParamSpec.string(
@@ -53,7 +46,7 @@ const AppearanceOption = GObject.registerClass(
             )
         }
     },
-    class AppearanceOptionObject extends GObject.Object {
+    class GradientOptionObject extends GObject.Object {
         _init(name, value) {
             super._init({ name, value });
         }
@@ -70,53 +63,16 @@ const setOptionOnRow = (row, value) => {
     }
 };
 
-class Appearance extends Adw.PreferencesPage {
+class Gradients extends Adw.PreferencesPage {
     _init(window, settings) {
         super._init({
-            title: gettext('Appearance'),
+            title: gettext('Gradients'),
             icon_name: 'applications-graphics-symbolic',
-            name: 'Appearance'
+            name: 'Gradients'
         });
 
         const { gradientDirection, maximizedGradientDirection } = getConfig(settings);
         let updatingSettings = false;
-
-        const resetShadows = createResetButton(
-            window,
-            gettext('Reset panel content shadows?'),
-            gettext('This will turn shadows off, centre the offsets and restore the default colour, opacity and blur.'),
-            settings,
-            [CONTENT_SHADOWS, SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y]
-        );
-        const contentGroup = new Adw.PreferencesGroup({
-            title: gettext('Panel content shadows'),
-            header_suffix: resetShadows
-        });
-        const contentShadowsRow = new Adw.SwitchRow({
-            title: gettext('Text and icon shadows'),
-            subtitle: gettext('Improve contrast against light backgrounds while a gradient is shown.')
-        });
-        settings.bind(CONTENT_SHADOWS, contentShadowsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        contentGroup.add(contentShadowsRow);
-        const offsetPreview = new Adw.ExpanderRow({
-            title: gettext('Shadow appearance'),
-            subtitle: gettext('Position, colour and opacity'),
-            expanded: true
-        });
-        const shadowEditor = createShadowEditor(settings);
-        const shadowPreview = createShadowPreview(settings);
-        offsetPreview.add_row(new Adw.PreferencesRow({
-            child: shadowEditor.widget,
-            activatable: false,
-            selectable: false
-        }));
-        contentGroup.add(offsetPreview);
-        contentGroup.add(new Adw.PreferencesRow({
-            child: shadowPreview.widget,
-            activatable: false,
-            selectable: false
-        }));
-        this.add(contentGroup);
 
         const gradientGroup = new Adw.PreferencesGroup({
             title: gettext('Main gradient'),
@@ -130,19 +86,19 @@ class Appearance extends Adw.PreferencesPage {
         });
 
         const gradientDirectionModel = new Gio.ListStore({
-            item_type: AppearanceOption
+            item_type: GradientOption
         });
 
         [
-            new AppearanceOption(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
-            new AppearanceOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
+            new GradientOption(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
+            new GradientOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
         ].forEach(d => gradientDirectionModel.append(d));
 
         const directionRow = new Adw.ComboRow({
             title: gettext('Gradient Direction'),
             subtitle: gettext('The orientation of the gradient.'),
             model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(AppearanceOption, null, 'name')
+            expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
         });
 
         directionRow.connect('notify::selected', () => {
@@ -215,7 +171,7 @@ class Appearance extends Adw.PreferencesPage {
             title: gettext('Alternate Gradient Direction'),
             subtitle: gettext('The orientation when the style trigger is active.'),
             model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(AppearanceOption, null, 'name')
+            expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
         });
 
         maximizedDirectionRow.connect('notify::selected', () => {
@@ -284,7 +240,7 @@ class Appearance extends Adw.PreferencesPage {
         const overviewDirectionRow = new Adw.ComboRow({
             title: gettext('Overview Gradient Direction'),
             model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(AppearanceOption, null, 'name')
+            expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
         });
         overviewDirectionRow.connect('notify::selected', () => {
             if (!updatingSettings && overviewDirectionRow.selectedItem)
@@ -312,8 +268,6 @@ class Appearance extends Adw.PreferencesPage {
         this.add(overviewGradientGroup);
 
         const onSettingsChanged = s => {
-            shadowEditor.refresh();
-            shadowPreview.refresh();
             const config = getConfig(s);
 
             updatingSettings = true;
@@ -337,5 +291,5 @@ class Appearance extends Adw.PreferencesPage {
     }
 }
 
-const AppearancePage = GObject.registerClass(Appearance);
-export default AppearancePage;
+const GradientsPage = GObject.registerClass(Gradients);
+export default GradientsPage;

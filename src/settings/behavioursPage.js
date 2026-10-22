@@ -191,7 +191,7 @@ class Behavior extends Adw.PreferencesPage {
         behaviorGroup.add(proximityDistanceRow);
         behaviorGroup.add(proximityTransitionRow);
         const disabledGroup = new Adw.PreferencesGroup({
-            description: gettext('Outside overview, the main gradient is always shown. Choose “Use original theme” or “Use alternate gradient” under Window interaction in Appearance to enable these settings.')
+            description: gettext('Outside overview, the main gradient is always shown. Choose “Use original theme” or “Use alternate gradient” under Window interaction in Gradients to enable these settings.')
         });
         this.add(disabledGroup);
         this.add(behaviorGroup);
