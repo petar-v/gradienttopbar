@@ -8,6 +8,9 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
+    STYLE_TRIGGER as STYLE_TRIGGER_KEY,
+    PROXIMITY_DISTANCE,
+    PROXIMITY_TRANSITION,
     attachSettingsListeners,
     detachSettingsListeners,
     getMaximizedBehavior,
@@ -18,6 +21,8 @@ import {
     getProximityTransition,
     setProximityTransition
 } from '../config.js';
+
+import { createResetButton } from './components/resetButton.js';
 
 import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
 
@@ -94,7 +99,21 @@ class Behavior extends Adw.PreferencesPage {
         };
 
         const behaviorGroup = new Adw.PreferencesGroup({
-            title: gettext('Trigger settings')
+            title: gettext('Trigger settings'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset trigger settings?'),
+                gettext('Restore the default style trigger, proximity distance and transition behaviour.'),
+                settings,
+                [STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE, PROXIMITY_TRANSITION],
+                () => {
+                    if (proximityDistanceTimeoutId) {
+                        GLib.Source.remove(proximityDistanceTimeoutId);
+                        proximityDistanceTimeoutId = null;
+                    }
+                    onSettingsChanged(settings);
+                }
+            )
         });
 
         const triggerModel = new Gio.ListStore({ item_type: TriggerOption });

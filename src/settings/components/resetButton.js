@@ -3,7 +3,7 @@ import Adw from 'gi://Adw';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-export const createResetButton = (window, heading, body, onReset) => {
+export const createResetButton = (window, heading, body, settings, keys, onReset = null) => {
     const button = new Gtk.Button({
         label: gettext('Reset'),
         tooltip_text: heading,
@@ -18,8 +18,11 @@ export const createResetButton = (window, heading, body, onReset) => {
         confirmation.set_default_response('cancel');
         confirmation.set_close_response('cancel');
         confirmation.connect('response', (_dialog, response) => {
-            if (response === 'reset')
-                onReset();
+            if (response === 'reset') {
+                for (const key of keys)
+                    settings.reset(key);
+                onReset?.();
+            }
         });
         confirmation.present(window);
     });

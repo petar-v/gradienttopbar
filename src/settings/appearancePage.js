@@ -12,6 +12,11 @@ import {
     SHADOW_COLOR,
     SHADOW_OFFSET_X,
     SHADOW_OFFSET_Y,
+    COLORS,
+    GRADIENT_DIRECTION as GRADIENT_DIRECTION_KEY,
+    MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
+    MAXIMIZED_COLORS,
+    MAXIMIZED_GRADIENT_DIRECTION,
     saveColors,
     saveMaximizedColors,
     setGradientDirection,
@@ -22,6 +27,7 @@ import {
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
 import { createOffsetPicker } from './components/offsetPicker.js';
+import { createResetButton } from './components/resetButton.js';
 import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION, STYLE_TRIGGER } from '../constants.js';
 
 const AppearanceOption = GObject.registerClass(
@@ -71,30 +77,13 @@ class Appearance extends Adw.PreferencesPage {
         const { gradientDirection, maximizedGradientDirection } = getConfig(settings);
         let updatingSettings = false;
 
-        const resetShadows = new Gtk.Button({
-            label: gettext('Reset'),
-            tooltip_text: gettext('Reset shadow appearance'),
-            valign: Gtk.Align.CENTER,
-            css_classes: ['flat', 'destructive-action']
-        });
-        resetShadows.connect('clicked', () => {
-            const confirmation = new Adw.AlertDialog({
-                heading: gettext('Reset panel content shadows?'),
-                body: gettext('This will centre the offsets and restore the default colour, opacity and blur. The on/off toggle will stay unchanged.')
-            });
-            confirmation.add_response('cancel', gettext('Cancel'));
-            confirmation.add_response('reset', gettext('Reset'));
-            confirmation.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
-            confirmation.set_default_response('cancel');
-            confirmation.set_close_response('cancel');
-            confirmation.connect('response', (_dialog, response) => {
-                if (response === 'reset') {
-                    for (const key of [SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y])
-                        settings.reset(key);
-                }
-            });
-            confirmation.present(window);
-        });
+        const resetShadows = createResetButton(
+            window,
+            gettext('Reset panel content shadows?'),
+            gettext('This will centre the offsets and restore the default colour, opacity and blur. The on/off toggle will stay unchanged.'),
+            settings,
+            [SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y]
+        );
         const contentGroup = new Adw.PreferencesGroup({
             title: gettext('Panel content shadows'),
             header_suffix: resetShadows
@@ -129,7 +118,14 @@ class Appearance extends Adw.PreferencesPage {
         this.add(contentGroup);
 
         const gradientGroup = new Adw.PreferencesGroup({
-            title: gettext('Main gradient')
+            title: gettext('Main gradient'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset main gradient?'),
+                gettext('Restore the default gradient colours and direction.'),
+                settings,
+                [COLORS, GRADIENT_DIRECTION_KEY]
+            )
         });
 
         const gradientDirectionModel = new Gio.ListStore({
@@ -180,7 +176,14 @@ class Appearance extends Adw.PreferencesPage {
         this.add(gradientGroup);
 
         const interactionGroup = new Adw.PreferencesGroup({
-            title: gettext('Window interaction')
+            title: gettext('Window interaction'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset window interaction?'),
+                gettext('Restore the default triggered behaviour and alternate gradient colours and direction.'),
+                settings,
+                [MAXIMIZED_BEHAVIOR_KEY, MAXIMIZED_COLORS, MAXIMIZED_GRADIENT_DIRECTION]
+            )
         });
         const behaviorValues = [
             MAXIMIZED_BEHAVIOR.KEEP_GRADIENT,
