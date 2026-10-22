@@ -1,19 +1,35 @@
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 
-export const createColorDialog = (pickerTitle, colorString, callback) => {
+export const createColorDialog = (pickerTitle, getColor, callback) => {
     const colorDialog = Gtk.ColorDialog.new();
     colorDialog.set_title(pickerTitle);
     colorDialog.set_modal(true);
     colorDialog.set_with_alpha(true);
 
-    const rgba = new Gdk.RGBA();
-    rgba.parse(colorString);
-
-    const chooserBtn = Gtk.ColorDialogButton.new(colorDialog);
-    chooserBtn.set_rgba(rgba);
-    chooserBtn.connect('notify::rgba', () => {
-        callback(chooserBtn.get_rgba().to_string());
+    const chooserBtn = new Gtk.Button({
+        icon_name: 'document-edit-symbolic',
+        tooltip_text: pickerTitle,
+        css_classes: ['circular'],
+        width_request: 40,
+        height_request: 40
+    });
+    chooserBtn.update_property([Gtk.AccessibleProperty.LABEL], [pickerTitle]);
+    chooserBtn.connect('clicked', () => {
+        const rgba = new Gdk.RGBA();
+        rgba.parse(getColor());
+        colorDialog.choose_rgba(chooserBtn.get_root(), rgba, null, (dialog, result) => {
+            let selected;
+            try {
+                selected = dialog.choose_rgba_finish(result);
+            } catch (error) {
+                if (!error.matches(Gtk.DialogError, Gtk.DialogError.DISMISSED) &&
+                    !error.matches(Gtk.DialogError, Gtk.DialogError.CANCELLED))
+                    logError(error);
+                return;
+            }
+            callback(selected.to_string());
+        });
     });
 
     return chooserBtn;

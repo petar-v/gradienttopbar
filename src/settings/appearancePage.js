@@ -1,7 +1,6 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
-import Gdk from 'gi://Gdk';
 import GObject from 'gi://GObject';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
@@ -16,7 +15,7 @@ import {
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
-import { createColorDialog } from './components/colorDialog.js';
+import { createGradientEditor } from './components/gradientEditor.js';
 import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
 
 const GradientDirection = GObject.registerClass(
@@ -45,24 +44,6 @@ const GradientDirection = GObject.registerClass(
     }
 );
 
-const createColorChooserRow = (
-        pickerTitle,
-        rowTitle,
-        colorString,
-        callback
-) => {
-    const chooserBtn = createColorDialog(pickerTitle, colorString, callback);
-
-    const row = new Adw.ActionRow({
-        title: rowTitle,
-        activatable_widget: chooserBtn
-    });
-
-    row.add_suffix(chooserBtn);
-    row.set_activatable_widget(chooserBtn);
-    return row;
-};
-
 const setGradientDirectionOnRow = (directionRow, gradientDirection) => {
     const { model } = directionRow;
     for (let i = 0; i < model.get_n_items(); i++) {
@@ -81,7 +62,8 @@ class Appearance extends Adw.PreferencesPage {
             name: 'Appearance'
         });
 
-        const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = getConfig(settings);
+        const { gradientDirection, maximizedGradientDirection } = getConfig(settings);
+        let updatingSettings = false;
 
         const gradientGroup = new Adw.PreferencesGroup({
             title: gettext('Gradient Appearance')
@@ -105,34 +87,28 @@ class Appearance extends Adw.PreferencesPage {
 
         directionRow.connect('notify::selected', () => {
             const { selectedItem } = directionRow;
-            setGradientDirection(settings, selectedItem.value);
+            if (!updatingSettings && selectedItem)
+                setGradientDirection(settings, selectedItem.value);
         });
 
         setGradientDirectionOnRow(directionRow, gradientDirection);
 
         gradientGroup.add(directionRow);
 
-        const startColorChooserRow = createColorChooserRow(
+        const gradientEditor = createGradientEditor(
             gettext('Gradient Start Colour'),
-            gettext('The start color of the gradient'),
-            colors.start,
-            rgba => {
-                colors.start = rgba;
-                saveColors(settings, rgba, colors.end);
-            }
-        );
-        gradientGroup.add(startColorChooserRow);
-
-        const endColorChooserRow = createColorChooserRow(
             gettext('Gradient End Colour'),
-            gettext('The end color of the gradient'),
-            colors.end,
-            rgba => {
-                colors.end = rgba;
-                saveColors(settings, colors.start, rgba);
+            () => {
+                const config = getConfig(settings);
+                return { colors: config.colors, direction: config.gradientDirection };
+            },
+            (endpoint, color) => {
+                const { colors } = getConfig(settings);
+                colors[endpoint] = color;
+                saveColors(settings, colors.start, colors.end);
             }
         );
-        gradientGroup.add(endColorChooserRow);
+        gradientGroup.add(gradientEditor.widget);
 
         this.add(gradientGroup);
 
@@ -151,34 +127,27 @@ class Appearance extends Adw.PreferencesPage {
 
         maximizedDirectionRow.connect('notify::selected', () => {
             const { selectedItem } = maximizedDirectionRow;
-            setMaximizedGradientDirection(settings, selectedItem.value);
+            if (!updatingSettings && selectedItem)
+                setMaximizedGradientDirection(settings, selectedItem.value);
         });
 
         setGradientDirectionOnRow(maximizedDirectionRow, maximizedGradientDirection);
         maximizedGradientGroup.add(maximizedDirectionRow);
 
-        // Create color pickers for maximized windows
-        const maximizedStartColorChooserRow = createColorChooserRow(
+        const maximizedGradientEditor = createGradientEditor(
             gettext('Alternate Gradient Start Colour'),
-            gettext('The start color of the alternate gradient'),
-            maximizedColors.start,
-            rgba => {
-                maximizedColors.start = rgba;
-                saveMaximizedColors(settings, rgba, maximizedColors.end);
-            }
-        );
-        maximizedGradientGroup.add(maximizedStartColorChooserRow);
-
-        const maximizedEndColorChooserRow = createColorChooserRow(
             gettext('Alternate Gradient End Colour'),
-            gettext('The end color of the alternate gradient'),
-            maximizedColors.end,
-            rgba => {
-                maximizedColors.end = rgba;
-                saveMaximizedColors(settings, maximizedColors.start, rgba);
+            () => {
+                const config = getConfig(settings);
+                return { colors: config.maximizedColors, direction: config.maximizedGradientDirection };
+            },
+            (endpoint, color) => {
+                const { maximizedColors } = getConfig(settings);
+                maximizedColors[endpoint] = color;
+                saveMaximizedColors(settings, maximizedColors.start, maximizedColors.end);
             }
         );
-        maximizedGradientGroup.add(maximizedEndColorChooserRow);
+        maximizedGradientGroup.add(maximizedGradientEditor.widget);
 
         // Add the group to the page
         this.add(maximizedGradientGroup);
@@ -204,27 +173,12 @@ class Appearance extends Adw.PreferencesPage {
         const onSettingsChanged = s => {
             const config = getConfig(s);
 
-            // Update gradient direction dropdowns
+            updatingSettings = true;
             setGradientDirectionOnRow(directionRow, config.gradientDirection);
             setGradientDirectionOnRow(maximizedDirectionRow, config.maximizedGradientDirection);
-
-            // Update normal gradient colors
-            const start = new Gdk.RGBA();
-            start.parse(config.colors.start);
-            startColorChooserRow.get_activatable_widget().set_rgba(start);
-
-            const end = new Gdk.RGBA();
-            end.parse(config.colors.end);
-            endColorChooserRow.get_activatable_widget().set_rgba(end);
-
-            // Update maximized gradient colors
-            const maximizedStart = new Gdk.RGBA();
-            maximizedStart.parse(config.maximizedColors.start);
-            maximizedStartColorChooserRow.get_activatable_widget().set_rgba(maximizedStart);
-
-            const maximizedEnd = new Gdk.RGBA();
-            maximizedEnd.parse(config.maximizedColors.end);
-            maximizedEndColorChooserRow.get_activatable_widget().set_rgba(maximizedEnd);
+            updatingSettings = false;
+            gradientEditor.refresh();
+            maximizedGradientEditor.refresh();
         };
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
