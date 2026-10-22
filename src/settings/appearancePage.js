@@ -17,6 +17,9 @@ import {
     MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
     MAXIMIZED_COLORS,
     MAXIMIZED_GRADIENT_DIRECTION,
+    OVERVIEW_BEHAVIOR as OVERVIEW_BEHAVIOR_KEY,
+    OVERVIEW_COLORS,
+    OVERVIEW_GRADIENT_DIRECTION,
     saveColors,
     saveMaximizedColors,
     setGradientDirection,
@@ -29,7 +32,7 @@ import { createGradientEditor } from './components/gradientEditor.js';
 import { createShadowEditor } from './components/shadowEditor.js';
 import { createShadowPreview } from './components/shadowPreview.js';
 import { createResetButton } from './components/resetButton.js';
-import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
+import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
 
 const AppearanceOption = GObject.registerClass(
     {
@@ -175,7 +178,7 @@ class Appearance extends Adw.PreferencesPage {
 
         const interactionGroup = new Adw.PreferencesGroup({
             title: gettext('Window interaction'),
-            description: gettext('Change the top bar’s appearance when a window is maximized or nearby. Choose the trigger in Behaviour.'),
+            description: gettext('Outside overview, change the top bar’s appearance when a window is maximized or nearby. Choose the trigger in Behaviour.'),
             header_suffix: createResetButton(
                 window,
                 gettext('Reset window interaction?'),
@@ -246,6 +249,68 @@ class Appearance extends Adw.PreferencesPage {
         // Add the group to the page
         this.add(maximizedGradientGroup);
 
+        const overviewGroup = new Adw.PreferencesGroup({
+            title: gettext('Overview'),
+            description: gettext('Takes priority over window interaction while overview or the application grid is open.'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset overview appearance?'),
+                gettext('Restore the main gradient in overview and reset the custom gradient colours and direction.'),
+                settings,
+                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
+            )
+        });
+        const overviewBehaviorValues = [
+            OVERVIEW_BEHAVIOR.KEEP_GRADIENT,
+            OVERVIEW_BEHAVIOR.KEEP_THEME,
+            OVERVIEW_BEHAVIOR.APPLY_STYLE
+        ];
+        const overviewBehaviorRow = new Adw.ComboRow({
+            title: gettext('When overview is open'),
+            model: Gtk.StringList.new([
+                gettext('Keep main gradient'),
+                gettext('Use original theme'),
+                gettext('Use custom gradient')
+            ])
+        });
+        overviewBehaviorRow.connect('notify::selected', () => {
+            if (!updatingSettings)
+                settings.set_string(OVERVIEW_BEHAVIOR_KEY, overviewBehaviorValues[overviewBehaviorRow.selected]);
+        });
+        overviewGroup.add(overviewBehaviorRow);
+        this.add(overviewGroup);
+
+        const overviewGradientGroup = new Adw.PreferencesGroup();
+        const overviewDirectionRow = new Adw.ComboRow({
+            title: gettext('Overview Gradient Direction'),
+            model: gradientDirectionModel,
+            expression: new Gtk.PropertyExpression(AppearanceOption, null, 'name')
+        });
+        overviewDirectionRow.connect('notify::selected', () => {
+            if (!updatingSettings && overviewDirectionRow.selectedItem)
+                settings.set_string(OVERVIEW_GRADIENT_DIRECTION, overviewDirectionRow.selectedItem.value);
+        });
+        const overviewGradientEditor = createGradientEditor(
+            gettext('Overview Gradient Start Colour'),
+            gettext('Overview Gradient End Colour'),
+            () => {
+                const config = getConfig(settings);
+                return { colors: config.overviewColors, direction: config.overviewGradientDirection };
+            },
+            (endpoint, color) => {
+                const { overviewColors } = getConfig(settings);
+                overviewColors[endpoint] = color;
+                settings.set_strv(OVERVIEW_COLORS, [overviewColors.start, overviewColors.end]);
+            }
+        );
+        overviewGradientGroup.add(new Adw.PreferencesRow({
+            child: overviewGradientEditor.widget,
+            activatable: false,
+            selectable: false
+        }));
+        overviewGradientGroup.add(overviewDirectionRow);
+        this.add(overviewGradientGroup);
+
         const onSettingsChanged = s => {
             shadowEditor.refresh();
             shadowPreview.refresh();
@@ -255,10 +320,14 @@ class Appearance extends Adw.PreferencesPage {
             behaviorRow.set_selected(behaviorValues.indexOf(config.maximizedBehavior));
             setOptionOnRow(directionRow, config.gradientDirection);
             setOptionOnRow(maximizedDirectionRow, config.maximizedGradientDirection);
+            overviewBehaviorRow.set_selected(overviewBehaviorValues.indexOf(config.overviewBehavior));
+            setOptionOnRow(overviewDirectionRow, config.overviewGradientDirection);
             updatingSettings = false;
             gradientEditor.refresh();
             maximizedGradientEditor.refresh();
             maximizedGradientGroup.set_visible(config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE);
+            overviewGradientEditor.refresh();
+            overviewGradientGroup.set_visible(config.overviewBehavior === OVERVIEW_BEHAVIOR.APPLY_STYLE);
         };
         onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
