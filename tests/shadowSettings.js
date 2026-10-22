@@ -80,7 +80,7 @@ try {
     const config = getConfig(settings);
     assert(config.shadowOffsetX === 0 && config.shadowOffsetY === 0, 'Reset centres offsets');
     assert(config.shadowBlur === 3 && config.shadowColor === 'rgba(0, 0, 0, 0.6)', 'Reset restores blur and colour including opacity');
-    assert(config.contentShadows, 'Reset preserves enabled toggle');
+    assert(!config.contentShadows, 'Reset restores the disabled toggle default');
     preferences.present();
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => { preferences.close(); loop.quit(); return GLib.SOURCE_REMOVE; });
     loop.run();

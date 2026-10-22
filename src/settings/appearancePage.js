@@ -80,9 +80,9 @@ class Appearance extends Adw.PreferencesPage {
         const resetShadows = createResetButton(
             window,
             gettext('Reset panel content shadows?'),
-            gettext('This will centre the offsets and restore the default colour, opacity and blur. The on/off toggle will stay unchanged.'),
+            gettext('This will turn shadows off, centre the offsets and restore the default colour, opacity and blur.'),
             settings,
-            [SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y]
+            [CONTENT_SHADOWS, SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y]
         );
         const contentGroup = new Adw.PreferencesGroup({
             title: gettext('Panel content shadows'),
