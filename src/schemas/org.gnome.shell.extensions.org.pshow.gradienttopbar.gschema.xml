@@ -35,6 +35,11 @@
       <summary>Behavior when the style trigger is active</summary>
       <description>Determines what style to apply to the top bar when the selected window condition is met: keep the normal gradient, use the default theme, or apply a custom style.</description>
     </key>
+    <key name="content-shadows" type="b">
+      <default>false</default>
+      <summary>Text and icon shadows</summary>
+      <description>Add subtle dark shadows to panel text, icons and workspace indicators while a gradient is shown.</description>
+    </key>
     <key name="colors" type="as">
       <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
       <summary>Array of the gradient colours</summary>
