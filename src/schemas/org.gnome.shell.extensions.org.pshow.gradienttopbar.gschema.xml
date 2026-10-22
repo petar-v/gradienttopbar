@@ -40,6 +40,25 @@
       <summary>Text and icon shadows</summary>
       <description>Add subtle dark shadows to panel text, icons and workspace indicators while a gradient is shown.</description>
     </key>
+    <key name="shadow-color" type="s">
+      <default>'rgba(0, 0, 0, 0.6)'</default>
+      <summary>Shadow colour including opacity</summary>
+    </key>
+    <key name="shadow-blur" type="i">
+      <range min="0" max="12"/>
+      <default>3</default>
+      <summary>Shadow blur</summary>
+    </key>
+    <key name="shadow-offset-x" type="i">
+      <range min="-6" max="6"/>
+      <default>0</default>
+      <summary>Shadow offset x</summary>
+    </key>
+    <key name="shadow-offset-y" type="i">
+      <range min="-6" max="6"/>
+      <default>1</default>
+      <summary>Shadow offset y</summary>
+    </key>
     <key name="colors" type="as">
       <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
       <summary>Array of the gradient colours</summary>

@@ -19,6 +19,10 @@ export const GRADIENT_DIRECTION = 'gradient-direction';
 export const MAXIMIZED_GRADIENT_DIRECTION = 'maximized-gradient-direction';
 export const COLORS = 'colors';
 export const CONTENT_SHADOWS = 'content-shadows';
+export const SHADOW_COLOR = 'shadow-color';
+export const SHADOW_BLUR = 'shadow-blur';
+export const SHADOW_OFFSET_X = 'shadow-offset-x';
+export const SHADOW_OFFSET_Y = 'shadow-offset-y';
 export const MAXIMIZED_COLORS = 'maximized-colors';
 
 /**
@@ -44,6 +48,10 @@ export const getConfig = settings => {
         proximityDistance,
         proximityTransition,
         contentShadows,
+        shadowColor: settings.get_string(SHADOW_COLOR),
+        shadowBlur: settings.get_int(SHADOW_BLUR),
+        shadowOffsetX: settings.get_int(SHADOW_OFFSET_X),
+        shadowOffsetY: settings.get_int(SHADOW_OFFSET_Y),
         gradientDirection,
         colors: {
             start: colors[0],
@@ -193,6 +201,10 @@ export const attachSettingsListeners = (settings, listener) => {
         PROXIMITY_DISTANCE,
         PROXIMITY_TRANSITION,
         CONTENT_SHADOWS,
+        SHADOW_COLOR,
+        SHADOW_BLUR,
+        SHADOW_OFFSET_X,
+        SHADOW_OFFSET_Y,
         COLORS,
         MAXIMIZED_COLORS,
         MAXIMIZED_GRADIENT_DIRECTION
