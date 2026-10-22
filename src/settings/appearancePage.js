@@ -8,6 +8,7 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 import {
     getConfig,
     CONTENT_SHADOWS,
+    SHADOW_BLUR,
     saveColors,
     saveMaximizedColors,
     setGradientDirection,
@@ -77,16 +78,26 @@ class Appearance extends Adw.PreferencesPage {
         settings.bind(CONTENT_SHADOWS, contentShadowsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         contentGroup.add(contentShadowsRow);
         const offsetPreview = new Adw.ExpanderRow({
-            title: gettext('Offset picker preview'),
-            subtitle: gettext('Temporary preview only — does not change or save shadow settings.'),
+            title: gettext('Shadow appearance'),
+            subtitle: gettext('Position, colour and opacity'),
             expanded: true
         });
+        const offsetPicker = createOffsetPicker(settings);
         offsetPreview.add_row(new Adw.PreferencesRow({
-            child: createOffsetPicker(),
+            child: offsetPicker.widget,
             activatable: false,
             selectable: false
         }));
+        settings.bind(CONTENT_SHADOWS, offsetPreview, 'sensitive', Gio.SettingsBindFlags.GET);
         contentGroup.add(offsetPreview);
+        const blurRow = new Adw.SpinRow({
+            title: gettext('Blur'),
+            subtitle: gettext('Shadow softness in pixels'),
+            adjustment: new Gtk.Adjustment({ lower: 0, upper: 12, step_increment: 1, page_increment: 1 })
+        });
+        settings.bind(SHADOW_BLUR, blurRow, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind(CONTENT_SHADOWS, blurRow, 'sensitive', Gio.SettingsBindFlags.GET);
+        contentGroup.add(blurRow);
         this.add(contentGroup);
 
         const gradientGroup = new Adw.PreferencesGroup({
@@ -206,6 +217,7 @@ class Appearance extends Adw.PreferencesPage {
         this.add(maximizedGradientGroup);
 
         const onSettingsChanged = s => {
+            offsetPicker.refresh();
             const config = getConfig(s);
 
             updatingSettings = true;

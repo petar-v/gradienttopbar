@@ -7,7 +7,6 @@ import Clutter from 'gi://Clutter';
 const GRADIENT_CLASS = 'panel-gradient';
 const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
 const TRANSITION_DURATION_MS = 200;
-const CONTENT_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.6)';
 
 let transitionActor = null;
 let appliedGradientClass = null;
@@ -48,20 +47,21 @@ const setTransitionProgress = (styleClass, progress) => {
 
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
+    const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
     const contentShadows = config.contentShadows ? `
           #panel.${GRADIENT_CLASS} .panel-button,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button,
           #panel.${GRADIENT_CLASS} .panel-button StLabel,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StLabel {
-            text-shadow: ${CONTENT_SHADOW};
+            text-shadow: ${shadow};
           }
           #panel.${GRADIENT_CLASS} .panel-button StIcon,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StIcon {
-            icon-shadow: ${CONTENT_SHADOW};
+            icon-shadow: ${shadow};
           }
           #panel.${GRADIENT_CLASS} .workspace-dot,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .workspace-dot {
-            box-shadow: ${CONTENT_SHADOW};
+            box-shadow: ${shadow};
           }` : '';
     return `#panel {
             transition-duration: ${TRANSITION_DURATION_MS}ms;
