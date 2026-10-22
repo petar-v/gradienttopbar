@@ -75,7 +75,7 @@ class Appearance extends Adw.PreferencesPage {
             label: gettext('Reset'),
             tooltip_text: gettext('Reset shadow appearance'),
             valign: Gtk.Align.CENTER,
-            css_classes: ['flat']
+            css_classes: ['flat', 'destructive-action']
         });
         resetShadows.connect('clicked', () => {
             const confirmation = new Adw.AlertDialog({
