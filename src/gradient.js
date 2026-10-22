@@ -7,6 +7,7 @@ import Clutter from 'gi://Clutter';
 const GRADIENT_CLASS = 'panel-gradient';
 const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
 const TRANSITION_DURATION_MS = 200;
+const CONTENT_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.6)';
 
 let transitionActor = null;
 let appliedGradientClass = null;
@@ -52,15 +53,15 @@ const generateCss = config => {
           #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button,
           #panel.${GRADIENT_CLASS} .panel-button StLabel,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StLabel {
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            text-shadow: ${CONTENT_SHADOW};
           }
           #panel.${GRADIENT_CLASS} .panel-button StIcon,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StIcon {
-            icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            icon-shadow: ${CONTENT_SHADOW};
           }
           #panel.${GRADIENT_CLASS} .workspace-dot,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .workspace-dot {
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            box-shadow: ${CONTENT_SHADOW};
           }` : '';
     return `#panel {
             transition-duration: ${TRANSITION_DURATION_MS}ms;

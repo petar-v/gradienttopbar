@@ -17,6 +17,7 @@ import {
     detachSettingsListeners
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
+import { createOffsetPicker } from './components/offsetPicker.js';
 import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION, STYLE_TRIGGER } from '../constants.js';
 
 const AppearanceOption = GObject.registerClass(
@@ -75,6 +76,17 @@ class Appearance extends Adw.PreferencesPage {
         });
         settings.bind(CONTENT_SHADOWS, contentShadowsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         contentGroup.add(contentShadowsRow);
+        const offsetPreview = new Adw.ExpanderRow({
+            title: gettext('Offset picker preview'),
+            subtitle: gettext('Temporary preview only — does not change or save shadow settings.'),
+            expanded: true
+        });
+        offsetPreview.add_row(new Adw.PreferencesRow({
+            child: createOffsetPicker(),
+            activatable: false,
+            selectable: false
+        }));
+        contentGroup.add(offsetPreview);
         this.add(contentGroup);
 
         const gradientGroup = new Adw.PreferencesGroup({
