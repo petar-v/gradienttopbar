@@ -10,7 +10,7 @@ export const createColorDialog = (pickerTitle, getColor, callback) => {
     const chooserBtn = new Gtk.Button({
         icon_name: 'document-edit-symbolic',
         tooltip_text: pickerTitle,
-        css_classes: ['circular'],
+        css_classes: ['circular', 'osd'],
         width_request: 40,
         height_request: 40
     });
