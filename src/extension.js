@@ -1,4 +1,5 @@
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import GLib from 'gi://GLib';
 import { applyGradientStyle, unloadGradientStylesheet } from './gradient.js';
 import {
     getConfig,
@@ -13,7 +14,20 @@ import ProximityWindows from './events/behaviours/proximityWindows.js';
 import DiscreteEffect from './effects/discreteEffect.js';
 import ProgressiveEffect from './effects/progressiveEffect.js';
 
+const SETTINGS_DEBOUNCE_MS = 500;
+
 export default class GradientTopBar extends Extension {
+    scheduleConfigure() {
+        if (this._configureTimeoutId)
+            GLib.Source.remove(this._configureTimeoutId);
+
+        this._configureTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SETTINGS_DEBOUNCE_MS, () => {
+            this._configureTimeoutId = null;
+            this.configure(this._settings);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     configure(settings) {
         const config = getConfig(settings);
         applyGradientStyle(config, this.path);
@@ -74,12 +88,17 @@ export default class GradientTopBar extends Extension {
 
         this._settingsHandlerIds = attachSettingsListeners(
             this._settings,
-            this.configure.bind(this)
+            this.scheduleConfigure.bind(this)
         );
         this.configure(this._settings);
     }
 
     disable() {
+        if (this._configureTimeoutId) {
+            GLib.Source.remove(this._configureTimeoutId);
+            this._configureTimeoutId = null;
+        }
+
         if (this.windowEvents) {
             this.windowEvents.disable();
             this.windowEvents = null;
