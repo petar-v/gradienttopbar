@@ -52,7 +52,7 @@ try {
     const page = new Appearance(preferences, settings);
     preferences.add(page);
     const findReset = widget => {
-        if (widget instanceof Gtk.Button && widget.get_tooltip_text() === 'Reset shadow appearance')
+        if (widget instanceof Gtk.Button && widget.get_tooltip_text() === 'Reset panel content shadows?')
             return widget;
         for (let child = widget.get_first_child(); child; child = child.get_next_sibling()) {
             const found = findReset(child);
@@ -84,6 +84,60 @@ try {
     preferences.present();
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => { preferences.close(); loop.quit(); return GLib.SOURCE_REMOVE; });
     loop.run();
+    const { default: Behavior } = await import('../src/settings/behavioursPage.js');
+    const sectionsWindow = new Adw.PreferencesWindow();
+    const appearance = new Appearance(sectionsWindow, settings);
+    const behavior = new Behavior(sectionsWindow, settings);
+    sectionsWindow.add(appearance);
+    sectionsWindow.add(behavior);
+    sectionsWindow.present();
+    const findByTitle = (widget, title) => {
+        if (widget instanceof Gtk.Button && widget.get_tooltip_text() === title)
+            return widget;
+        for (let child = widget.get_first_child(); child; child = child.get_next_sibling()) {
+            const found = findByTitle(child, title);
+            if (found) return found;
+        }
+        return null;
+    };
+    const sections = [
+        ['Reset main gradient?', appearance, {
+            colors: new GLib.Variant('as', ['red', 'blue']),
+            'gradient-direction': new GLib.Variant('s', 'horizontal')
+        }],
+        ['Reset window interaction?', appearance, {
+            'maximized-behavior': new GLib.Variant('s', 'keep-theme'),
+            'maximized-colors': new GLib.Variant('as', ['green', 'white']),
+            'maximized-gradient-direction': new GLib.Variant('s', 'vertical')
+        }],
+        ['Reset trigger settings?', behavior, {
+            'style-trigger': new GLib.Variant('s', 'maximized'),
+            'proximity-distance': new GLib.Variant('i', 79),
+            'proximity-transition': new GLib.Variant('b', false)
+        }]
+    ];
+    for (const [title, root, changes] of sections) {
+        for (const [key, value] of Object.entries(changes))
+            settings.set_value(key, value);
+        const before = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
+        const button = findByTitle(root, title);
+        assert(button !== null, `Missing ${title}`);
+        button.emit('clicked');
+        let dialog = sectionsWindow.get_visible_dialog();
+        dialog.emit('response', 'cancel');
+        dialog.force_close();
+        for (const [key, value] of before)
+            assert(settings.get_value(key).equal(value), `Cancel changed ${key}`);
+        button.emit('clicked');
+        dialog = sectionsWindow.get_visible_dialog();
+        dialog.emit('response', 'reset');
+        dialog.force_close();
+        for (const [key, value] of before) {
+            const expected = key in changes ? settings.get_default_value(key) : value;
+            assert(settings.get_value(key).equal(expected), `${title} incorrectly changed ${key}`);
+        }
+    }
+    sectionsWindow.close();
     detachSettingsListeners(settings, handlers);
     print('Shadow settings, bindings, preview drawing and reset passed');
 } finally {
