@@ -8,7 +8,7 @@ import { createColorDialog } from './colorDialog.js';
 export const createGradientEditor = (startTitle, endTitle, getGradient, saveColor) => {
     const preview = new Gtk.DrawingArea({
         content_width: 240,
-        content_height: 160,
+        content_height: 112,
         hexpand: true
     });
     const editor = new Gtk.Overlay({
