@@ -56,7 +56,7 @@
     </key>
     <key name="shadow-offset-y" type="i">
       <range min="-6" max="6"/>
-      <default>1</default>
+      <default>0</default>
       <summary>Shadow offset y</summary>
     </key>
     <key name="colors" type="as">

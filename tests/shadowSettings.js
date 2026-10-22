@@ -23,7 +23,7 @@ try {
     let changes = 0;
     const handlers = attachSettingsListeners(settings, () => changes++);
     assert(getConfig(settings).shadowBlur === 3, 'Default blur');
-    assert(getConfig(settings).shadowOffsetY === 1, 'Default Y');
+    assert(getConfig(settings).shadowOffsetY === 0, 'Default Y');
     Gtk.init();
     const picker = createOffsetPicker(settings);
     const controls = picker.widget.get_last_child();
@@ -49,7 +49,38 @@ try {
     const { default: Adw } = await import('gi://Adw');
     const { default: Appearance } = await import('../src/settings/appearancePage.js');
     const preferences = new Adw.PreferencesWindow();
-    preferences.add(new Appearance(preferences, settings));
+    const page = new Appearance(preferences, settings);
+    preferences.add(page);
+    const findReset = widget => {
+        if (widget instanceof Gtk.Button && widget.get_tooltip_text() === 'Reset shadow appearance')
+            return widget;
+        for (let child = widget.get_first_child(); child; child = child.get_next_sibling()) {
+            const found = findReset(child);
+            if (found) return found;
+        }
+        return null;
+    };
+    settings.set_boolean('content-shadows', true);
+    settings.set_int('shadow-offset-x', -4);
+    settings.set_int('shadow-offset-y', 5);
+    const reset = findReset(page);
+    assert(reset !== null, 'Appearance exposes reset');
+    preferences.present();
+    reset.emit('clicked');
+    let confirmation = preferences.get_visible_dialog();
+    assert(confirmation instanceof Adw.AlertDialog, 'Reset requires confirmation');
+    assert(getConfig(settings).shadowOffsetX === -4, 'Opening dialog does not reset');
+    confirmation.emit('response', 'cancel');
+    confirmation.force_close();
+    assert(getConfig(settings).shadowOffsetX === -4 && getConfig(settings).shadowBlur === 12, 'Cancel preserves appearance');
+    reset.emit('clicked');
+    confirmation = preferences.get_visible_dialog();
+    confirmation.emit('response', 'reset');
+    confirmation.force_close();
+    const config = getConfig(settings);
+    assert(config.shadowOffsetX === 0 && config.shadowOffsetY === 0, 'Reset centres offsets');
+    assert(config.shadowBlur === 3 && config.shadowColor === 'rgba(0, 0, 0, 0.6)', 'Reset restores blur and colour including opacity');
+    assert(config.contentShadows, 'Reset preserves enabled toggle');
     preferences.present();
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => { preferences.close(); loop.quit(); return GLib.SOURCE_REMOVE; });
     loop.run();

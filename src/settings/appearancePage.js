@@ -9,6 +9,9 @@ import {
     getConfig,
     CONTENT_SHADOWS,
     SHADOW_BLUR,
+    SHADOW_COLOR,
+    SHADOW_OFFSET_X,
+    SHADOW_OFFSET_Y,
     saveColors,
     saveMaximizedColors,
     setGradientDirection,
@@ -68,8 +71,33 @@ class Appearance extends Adw.PreferencesPage {
         const { gradientDirection, maximizedGradientDirection } = getConfig(settings);
         let updatingSettings = false;
 
+        const resetShadows = new Gtk.Button({
+            label: gettext('Reset'),
+            tooltip_text: gettext('Reset shadow appearance'),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['flat']
+        });
+        resetShadows.connect('clicked', () => {
+            const confirmation = new Adw.AlertDialog({
+                heading: gettext('Reset panel content shadows?'),
+                body: gettext('This will centre the offsets and restore the default colour, opacity and blur. The on/off toggle will stay unchanged.')
+            });
+            confirmation.add_response('cancel', gettext('Cancel'));
+            confirmation.add_response('reset', gettext('Reset'));
+            confirmation.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
+            confirmation.set_default_response('cancel');
+            confirmation.set_close_response('cancel');
+            confirmation.connect('response', (_dialog, response) => {
+                if (response === 'reset') {
+                    for (const key of [SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y])
+                        settings.reset(key);
+                }
+            });
+            confirmation.present(window);
+        });
         const contentGroup = new Adw.PreferencesGroup({
-            title: gettext('Panel content')
+            title: gettext('Panel content shadows'),
+            header_suffix: resetShadows
         });
         const contentShadowsRow = new Adw.SwitchRow({
             title: gettext('Text and icon shadows'),
