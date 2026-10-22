@@ -24,6 +24,9 @@ export const SHADOW_BLUR = 'shadow-blur';
 export const SHADOW_OFFSET_X = 'shadow-offset-x';
 export const SHADOW_OFFSET_Y = 'shadow-offset-y';
 export const MAXIMIZED_COLORS = 'maximized-colors';
+export const OVERVIEW_BEHAVIOR = 'overview-behavior';
+export const OVERVIEW_COLORS = 'overview-colors';
+export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
 
 /**
  * Gets the complete configuration object from settings
@@ -41,6 +44,8 @@ export const getConfig = settings => {
     const gradientDirection = settings.get_string(GRADIENT_DIRECTION);
     const maximizedColors = settings.get_value(MAXIMIZED_COLORS).deep_unpack();
     const maximizedGradientDirection = settings.get_string(MAXIMIZED_GRADIENT_DIRECTION);
+    const overviewColors = settings.get_strv(OVERVIEW_COLORS);
+    const validOverviewPair = overviewColors.length === 2;
 
     return {
         maximizedBehavior,
@@ -58,6 +63,13 @@ export const getConfig = settings => {
             end: colors[1]
         },
         maximizedGradientDirection,
+        overviewBehavior: settings.get_string(OVERVIEW_BEHAVIOR),
+        overviewGradientDirection: validOverviewPair
+            ? settings.get_string(OVERVIEW_GRADIENT_DIRECTION) : gradientDirection,
+        overviewColors: {
+            start: validOverviewPair ? overviewColors[0] : colors[0],
+            end: validOverviewPair ? overviewColors[1] : colors[1]
+        },
         maximizedColors: {
             start: maximizedColors[0],
             end: maximizedColors[1]
@@ -207,7 +219,10 @@ export const attachSettingsListeners = (settings, listener) => {
         SHADOW_OFFSET_Y,
         COLORS,
         MAXIMIZED_COLORS,
-        MAXIMIZED_GRADIENT_DIRECTION
+        MAXIMIZED_GRADIENT_DIRECTION,
+        OVERVIEW_BEHAVIOR,
+        OVERVIEW_COLORS,
+        OVERVIEW_GRADIENT_DIRECTION
     ].map(key => settings.connect(`changed::${key}`, listener));
 };
 

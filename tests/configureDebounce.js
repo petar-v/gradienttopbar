@@ -23,6 +23,9 @@ class WindowEvents {
 const exports = {
     Extension: class {},
     applyGradientStyle() {},
+    applyOverviewStyle() {},
+    removeGradientTransition() {},
+    overview: { connect() { return 1; }, disconnect() {} },
     unloadGradientStylesheet() {},
     getConfig() {},
     attachSettingsListeners(_settings, callback) { onChange = callback; return []; },

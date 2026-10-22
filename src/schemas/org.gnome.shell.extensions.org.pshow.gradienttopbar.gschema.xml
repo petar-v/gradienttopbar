@@ -13,7 +13,26 @@
     <value nick="maximized" value="0"/>
     <value nick="proximity" value="1"/>
   </enum>
+  <enum id="org.gnome.shell.extensions.org.pshow.gradienttopbar.OverviewBehavior">
+    <value nick="keep-gradient" value="0"/>
+    <value nick="keep-theme" value="1"/>
+    <value nick="apply-style" value="2"/>
+  </enum>
   <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
+    <key name="overview-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.OverviewBehavior">
+      <default>'keep-gradient'</default>
+      <summary>Top bar appearance in overview</summary>
+      <description>Keep the main gradient, use the original Shell theme, or use a custom gradient while overview is open. Takes priority over window interaction.</description>
+    </key>
+    <key name="overview-colors" type="as">
+      <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
+      <summary>Start and end colours for the overview gradient</summary>
+      <description>Two colour strings including opacity, saved independently of the main and alternate gradients.</description>
+    </key>
+    <key name="overview-gradient-direction" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.GradientOrientation">
+      <default>'vertical'</default>
+      <summary>Orientation of the overview gradient</summary>
+    </key>
     <key name="style-trigger" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.StyleTrigger">
       <default>'proximity'</default>
       <summary>Condition that triggers the alternate panel style</summary>

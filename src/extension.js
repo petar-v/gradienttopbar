@@ -1,6 +1,12 @@
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import GLib from 'gi://GLib';
-import { applyGradientStyle, unloadGradientStylesheet } from './gradient.js';
+import { overview } from 'resource:///org/gnome/shell/ui/main.js';
+import {
+    applyGradientStyle,
+    applyOverviewStyle,
+    removeGradientTransition,
+    unloadGradientStylesheet
+} from './gradient.js';
 import {
     getConfig,
     attachSettingsListeners,
@@ -30,6 +36,7 @@ export default class GradientTopBar extends Extension {
 
     configure(settings) {
         const config = getConfig(settings);
+        this._overviewBehavior = config.overviewBehavior;
         applyGradientStyle(config, this.path);
 
         const behaviourDetector = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
@@ -46,18 +53,31 @@ export default class GradientTopBar extends Extension {
         this.effect = effect;
         this.windowEvents.setBehaviourDetector(behaviourDetector);
 
-        if (config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT) {
+        if (config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT)
             this.windowEvents.disable();
-            this.effect.apply(0);
-            return;
-        }
+        else
+            this.windowEvents.enable();
 
-        this.windowEvents.enable();
-        this.windowEvents.updateState(true);
+        this.updateOverview();
+    }
+
+    updateOverview() {
+        // A desktop swipe overlay must not outlive an overview or settings change.
+        this.windowEvents.detachWorkspaceTransitionEvents();
+        removeGradientTransition();
+        if (overview.visibleTarget)
+            applyOverviewStyle(this._overviewBehavior);
+        else if (this.windowEvents.enabled)
+            this.windowEvents.updateState(true);
+        else
+            this.effect.apply(0);
     }
 
     setWindowStateCallback() {
         this.windowEvents.setStateChangeCallback(state => {
+            if (overview.visibleTarget)
+                return;
+
             if (state.workspaceTransition === 'progress') {
                 this.effect.scrub(
                     state.startEffectStrength,
@@ -85,6 +105,8 @@ export default class GradientTopBar extends Extension {
             global.get_workspace_manager()
         );
         this.setWindowStateCallback();
+        this._overviewHandlerIds = ['showing', 'hiding'].map(signal =>
+            overview.connect(signal, () => this.updateOverview()));
 
         this._settingsHandlerIds = attachSettingsListeners(
             this._settings,
@@ -94,6 +116,8 @@ export default class GradientTopBar extends Extension {
     }
 
     disable() {
+        this._overviewHandlerIds.forEach(id => overview.disconnect(id));
+        this._overviewHandlerIds = null;
         if (this._configureTimeoutId) {
             GLib.Source.remove(this._configureTimeoutId);
             this._configureTimeoutId = null;
