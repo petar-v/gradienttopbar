@@ -16,7 +16,7 @@ Note:
 
 If you use a tiling extension, switching the style trigger from **Maximized windows** to **Proximity** can improve detection and styling. Set the proximity distance to **0 px** to trigger the alternate (maximized) style when a window touches the top bar.
 
-In **Appearance → Overview**, choose the top bar style for overview and the application grid. **Keep main gradient** preserves the default behavior. **Use original theme** restores the active Shell theme, and **Use custom gradient** provides independent colours, opacity and direction. Overview styling takes priority over window interaction; closing overview restores the style for the current workspace. Switching options retains your custom gradient. Panel content shadows apply to overview gradients too, but not to the original theme.
+In **Gradients → Overview**, choose the top bar style for overview and the application grid. **Keep main gradient** preserves the default behavior. **Use original theme** restores the active Shell theme, and **Use custom gradient** provides independent colours, opacity and direction. Overview styling takes priority over window interaction; closing overview restores the style for the current workspace. Switching options retains your custom gradient. The **Content Shadows** tab controls text and icon shadows for all gradients, including overview. Shadows do not apply to the original theme.
 
 
 ## Screenshot
