@@ -11,7 +11,6 @@ import {
     attachSettingsListeners,
     detachSettingsListeners,
     getMaximizedBehavior,
-    setMaximizedBehavior,
     getStyleTrigger,
     setStyleTrigger,
     getProximityDistance,
@@ -24,7 +23,7 @@ import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
 
 const PROXIMITY_DISTANCE_SAVE_DELAY_MS = 300;
 
-const MaximizedBehavior = GObject.registerClass(
+const TriggerOption = GObject.registerClass(
     {
         Properties: {
             name: GObject.ParamSpec.string(
@@ -43,7 +42,7 @@ const MaximizedBehavior = GObject.registerClass(
             )
         }
     },
-    class MaximizedBehaviorOption extends GObject.Object {
+    class TriggerOptionObject extends GObject.Object {
         _init(name, value) {
             super._init({ name, value });
         }
@@ -60,6 +59,7 @@ class Behavior extends Adw.PreferencesPage {
 
         this._settings = settings;
         let proximityDistanceTimeoutId = null;
+        let updatingSettings = false;
 
         const commitProximityDistance = () => {
             if (proximityDistanceTimeoutId) {
@@ -94,20 +94,20 @@ class Behavior extends Adw.PreferencesPage {
         };
 
         const behaviorGroup = new Adw.PreferencesGroup({
-            title: gettext('Behavior')
+            title: gettext('Trigger settings')
         });
 
-        const triggerModel = new Gio.ListStore({ item_type: MaximizedBehavior });
+        const triggerModel = new Gio.ListStore({ item_type: TriggerOption });
         [
-            new MaximizedBehavior(gettext('Maximized windows'), STYLE_TRIGGER.MAXIMIZED),
-            new MaximizedBehavior(gettext('Proximity'), STYLE_TRIGGER.PROXIMITY)
+            new TriggerOption(gettext('Maximized windows'), STYLE_TRIGGER.MAXIMIZED),
+            new TriggerOption(gettext('Proximity'), STYLE_TRIGGER.PROXIMITY)
         ].forEach(trigger => triggerModel.append(trigger));
 
         const triggerRow = new Adw.ComboRow({
             title: gettext('Style trigger'),
-            subtitle: gettext('Choose when to apply the alternate top bar behavior'),
+            subtitle: gettext('Choose when to change the top bar appearance'),
             model: triggerModel,
-            expression: new Gtk.PropertyExpression(MaximizedBehavior, null, 'name')
+            expression: new Gtk.PropertyExpression(TriggerOption, null, 'name')
         });
 
         const proximityDistanceRow = new Adw.SpinRow({
@@ -129,29 +129,8 @@ class Behavior extends Adw.PreferencesPage {
             active: getProximityTransition(this._settings)
         });
 
-        // Create model for maximized behavior dropdown
-        const maximizedBehaviorModel = new Gio.ListStore({
-            item_type: MaximizedBehavior
-        });
-
-        [
-            new MaximizedBehavior(gettext('Keep gradient'), MAXIMIZED_BEHAVIOR.KEEP_GRADIENT),
-            new MaximizedBehavior(gettext('Keep original theme'), MAXIMIZED_BEHAVIOR.KEEP_THEME),
-            new MaximizedBehavior(gettext('Apply style'), MAXIMIZED_BEHAVIOR.APPLY_STYLE)
-        ].forEach(behavior => maximizedBehaviorModel.append(behavior));
-
-        // Create dropdown for maximized behavior
-        const maximizedBehaviorRow = new Adw.ComboRow({
-            title: gettext('When triggered'),
-            subtitle: gettext(
-                'Choose what style to apply to the top bar'
-            ),
-            model: maximizedBehaviorModel,
-            expression: new Gtk.PropertyExpression(MaximizedBehavior, null, 'name')
-        });
-
         // Set the selected item based on the current setting
-        const setMaximizedBehaviorOnRow = (row, behaviorValue) => {
+        const setTriggerOnRow = (row, behaviorValue) => {
             const { model } = row;
             for (let i = 0; i < model.get_n_items(); i++) {
                 if (model.get_item(i).value === behaviorValue) {
@@ -162,12 +141,11 @@ class Behavior extends Adw.PreferencesPage {
         };
 
         // Set initial value
-        setMaximizedBehaviorOnRow(maximizedBehaviorRow, getMaximizedBehavior(this._settings));
-        setMaximizedBehaviorOnRow(triggerRow, getStyleTrigger(this._settings));
-        proximityDistanceRow.set_sensitive(
-            getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY
-        );
+        setTriggerOnRow(triggerRow, getStyleTrigger(this._settings));
         const updateProximityControls = () => {
+            const enabled = getMaximizedBehavior(this._settings) !== MAXIMIZED_BEHAVIOR.KEEP_GRADIENT;
+            behaviorGroup.set_sensitive(enabled);
+            disabledGroup.set_visible(!enabled);
             const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
             proximityDistanceRow.set_sensitive(usesProximity);
             proximityTransitionRow.set_sensitive(
@@ -175,37 +153,46 @@ class Behavior extends Adw.PreferencesPage {
                 getMaximizedBehavior(this._settings) === MAXIMIZED_BEHAVIOR.APPLY_STYLE
             );
         };
-        updateProximityControls();
 
         // Connect to changes
-        maximizedBehaviorRow.connect('notify::selected', () => {
-            const { selectedItem } = maximizedBehaviorRow;
-            setMaximizedBehavior(this._settings, selectedItem.value);
-        });
         triggerRow.connect('notify::selected', () => {
-            setStyleTrigger(this._settings, triggerRow.selectedItem.value);
+            if (!updatingSettings)
+                setStyleTrigger(this._settings, triggerRow.selectedItem.value);
         });
         proximityDistanceRow.connect('notify::value', () => {
-            scheduleProximityDistanceSave();
+            if (!updatingSettings)
+                scheduleProximityDistanceSave();
         });
         proximityTransitionRow.connect('notify::active', () => {
-            setProximityTransition(this._settings, proximityTransitionRow.active);
+            if (!updatingSettings)
+                setProximityTransition(this._settings, proximityTransitionRow.active);
         });
 
         behaviorGroup.add(triggerRow);
         behaviorGroup.add(proximityDistanceRow);
         behaviorGroup.add(proximityTransitionRow);
-        behaviorGroup.add(maximizedBehaviorRow);
+        const disabledGroup = new Adw.PreferencesGroup({
+            description: gettext('The main gradient is always shown. Choose “Use original theme” or “Use alternate gradient” in Appearance to enable these settings.')
+        });
+        this.add(disabledGroup);
         this.add(behaviorGroup);
 
-        const onSettingsChanged = s => {
+        const onSettingsChanged = (s, key) => {
             const config = getConfig(s);
-            setMaximizedBehaviorOnRow(maximizedBehaviorRow, config.maximizedBehavior);
-            setMaximizedBehaviorOnRow(triggerRow, config.styleTrigger);
-            proximityDistanceRow.set_value(config.proximityDistance);
+            updatingSettings = true;
+            setTriggerOnRow(triggerRow, config.styleTrigger);
+            if (!key || key === 'proximity-distance') {
+                if (proximityDistanceTimeoutId) {
+                    GLib.Source.remove(proximityDistanceTimeoutId);
+                    proximityDistanceTimeoutId = null;
+                }
+                proximityDistanceRow.set_value(config.proximityDistance);
+            }
             proximityTransitionRow.set_active(config.proximityTransition);
+            updatingSettings = false;
             updateProximityControls();
         };
+        onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
             commitProximityDistance();

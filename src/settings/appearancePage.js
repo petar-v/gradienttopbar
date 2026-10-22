@@ -11,14 +11,14 @@ import {
     saveMaximizedColors,
     setGradientDirection,
     setMaximizedGradientDirection,
-    getMaximizedBehavior,
+    setMaximizedBehavior,
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
-import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
+import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION, STYLE_TRIGGER } from '../constants.js';
 
-const GradientDirection = GObject.registerClass(
+const AppearanceOption = GObject.registerClass(
     {
         Properties: {
             name: GObject.ParamSpec.string(
@@ -37,18 +37,18 @@ const GradientDirection = GObject.registerClass(
             )
         }
     },
-    class GradientDirectionOption extends GObject.Object {
+    class AppearanceOptionObject extends GObject.Object {
         _init(name, value) {
             super._init({ name, value });
         }
     }
 );
 
-const setGradientDirectionOnRow = (directionRow, gradientDirection) => {
-    const { model } = directionRow;
+const setOptionOnRow = (row, value) => {
+    const { model } = row;
     for (let i = 0; i < model.get_n_items(); i++) {
-        if (model.get_item(i).value === gradientDirection) {
-            directionRow.set_selected(i);
+        if (model.get_item(i).value === value) {
+            row.set_selected(i);
             break;
         }
     }
@@ -66,23 +66,23 @@ class Appearance extends Adw.PreferencesPage {
         let updatingSettings = false;
 
         const gradientGroup = new Adw.PreferencesGroup({
-            title: gettext('Gradient Appearance')
+            title: gettext('Main gradient')
         });
 
         const gradientDirectionModel = new Gio.ListStore({
-            item_type: GradientDirection
+            item_type: AppearanceOption
         });
 
         [
-            new GradientDirection(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
-            new GradientDirection(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
+            new AppearanceOption(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
+            new AppearanceOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
         ].forEach(d => gradientDirectionModel.append(d));
 
         const directionRow = new Adw.ComboRow({
             title: gettext('Gradient Direction'),
             subtitle: gettext('The orientation of the gradient.'),
             model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(GradientDirection, null, 'name')
+            expression: new Gtk.PropertyExpression(AppearanceOption, null, 'name')
         });
 
         directionRow.connect('notify::selected', () => {
@@ -91,9 +91,7 @@ class Appearance extends Adw.PreferencesPage {
                 setGradientDirection(settings, selectedItem.value);
         });
 
-        setGradientDirectionOnRow(directionRow, gradientDirection);
-
-        gradientGroup.add(directionRow);
+        setOptionOnRow(directionRow, gradientDirection);
 
         const gradientEditor = createGradientEditor(
             gettext('Gradient Start Colour'),
@@ -108,21 +106,48 @@ class Appearance extends Adw.PreferencesPage {
                 saveColors(settings, colors.start, colors.end);
             }
         );
-        gradientGroup.add(gradientEditor.widget);
+        // PreferencesGroup renders non-row widgets after its row list, regardless of add order.
+        gradientGroup.add(new Adw.PreferencesRow({
+            child: gradientEditor.widget,
+            activatable: false,
+            selectable: false
+        }));
+        gradientGroup.add(directionRow);
 
         this.add(gradientGroup);
 
-        // Add a group for the alternate gradient settings
-        const maximizedGradientGroup = new Adw.PreferencesGroup({
-            title: gettext('Alternate Gradient Appearance')
+        const interactionGroup = new Adw.PreferencesGroup({
+            title: gettext('Window interaction')
         });
+        const behaviorValues = [
+            MAXIMIZED_BEHAVIOR.KEEP_GRADIENT,
+            MAXIMIZED_BEHAVIOR.KEEP_THEME,
+            MAXIMIZED_BEHAVIOR.APPLY_STYLE
+        ];
+        const behaviorRow = new Adw.ComboRow({
+            title: gettext('When triggered'),
+            model: Gtk.StringList.new([
+                gettext('Keep main gradient'),
+                gettext('Use original theme'),
+                gettext('Use alternate gradient')
+            ])
+        });
+        behaviorRow.connect('notify::selected', () => {
+            if (!updatingSettings)
+                setMaximizedBehavior(settings, behaviorValues[behaviorRow.selected]);
+        });
+        interactionGroup.add(behaviorRow);
+        this.add(interactionGroup);
+
+        // Add a group for the alternate gradient settings
+        const maximizedGradientGroup = new Adw.PreferencesGroup();
 
         // Create direction dropdown for maximized windows
         const maximizedDirectionRow = new Adw.ComboRow({
             title: gettext('Alternate Gradient Direction'),
             subtitle: gettext('The orientation when the style trigger is active.'),
             model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(GradientDirection, null, 'name')
+            expression: new Gtk.PropertyExpression(AppearanceOption, null, 'name')
         });
 
         maximizedDirectionRow.connect('notify::selected', () => {
@@ -131,8 +156,7 @@ class Appearance extends Adw.PreferencesPage {
                 setMaximizedGradientDirection(settings, selectedItem.value);
         });
 
-        setGradientDirectionOnRow(maximizedDirectionRow, maximizedGradientDirection);
-        maximizedGradientGroup.add(maximizedDirectionRow);
+        setOptionOnRow(maximizedDirectionRow, maximizedGradientDirection);
 
         const maximizedGradientEditor = createGradientEditor(
             gettext('Alternate Gradient Start Colour'),
@@ -147,42 +171,40 @@ class Appearance extends Adw.PreferencesPage {
                 saveMaximizedColors(settings, maximizedColors.start, maximizedColors.end);
             }
         );
-        maximizedGradientGroup.add(maximizedGradientEditor.widget);
+        maximizedGradientGroup.add(new Adw.PreferencesRow({
+            child: maximizedGradientEditor.widget,
+            activatable: false,
+            selectable: false
+        }));
+        maximizedGradientGroup.add(maximizedDirectionRow);
 
         // Add the group to the page
         this.add(maximizedGradientGroup);
-
-        // Function to update the sensitivity of maximized gradient settings
-        const updateMaximizedGradientVisibility = () => {
-            const maximizedBehavior = getMaximizedBehavior(settings);
-            const isApplyStyle = maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
-
-            // Keep the group visible but set sensitivity based on the setting
-            maximizedGradientGroup.set_sensitive(isApplyStyle);
-        };
-
-        // Set initial visibility
-        updateMaximizedGradientVisibility();
-
-        // Listen for changes to maximized-behavior setting
-        const visibilityHandlerId = settings.connect(
-            'changed::maximized-behavior',
-            updateMaximizedGradientVisibility
-        );
 
         const onSettingsChanged = s => {
             const config = getConfig(s);
 
             updatingSettings = true;
-            setGradientDirectionOnRow(directionRow, config.gradientDirection);
-            setGradientDirectionOnRow(maximizedDirectionRow, config.maximizedGradientDirection);
+            behaviorRow.set_selected(behaviorValues.indexOf(config.maximizedBehavior));
+            setOptionOnRow(directionRow, config.gradientDirection);
+            setOptionOnRow(maximizedDirectionRow, config.maximizedGradientDirection);
             updatingSettings = false;
             gradientEditor.refresh();
             maximizedGradientEditor.refresh();
+            maximizedGradientGroup.set_visible(config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE);
+
+            const triggerDescription = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
+                ? gettext('Triggered when a window comes within %d pixels of the top bar.')
+                    .replace('%d', config.proximityDistance)
+                : gettext('Triggered when a window is maximized.');
+            const behaviorDescription = config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT
+                ? gettext('The main gradient is always shown. Choose a different option to enable the Behaviour settings.')
+                : gettext('The main gradient is shown otherwise. Configure the trigger in Behaviour.');
+            interactionGroup.set_description(`${triggerDescription} ${behaviorDescription}`);
         };
+        onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
         window.connect('close-request', () => {
-            settings.disconnect(visibilityHandlerId);
             detachSettingsListeners(settings, settingsHandlerIds);
         });
     }
