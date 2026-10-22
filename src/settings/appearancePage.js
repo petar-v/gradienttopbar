@@ -7,6 +7,7 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
+    CONTENT_SHADOWS,
     saveColors,
     saveMaximizedColors,
     setGradientDirection,
@@ -64,6 +65,17 @@ class Appearance extends Adw.PreferencesPage {
 
         const { gradientDirection, maximizedGradientDirection } = getConfig(settings);
         let updatingSettings = false;
+
+        const contentGroup = new Adw.PreferencesGroup({
+            title: gettext('Panel content')
+        });
+        const contentShadowsRow = new Adw.SwitchRow({
+            title: gettext('Text and icon shadows'),
+            subtitle: gettext('Improve contrast against light backgrounds while a gradient is shown.')
+        });
+        settings.bind(CONTENT_SHADOWS, contentShadowsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        contentGroup.add(contentShadowsRow);
+        this.add(contentGroup);
 
         const gradientGroup = new Adw.PreferencesGroup({
             title: gettext('Main gradient')
