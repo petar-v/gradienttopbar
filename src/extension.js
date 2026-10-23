@@ -4,7 +4,7 @@ import { overview } from 'resource:///org/gnome/shell/ui/main.js';
 import {
     applyGradientStyle,
     applyOverviewStyle,
-    removeGradientTransition,
+    fadeGradientTransition,
     unloadGradientStylesheet
 } from './gradient.js';
 import {
@@ -62,15 +62,16 @@ export default class GradientTopBar extends Extension {
     }
 
     updateOverview() {
-        // A desktop swipe overlay must not outlive an overview or settings change.
+        // Stop gesture updates while the current appearance fades into overview.
         this.windowEvents.detachWorkspaceTransitionEvents();
-        removeGradientTransition();
-        if (overview.visibleTarget)
+        if (overview.visibleTarget) {
             applyOverviewStyle(this._overviewBehavior);
-        else if (this.windowEvents.enabled)
+            fadeGradientTransition();
+        } else if (this.windowEvents.enabled) {
             this.windowEvents.updateState(true);
-        else
+        } else {
             this.effect.apply(0);
+        }
     }
 
     setWindowStateCallback() {
