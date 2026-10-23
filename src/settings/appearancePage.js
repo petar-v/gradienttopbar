@@ -29,7 +29,7 @@ import { createGradientEditor } from './components/gradientEditor.js';
 import { createShadowEditor } from './components/shadowEditor.js';
 import { createShadowPreview } from './components/shadowPreview.js';
 import { createResetButton } from './components/resetButton.js';
-import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION, STYLE_TRIGGER } from '../constants.js';
+import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
 
 const AppearanceOption = GObject.registerClass(
     {
@@ -175,6 +175,7 @@ class Appearance extends Adw.PreferencesPage {
 
         const interactionGroup = new Adw.PreferencesGroup({
             title: gettext('Window interaction'),
+            description: gettext('Change the top bar’s appearance when a window is maximized or nearby. Choose the trigger in Behaviour.'),
             header_suffix: createResetButton(
                 window,
                 gettext('Reset window interaction?'),
@@ -258,15 +259,6 @@ class Appearance extends Adw.PreferencesPage {
             gradientEditor.refresh();
             maximizedGradientEditor.refresh();
             maximizedGradientGroup.set_visible(config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE);
-
-            const triggerDescription = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
-                ? gettext('Triggered when a window comes within %d pixels of the top bar.')
-                    .replace('%d', config.proximityDistance)
-                : gettext('Triggered when a window is maximized.');
-            const behaviorDescription = config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT
-                ? gettext('The main gradient is always shown. Choose a different option to enable the Behaviour settings.')
-                : gettext('The main gradient is shown otherwise. Configure the trigger in Behaviour.');
-            interactionGroup.set_description(`${triggerDescription} ${behaviorDescription}`);
         };
         onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
