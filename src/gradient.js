@@ -47,6 +47,22 @@ const setTransitionProgress = (styleClass, progress) => {
 
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
+    const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
+    const contentShadows = config.contentShadows ? `
+          #panel.${GRADIENT_CLASS} .panel-button,
+          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button,
+          #panel.${GRADIENT_CLASS} .panel-button StLabel,
+          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StLabel {
+            text-shadow: ${shadow};
+          }
+          #panel.${GRADIENT_CLASS} .panel-button StIcon,
+          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StIcon {
+            icon-shadow: ${shadow};
+          }
+          #panel.${GRADIENT_CLASS} .workspace-dot,
+          #panel.${MAXIMIZED_GRADIENT_CLASS} .workspace-dot {
+            box-shadow: ${shadow};
+          }` : '';
     return `#panel {
             transition-duration: ${TRANSITION_DURATION_MS}ms;
           }
@@ -61,7 +77,7 @@ const generateCss = config => {
             background-gradient-direction: ${maximizedGradientDirection};
             background-gradient-start: ${maximizedColors.start};
             background-gradient-end: ${maximizedColors.end};
-          }`;
+          }${contentShadows}`;
 };
 
 const getUserStylesheet = extensionPath =>

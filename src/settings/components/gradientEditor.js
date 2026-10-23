@@ -5,22 +5,12 @@ import Cairo from 'cairo';
 import { GRADIENT_DIRECTION } from '../../constants.js';
 import { createColorDialog } from './colorDialog.js';
 
-export const createGradientEditor = (startTitle, endTitle, getGradient, saveColor) => {
+export const createGradientPreview = getGradient => {
     const preview = new Gtk.DrawingArea({
         content_width: 240,
         content_height: 112,
         hexpand: true
     });
-    const editor = new Gtk.Overlay({
-        child: preview,
-        margin_top: 12,
-        margin_bottom: 12,
-        margin_start: 12,
-        margin_end: 12
-    });
-    // Endpoint positions describe the physical gradient, including in RTL locales.
-    editor.set_direction(Gtk.TextDirection.LTR);
-
     preview.set_draw_func((_area, cr, width, height) => {
         const radius = 12;
         cr.newSubPath();
@@ -40,7 +30,10 @@ export const createGradientEditor = (startTitle, endTitle, getGradient, saveColo
             }
         }
 
-        const { colors, direction } = getGradient();
+        const selected = getGradient();
+        if (!selected)
+            return;
+        const { colors, direction } = selected;
         const vertical = direction === GRADIENT_DIRECTION.VERTICAL;
         const gradient = new Cairo.LinearGradient(0, 0, vertical ? 0 : width, vertical ? height : 0);
         [colors.start, colors.end].forEach((color, index) => {
@@ -51,6 +44,21 @@ export const createGradientEditor = (startTitle, endTitle, getGradient, saveColo
         cr.setSource(gradient);
         cr.paint();
     });
+
+    return preview;
+};
+
+export const createGradientEditor = (startTitle, endTitle, getGradient, saveColor) => {
+    const preview = createGradientPreview(getGradient);
+    const editor = new Gtk.Overlay({
+        child: preview,
+        margin_top: 12,
+        margin_bottom: 12,
+        margin_start: 12,
+        margin_end: 12
+    });
+    // Endpoint positions describe the physical gradient, including in RTL locales.
+    editor.set_direction(Gtk.TextDirection.LTR);
 
     const buttons = [startTitle, endTitle].map((title, index) => {
         const endpoint = index === 0 ? 'start' : 'end';
@@ -74,6 +82,8 @@ export const createGradientEditor = (startTitle, endTitle, getGradient, saveColo
             button.set_halign(vertical ? Gtk.Align.CENTER : edge);
             button.set_valign(vertical ? edge : Gtk.Align.CENTER);
         });
+        // Alignment changes alone leave the overlay allocation cached.
+        editor.queue_allocate();
         preview.queue_draw();
     };
     refresh();

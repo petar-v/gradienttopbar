@@ -7,6 +7,16 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
+    CONTENT_SHADOWS,
+    SHADOW_BLUR,
+    SHADOW_COLOR,
+    SHADOW_OFFSET_X,
+    SHADOW_OFFSET_Y,
+    COLORS,
+    GRADIENT_DIRECTION as GRADIENT_DIRECTION_KEY,
+    MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
+    MAXIMIZED_COLORS,
+    MAXIMIZED_GRADIENT_DIRECTION,
     saveColors,
     saveMaximizedColors,
     setGradientDirection,
@@ -16,7 +26,10 @@ import {
     detachSettingsListeners
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
-import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION, STYLE_TRIGGER } from '../constants.js';
+import { createShadowEditor } from './components/shadowEditor.js';
+import { createShadowPreview } from './components/shadowPreview.js';
+import { createResetButton } from './components/resetButton.js';
+import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
 
 const AppearanceOption = GObject.registerClass(
     {
@@ -65,8 +78,52 @@ class Appearance extends Adw.PreferencesPage {
         const { gradientDirection, maximizedGradientDirection } = getConfig(settings);
         let updatingSettings = false;
 
+        const resetShadows = createResetButton(
+            window,
+            gettext('Reset panel content shadows?'),
+            gettext('This will turn shadows off, centre the offsets and restore the default colour, opacity and blur.'),
+            settings,
+            [CONTENT_SHADOWS, SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y]
+        );
+        const contentGroup = new Adw.PreferencesGroup({
+            title: gettext('Panel content shadows'),
+            header_suffix: resetShadows
+        });
+        const contentShadowsRow = new Adw.SwitchRow({
+            title: gettext('Text and icon shadows'),
+            subtitle: gettext('Improve contrast against light backgrounds while a gradient is shown.')
+        });
+        settings.bind(CONTENT_SHADOWS, contentShadowsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        contentGroup.add(contentShadowsRow);
+        const offsetPreview = new Adw.ExpanderRow({
+            title: gettext('Shadow appearance'),
+            subtitle: gettext('Position, colour and opacity'),
+            expanded: true
+        });
+        const shadowEditor = createShadowEditor(settings);
+        const shadowPreview = createShadowPreview(settings);
+        offsetPreview.add_row(new Adw.PreferencesRow({
+            child: shadowEditor.widget,
+            activatable: false,
+            selectable: false
+        }));
+        contentGroup.add(offsetPreview);
+        contentGroup.add(new Adw.PreferencesRow({
+            child: shadowPreview.widget,
+            activatable: false,
+            selectable: false
+        }));
+        this.add(contentGroup);
+
         const gradientGroup = new Adw.PreferencesGroup({
-            title: gettext('Main gradient')
+            title: gettext('Main gradient'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset main gradient?'),
+                gettext('Restore the default gradient colours and direction.'),
+                settings,
+                [COLORS, GRADIENT_DIRECTION_KEY]
+            )
         });
 
         const gradientDirectionModel = new Gio.ListStore({
@@ -117,7 +174,15 @@ class Appearance extends Adw.PreferencesPage {
         this.add(gradientGroup);
 
         const interactionGroup = new Adw.PreferencesGroup({
-            title: gettext('Window interaction')
+            title: gettext('Window interaction'),
+            description: gettext('Change the top bar’s appearance when a window is maximized or nearby. Choose the trigger in Behaviour.'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset window interaction?'),
+                gettext('Restore the default triggered behaviour and alternate gradient colours and direction.'),
+                settings,
+                [MAXIMIZED_BEHAVIOR_KEY, MAXIMIZED_COLORS, MAXIMIZED_GRADIENT_DIRECTION]
+            )
         });
         const behaviorValues = [
             MAXIMIZED_BEHAVIOR.KEEP_GRADIENT,
@@ -182,6 +247,8 @@ class Appearance extends Adw.PreferencesPage {
         this.add(maximizedGradientGroup);
 
         const onSettingsChanged = s => {
+            shadowEditor.refresh();
+            shadowPreview.refresh();
             const config = getConfig(s);
 
             updatingSettings = true;
@@ -192,15 +259,6 @@ class Appearance extends Adw.PreferencesPage {
             gradientEditor.refresh();
             maximizedGradientEditor.refresh();
             maximizedGradientGroup.set_visible(config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE);
-
-            const triggerDescription = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
-                ? gettext('Triggered when a window comes within %d pixels of the top bar.')
-                    .replace('%d', config.proximityDistance)
-                : gettext('Triggered when a window is maximized.');
-            const behaviorDescription = config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT
-                ? gettext('The main gradient is always shown. Choose a different option to enable the Behaviour settings.')
-                : gettext('The main gradient is shown otherwise. Configure the trigger in Behaviour.');
-            interactionGroup.set_description(`${triggerDescription} ${behaviorDescription}`);
         };
         onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
