@@ -36,6 +36,40 @@ try {
         return null;
     };
     const behavior = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'When overview is open');
+    const gradients = [
+        ['Gradient Direction', 'Gradient Start Colour', 'colors', 'gradient-direction'],
+        ['Alternate Gradient Direction', 'Alternate Gradient Start Colour', 'maximized-colors', 'maximized-gradient-direction'],
+        ['Overview Gradient Direction', 'Overview Gradient Start Colour', 'overview-colors', 'overview-gradient-direction']
+    ];
+    const chooseRgba = Gtk.ColorDialog.prototype.choose_rgba;
+    const finishRgba = Gtk.ColorDialog.prototype.choose_rgba_finish;
+    try {
+        Gtk.ColorDialog.prototype.choose_rgba = function (_parent, _initial, _cancellable, callback) {
+            callback(this, null);
+        };
+        Gtk.ColorDialog.prototype.choose_rgba_finish = () => ({ to_string: () => 'rgb(12,34,56)' });
+        for (const [title, startTitle, colorsKey, directionKey] of gradients) {
+            const row = find(page, widget => widget instanceof Adw.ComboRow && widget.title === title);
+            assert(row, `${title} exists`);
+            row.selected = 1;
+            assert(settings.get_string(directionKey) === 'horizontal', `${title} writes its own direction`);
+            settings.set_string(directionKey, 'vertical');
+            assert(row.selected === 0, `${title} refreshes from settings`);
+            const beforeColors = new Map(gradients.map(([, , key]) => [key, settings.get_value(key)]));
+            const button = find(page, widget => widget instanceof Gtk.Button && widget.tooltip_text === startTitle);
+            assert(button, `${startTitle} exists`);
+            button.emit('clicked');
+            assert(settings.get_strv(colorsKey)[0] === 'rgb(12,34,56)', `${startTitle} writes its own colour`);
+            assert(settings.get_strv(colorsKey)[1] === beforeColors.get(colorsKey).deep_unpack()[1], `${startTitle} preserves the other endpoint`);
+            for (const [key, value] of beforeColors) {
+                if (key !== colorsKey)
+                    assert(settings.get_value(key).equal(value), `${startTitle} leaves ${key} unchanged`);
+            }
+        }
+    } finally {
+        Gtk.ColorDialog.prototype.choose_rgba = chooseRgba;
+        Gtk.ColorDialog.prototype.choose_rgba_finish = finishRgba;
+    }
     const direction = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'Overview Gradient Direction');
     assert(behavior && direction, 'Overview exposes its behavior and direction controls');
     assert(!direction.is_visible(), 'Custom controls start hidden');
