@@ -8,7 +8,8 @@ Gio.Resource.load('/usr/share/gnome-shell/org.gnome.Shell.Extensions.src.gresour
 // Standalone test has no extension manager; only translation lookup is stubbed.
 const { ExtensionPreferences } = await import('resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js');
 ExtensionPreferences.lookupByURL = () => ({ gettext: text => text });
-const { createOffsetPicker } = await import('../src/settings/components/offsetPicker.js');
+const { createShadowEditor } = await import('../src/settings/components/shadowEditor.js');
+const { createShadowPreview } = await import('../src/settings/components/shadowPreview.js');
 const { getConfig, attachSettingsListeners, detachSettingsListeners, SETTINGS_GSCHEMA } = await import('../src/config.js');
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 assert(GLib.getenv('GSETTINGS_BACKEND') === 'memory', 'Use GSETTINGS_BACKEND=memory to protect saved preferences');
@@ -25,10 +26,39 @@ try {
     assert(getConfig(settings).shadowBlur === 3, 'Default blur');
     assert(getConfig(settings).shadowOffsetY === 0, 'Default Y');
     Gtk.init();
-    const picker = createOffsetPicker(settings);
-    const controls = picker.widget.get_last_child();
-    const x = controls.get_first_child().get_last_child();
-    const y = controls.get_first_child().get_next_sibling().get_last_child();
+    const picker = createShadowEditor(settings);
+    const preview = createShadowPreview(settings);
+    const editor = picker.widget;
+    const sample = preview.widget.get_last_child();
+    const sampleContent = sample.get_last_child();
+    const iconClockRow = sampleContent.get_first_child();
+    const iconButton = iconClockRow.get_first_child();
+    const previewIcon = iconButton.get_child();
+    const clock = iconClockRow.get_last_child();
+    const capturedTime = clock.get_label();
+    assert(/^\d{2}:\d{2}$/.test(capturedTime), 'Clock shows captured current time');
+    assert(sampleContent.get_first_child().get_next_sibling().get_label() === 'AaBbCc', 'Extended text sample');
+    for (let i = 0; i < 50; i++) {
+        const previousIcon = previewIcon.get_icon_name();
+        iconButton.emit('clicked');
+        assert(previewIcon.get_icon_name() !== previousIcon, 'Click selects a different icon');
+    }
+    preview.refresh();
+    assert(clock.get_label() === capturedTime, 'Refresh preserves captured time');
+    const styleSwitch = sampleContent.get_last_child();
+    const settingsBeforePreview = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
+    assert(preview.widget.get_first_child().get_label() === 'Preview · Normal', 'Initial style label');
+    styleSwitch.emit('clicked');
+    assert(preview.widget.get_first_child().get_label() === 'Preview · Triggered', 'Cycle to triggered');
+    styleSwitch.emit('clicked');
+    assert(preview.widget.get_first_child().get_label() === 'Preview · Normal', 'Cycle back to normal');
+    for (const [key, value] of settingsBeforePreview)
+        assert(settings.get_value(key).equal(value), `Preview switch changed ${key}`);
+    settings.set_boolean('content-shadows', false);
+    assert(sample.is_sensitive() && !editor.is_sensitive(), 'Preview stays usable with shadows disabled');
+    settings.set_boolean('content-shadows', true);
+    const x = editor.get_child_at(2, 0);
+    const y = editor.get_child_at(2, 1);
     x.set_value(-6);
     y.set_value(6);
     assert(getConfig(settings).shadowOffsetX === -6 && getConfig(settings).shadowOffsetY === 6, 'Picker persists offsets');
@@ -39,9 +69,12 @@ try {
     picker.refresh();
     assert(getConfig(settings).shadowColor === 'rgba(255,0,0,0.25)', 'Colour preserves alpha');
     assert(getConfig(settings).shadowBlur === 12 && changes >= 5, 'Shadow settings notify runtime');
-    controls.get_first_child().get_next_sibling().get_next_sibling().emit('clicked');
+    editor.get_child_at(0, 3).emit('clicked');
     assert(x.get_value() === 0 && y.get_value() === 0, 'Centre persists zero offsets');
-    const window = new Gtk.Window({ child: picker.widget });
+    const contents = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
+    contents.append(picker.widget);
+    contents.append(preview.widget);
+    const window = new Gtk.Window({ child: contents });
     window.present();
     const loop = new GLib.MainLoop(null, false);
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => { window.destroy(); loop.quit(); return GLib.SOURCE_REMOVE; });

@@ -26,7 +26,8 @@ import {
     detachSettingsListeners
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
-import { createOffsetPicker } from './components/offsetPicker.js';
+import { createShadowEditor } from './components/shadowEditor.js';
+import { createShadowPreview } from './components/shadowPreview.js';
 import { createResetButton } from './components/resetButton.js';
 import { MAXIMIZED_BEHAVIOR, GRADIENT_DIRECTION, STYLE_TRIGGER } from '../constants.js';
 
@@ -99,22 +100,19 @@ class Appearance extends Adw.PreferencesPage {
             subtitle: gettext('Position, colour and opacity'),
             expanded: true
         });
-        const offsetPicker = createOffsetPicker(settings);
+        const shadowEditor = createShadowEditor(settings);
+        const shadowPreview = createShadowPreview(settings);
         offsetPreview.add_row(new Adw.PreferencesRow({
-            child: offsetPicker.widget,
+            child: shadowEditor.widget,
             activatable: false,
             selectable: false
         }));
-        settings.bind(CONTENT_SHADOWS, offsetPreview, 'sensitive', Gio.SettingsBindFlags.GET);
         contentGroup.add(offsetPreview);
-        const blurRow = new Adw.SpinRow({
-            title: gettext('Blur'),
-            subtitle: gettext('Shadow softness in pixels'),
-            adjustment: new Gtk.Adjustment({ lower: 0, upper: 12, step_increment: 1, page_increment: 1 })
-        });
-        settings.bind(SHADOW_BLUR, blurRow, 'value', Gio.SettingsBindFlags.DEFAULT);
-        settings.bind(CONTENT_SHADOWS, blurRow, 'sensitive', Gio.SettingsBindFlags.GET);
-        contentGroup.add(blurRow);
+        contentGroup.add(new Adw.PreferencesRow({
+            child: shadowPreview.widget,
+            activatable: false,
+            selectable: false
+        }));
         this.add(contentGroup);
 
         const gradientGroup = new Adw.PreferencesGroup({
@@ -248,7 +246,8 @@ class Appearance extends Adw.PreferencesPage {
         this.add(maximizedGradientGroup);
 
         const onSettingsChanged = s => {
-            offsetPicker.refresh();
+            shadowEditor.refresh();
+            shadowPreview.refresh();
             const config = getConfig(s);
 
             updatingSettings = true;
