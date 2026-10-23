@@ -55,7 +55,7 @@ const generateCss = config => {
         .map(color => Cogl.Color.from_string(color));
     const validOverviewColors = parsedOverviewColors.every(([valid]) => valid);
     const overviewColors = validOverviewColors
-        ? parsedOverviewColors.map(([, color]) => color.to_string())
+        ? parsedOverviewColors.map(([, { red, green, blue, alpha }]) => `rgba(${red},${green},${blue},${alpha / 255})`)
         : [colors.start, colors.end];
     const overviewDirection = validOverviewColors ? config.overviewGradientDirection : gradientDirection;
     const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
