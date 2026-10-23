@@ -1,8 +1,9 @@
 import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 
 import { getConfig } from '../../config.js';
-import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR } from '../../constants.js';
+import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, STYLE_TRIGGER } from '../../constants.js';
 import { createGradientPreview } from './gradientEditor.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -11,7 +12,8 @@ export const createShadowPreview = settings => {
     let styleIndex = 0;
     const styleLabel = new Gtk.Label({ xalign: 0, css_classes: ['dim-label'] });
     const styleSwitch = new Gtk.Button({
-        icon_name: 'view-refresh-symbolic',
+        icon_name: Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).has_icon('horizontal-arrows-none-symbolic')
+            ? 'horizontal-arrows-none-symbolic' : 'view-refresh-symbolic',
         tooltip_text: gettext('Preview triggered appearance'),
         css_classes: ['osd', 'circular'],
         valign: Gtk.Align.CENTER
@@ -49,7 +51,15 @@ export const createShadowPreview = settings => {
         sampleIcon.set_from_icon_name(previewIcons[iconIndex]);
     });
     const sampleClock = new Gtk.Label({ label: GLib.DateTime.new_now_local().format('%H:%M') });
-    const sampleText = new Gtk.Label({ label: 'AaBbCc' });
+    const sampleTexts = [null, 'AaBbCc', 'Gradient', 'Lorem Ipsum'];
+    let textIndex = 0;
+    const sampleText = new Gtk.Label();
+    const textClick = new Gtk.GestureClick();
+    textClick.connect('released', () => {
+        textIndex = (textIndex + 1) % sampleTexts.length;
+        refresh();
+    });
+    sampleText.add_controller(textClick);
     const sampleContent = new Gtk.Box({
         spacing: 16,
         margin_start: 16,
@@ -71,6 +81,9 @@ export const createShadowPreview = settings => {
     const refresh = () => {
         const config = getConfig(settings);
         const { shadowOffsetX, shadowOffsetY, shadowBlur, shadowColor } = config;
+        styles[1] = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
+            ? gettext('Window Nearby') : gettext('Window Maximized');
+        sampleText.set_label(sampleTexts[textIndex] ?? styles[styleIndex]);
         const originalTheme = getGradient() === null;
         const shadow = config.contentShadows && !originalTheme
             ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}` : 'none';
@@ -105,7 +118,7 @@ export const createShadowPreview = settings => {
     styleLabel.set_hexpand(true);
     heading.append(styleLabel);
     heading.append(new Gtk.Label({
-        label: gettext('Click ↻ to cycle styles'),
+        label: gettext('Click to cycle styles'),
         css_classes: ['dim-label'],
         xalign: 1
     }));

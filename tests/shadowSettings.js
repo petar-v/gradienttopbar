@@ -50,7 +50,16 @@ try {
     const clock = iconClockRow.get_last_child();
     const capturedTime = clock.get_label();
     assert(/^\d{2}:\d{2}$/.test(capturedTime), 'Clock shows captured current time');
-    assert(sampleContent.get_first_child().get_next_sibling().get_label() === 'AaBbCc', 'Extended text sample');
+    const sampleText = sampleContent.get_first_child().get_next_sibling();
+    assert(sampleText instanceof Gtk.Label && sampleText.get_label() === 'Normal', 'Sample starts with the state as plain text');
+    const textClick = sampleText.observe_controllers().get_item(0);
+    assert(textClick instanceof Gtk.GestureClick, 'Text has a click gesture');
+    for (const expected of ['AaBbCc', 'Gradient', 'Lorem Ipsum', 'Normal']) {
+        textClick.emit('released', 1, 0, 0);
+        assert(sampleText.get_label() === expected, 'Text cycles and wraps');
+        preview.refresh();
+        assert(sampleText.get_label() === expected, 'Refresh preserves the selected text');
+    }
     for (let i = 0; i < 50; i++) {
         const previousIcon = previewIcon.get_icon_name();
         iconButton.emit('clicked');
@@ -62,9 +71,21 @@ try {
     const settingsBeforePreview = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
     assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Normal', 'Initial style label');
     styleSwitch.emit('clicked');
-    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Triggered', 'Cycle to triggered');
+    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Window Nearby', 'Cycle to nearby window');
+    assert(sampleText.get_label() === 'Window Nearby', 'Default sample follows the state');
+    settings.set_string('style-trigger', 'maximized');
+    preview.refresh();
+    assert(sampleText.get_label() === 'Window Maximized', 'Default sample follows the trigger');
+    settings.set_string('style-trigger', 'proximity');
+    preview.refresh();
+    textClick.emit('released', 1, 0, 0);
+    assert(sampleText.get_label() === 'AaBbCc', 'Sample can be selected in any state');
     styleSwitch.emit('clicked');
     assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Overview', 'Cycle to overview');
+    assert(sampleText.get_label() === 'AaBbCc', 'Switching states preserves the selected sample');
+    for (let i = 0; i < 3; i++)
+        textClick.emit('released', 1, 0, 0);
+    assert(sampleText.get_label() === 'Overview', 'Sample cycle returns to the current state');
     for (const [key, value] of settingsBeforePreview)
         assert(settings.get_value(key).equal(value), `Preview switch changed ${key}`);
     const pixel = (x, y) => {
