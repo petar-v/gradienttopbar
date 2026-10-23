@@ -135,7 +135,9 @@ export const setGradientTransition = progress => {
     if (!transitionActor && progress === 0)
         return;
 
-    getTransitionActor(MAXIMIZED_GRADIENT_CLASS).ease({
+    // A fading workspace/overview overlay must keep its current colours.
+    const actor = progress === 0 ? transitionActor : getTransitionActor(MAXIMIZED_GRADIENT_CLASS);
+    actor.ease({
         opacity: Math.round(progress * 255),
         duration: TRANSITION_DURATION_MS,
         mode: Clutter.AnimationMode.EASE_OUT_QUAD
@@ -151,10 +153,17 @@ export const scrubOriginalTheme = progress => {
 };
 
 export const finishOriginalThemeTransition = showGradient => {
-    if (!transitionActor || !showGradient) {
+    if (!showGradient) {
         removeGradientTransition();
         return;
     }
+
+    fadeGradientTransition();
+};
+
+export const fadeGradientTransition = () => {
+    if (!transitionActor)
+        return;
 
     const actor = transitionActor;
     actor.ease({
