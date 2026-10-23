@@ -82,6 +82,8 @@ export const createGradientEditor = (startTitle, endTitle, getGradient, saveColo
             button.set_halign(vertical ? Gtk.Align.CENTER : edge);
             button.set_valign(vertical ? edge : Gtk.Align.CENTER);
         });
+        // Alignment changes alone leave the overlay allocation cached.
+        editor.queue_allocate();
         preview.queue_draw();
     };
     refresh();

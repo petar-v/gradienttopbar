@@ -97,7 +97,15 @@ export const createShadowPreview = settings => {
         margin_start: 16,
         margin_end: 16
     });
-    widget.append(styleLabel);
+    const heading = new Gtk.Box({ spacing: 12 });
+    styleLabel.set_hexpand(true);
+    heading.append(styleLabel);
+    heading.append(new Gtk.Label({
+        label: gettext('Click ↻ to cycle styles'),
+        css_classes: ['dim-label'],
+        xalign: 1
+    }));
+    widget.append(heading);
     widget.append(sample);
     refresh();
     return { widget, refresh };

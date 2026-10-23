@@ -47,11 +47,11 @@ try {
     assert(clock.get_label() === capturedTime, 'Refresh preserves captured time');
     const styleSwitch = sampleContent.get_last_child();
     const settingsBeforePreview = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
-    assert(preview.widget.get_first_child().get_label() === 'Preview · Normal', 'Initial style label');
+    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Normal', 'Initial style label');
     styleSwitch.emit('clicked');
-    assert(preview.widget.get_first_child().get_label() === 'Preview · Triggered', 'Cycle to triggered');
+    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Triggered', 'Cycle to triggered');
     styleSwitch.emit('clicked');
-    assert(preview.widget.get_first_child().get_label() === 'Preview · Normal', 'Cycle back to normal');
+    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Normal', 'Cycle back to normal');
     for (const [key, value] of settingsBeforePreview)
         assert(settings.get_value(key).equal(value), `Preview switch changed ${key}`);
     settings.set_boolean('content-shadows', false);
@@ -84,6 +84,46 @@ try {
     const preferences = new Adw.PreferencesWindow();
     const page = new Appearance(preferences, settings);
     preferences.add(page);
+    const widgets = [];
+    const collectWidgets = widget => {
+        widgets.push(widget);
+        for (let child = widget.get_first_child(); child; child = child.get_next_sibling())
+            collectWidgets(child);
+    };
+    collectWidgets(page);
+    preferences.present();
+    for (const [title, startTitle, endTitle, key] of [
+        ['Gradient Direction', 'Gradient Start Colour', 'Gradient End Colour', 'gradient-direction'],
+        ['Alternate Gradient Direction', 'Alternate Gradient Start Colour', 'Alternate Gradient End Colour', 'maximized-gradient-direction']
+    ]) {
+        const row = widgets.find(widget => widget instanceof Adw.ComboRow && widget.get_title() === title);
+        const start = widgets.find(widget => widget instanceof Gtk.Button && widget.get_tooltip_text() === startTitle);
+        const end = widgets.find(widget => widget instanceof Gtk.Button && widget.get_tooltip_text() === endTitle);
+        for (const selected of [1, 0, 1, 0]) {
+            row.set_selected(selected);
+            const vertical = selected === 0;
+            assert(settings.get_string(key) === (vertical ? 'vertical' : 'horizontal'), 'Direction dropdown saves setting');
+            assert(start.get_halign() === (vertical ? Gtk.Align.CENTER : Gtk.Align.START), 'Start horizontal alignment updates immediately');
+            assert(start.get_valign() === (vertical ? Gtk.Align.START : Gtk.Align.CENTER), 'Start vertical alignment updates immediately');
+            assert(end.get_halign() === (vertical ? Gtk.Align.CENTER : Gtk.Align.END), 'End horizontal alignment updates immediately');
+            assert(end.get_valign() === (vertical ? Gtk.Align.END : Gtk.Align.CENTER), 'End vertical alignment updates immediately');
+            const positionsMatch = () => {
+                const startBox = start.get_allocation();
+                const endBox = end.get_allocation();
+                return vertical ? startBox.x === endBox.x && startBox.y < endBox.y
+                    : startBox.y === endBox.y && startBox.x < endBox.x;
+            };
+            const deadline = GLib.get_monotonic_time() + 1000000;
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
+                if (!positionsMatch() && GLib.get_monotonic_time() < deadline)
+                    return GLib.SOURCE_CONTINUE;
+                loop.quit();
+                return GLib.SOURCE_REMOVE;
+            });
+            loop.run();
+            assert(positionsMatch(), 'Allocated button positions follow direction');
+        }
+    }
     const findReset = widget => {
         if (widget instanceof Gtk.Button && widget.get_tooltip_text() === 'Reset panel content shadows?')
             return widget;
