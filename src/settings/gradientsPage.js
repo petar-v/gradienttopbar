@@ -15,10 +15,6 @@ import {
     OVERVIEW_BEHAVIOR as OVERVIEW_BEHAVIOR_KEY,
     OVERVIEW_COLORS,
     OVERVIEW_GRADIENT_DIRECTION,
-    saveColors,
-    saveMaximizedColors,
-    setGradientDirection,
-    setMaximizedGradientDirection,
     setMaximizedBehavior,
     attachSettingsListeners,
     detachSettingsListeners
@@ -71,7 +67,6 @@ class Gradients extends Adw.PreferencesPage {
             name: 'Gradients'
         });
 
-        const { gradientDirection, maximizedGradientDirection } = getConfig(settings);
         let updatingSettings = false;
 
         const gradientGroup = new Adw.PreferencesGroup({
@@ -94,42 +89,53 @@ class Gradients extends Adw.PreferencesPage {
             new GradientOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
         ].forEach(d => gradientDirectionModel.append(d));
 
-        const directionRow = new Adw.ComboRow({
-            title: gettext('Gradient Direction'),
-            subtitle: gettext('The orientation of the gradient.'),
-            model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
+        const createGradientSection = (group, {
+            directionTitle, directionSubtitle, startTitle, endTitle,
+            colorsKey, directionKey, getGradient
+        }) => {
+            const directionRow = new Adw.ComboRow({
+                title: directionTitle,
+                subtitle: directionSubtitle ?? '',
+                model: gradientDirectionModel,
+                expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
+            });
+            directionRow.connect('notify::selected', () => {
+                if (!updatingSettings && directionRow.selectedItem)
+                    settings.set_string(directionKey, directionRow.selectedItem.value);
+            });
+            const editor = createGradientEditor(
+                startTitle,
+                endTitle,
+                () => getGradient(getConfig(settings)),
+                (endpoint, color) => {
+                    const { colors } = getGradient(getConfig(settings));
+                    colors[endpoint] = color;
+                    settings.set_strv(colorsKey, [colors.start, colors.end]);
+                }
+            );
+            // PreferencesGroup renders non-row widgets after its row list, regardless of add order.
+            group.add(new Adw.PreferencesRow({
+                child: editor.widget,
+                activatable: false,
+                selectable: false
+            }));
+            group.add(directionRow);
+
+            return config => {
+                setOptionOnRow(directionRow, getGradient(config).direction);
+                editor.refresh();
+            };
+        };
+
+        const refreshMainGradient = createGradientSection(gradientGroup, {
+            directionTitle: gettext('Gradient Direction'),
+            directionSubtitle: gettext('The orientation of the gradient.'),
+            startTitle: gettext('Gradient Start Colour'),
+            endTitle: gettext('Gradient End Colour'),
+            colorsKey: COLORS,
+            directionKey: GRADIENT_DIRECTION_KEY,
+            getGradient: config => ({ colors: config.colors, direction: config.gradientDirection })
         });
-
-        directionRow.connect('notify::selected', () => {
-            const { selectedItem } = directionRow;
-            if (!updatingSettings && selectedItem)
-                setGradientDirection(settings, selectedItem.value);
-        });
-
-        setOptionOnRow(directionRow, gradientDirection);
-
-        const gradientEditor = createGradientEditor(
-            gettext('Gradient Start Colour'),
-            gettext('Gradient End Colour'),
-            () => {
-                const config = getConfig(settings);
-                return { colors: config.colors, direction: config.gradientDirection };
-            },
-            (endpoint, color) => {
-                const { colors } = getConfig(settings);
-                colors[endpoint] = color;
-                saveColors(settings, colors.start, colors.end);
-            }
-        );
-        // PreferencesGroup renders non-row widgets after its row list, regardless of add order.
-        gradientGroup.add(new Adw.PreferencesRow({
-            child: gradientEditor.widget,
-            activatable: false,
-            selectable: false
-        }));
-        gradientGroup.add(directionRow);
-
         this.add(gradientGroup);
 
         const interactionGroup = new Adw.PreferencesGroup({
@@ -163,46 +169,16 @@ class Gradients extends Adw.PreferencesPage {
         interactionGroup.add(behaviorRow);
         this.add(interactionGroup);
 
-        // Add a group for the alternate gradient settings
         const maximizedGradientGroup = new Adw.PreferencesGroup();
-
-        // Create direction dropdown for maximized windows
-        const maximizedDirectionRow = new Adw.ComboRow({
-            title: gettext('Alternate Gradient Direction'),
-            subtitle: gettext('The orientation when the style trigger is active.'),
-            model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
+        const refreshMaximizedGradient = createGradientSection(maximizedGradientGroup, {
+            directionTitle: gettext('Alternate Gradient Direction'),
+            directionSubtitle: gettext('The orientation when the style trigger is active.'),
+            startTitle: gettext('Alternate Gradient Start Colour'),
+            endTitle: gettext('Alternate Gradient End Colour'),
+            colorsKey: MAXIMIZED_COLORS,
+            directionKey: MAXIMIZED_GRADIENT_DIRECTION,
+            getGradient: config => ({ colors: config.maximizedColors, direction: config.maximizedGradientDirection })
         });
-
-        maximizedDirectionRow.connect('notify::selected', () => {
-            const { selectedItem } = maximizedDirectionRow;
-            if (!updatingSettings && selectedItem)
-                setMaximizedGradientDirection(settings, selectedItem.value);
-        });
-
-        setOptionOnRow(maximizedDirectionRow, maximizedGradientDirection);
-
-        const maximizedGradientEditor = createGradientEditor(
-            gettext('Alternate Gradient Start Colour'),
-            gettext('Alternate Gradient End Colour'),
-            () => {
-                const config = getConfig(settings);
-                return { colors: config.maximizedColors, direction: config.maximizedGradientDirection };
-            },
-            (endpoint, color) => {
-                const { maximizedColors } = getConfig(settings);
-                maximizedColors[endpoint] = color;
-                saveMaximizedColors(settings, maximizedColors.start, maximizedColors.end);
-            }
-        );
-        maximizedGradientGroup.add(new Adw.PreferencesRow({
-            child: maximizedGradientEditor.widget,
-            activatable: false,
-            selectable: false
-        }));
-        maximizedGradientGroup.add(maximizedDirectionRow);
-
-        // Add the group to the page
         this.add(maximizedGradientGroup);
 
         const overviewGroup = new Adw.PreferencesGroup({
@@ -237,34 +213,14 @@ class Gradients extends Adw.PreferencesPage {
         this.add(overviewGroup);
 
         const overviewGradientGroup = new Adw.PreferencesGroup();
-        const overviewDirectionRow = new Adw.ComboRow({
-            title: gettext('Overview Gradient Direction'),
-            model: gradientDirectionModel,
-            expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
+        const refreshOverviewGradient = createGradientSection(overviewGradientGroup, {
+            directionTitle: gettext('Overview Gradient Direction'),
+            startTitle: gettext('Overview Gradient Start Colour'),
+            endTitle: gettext('Overview Gradient End Colour'),
+            colorsKey: OVERVIEW_COLORS,
+            directionKey: OVERVIEW_GRADIENT_DIRECTION,
+            getGradient: config => ({ colors: config.overviewColors, direction: config.overviewGradientDirection })
         });
-        overviewDirectionRow.connect('notify::selected', () => {
-            if (!updatingSettings && overviewDirectionRow.selectedItem)
-                settings.set_string(OVERVIEW_GRADIENT_DIRECTION, overviewDirectionRow.selectedItem.value);
-        });
-        const overviewGradientEditor = createGradientEditor(
-            gettext('Overview Gradient Start Colour'),
-            gettext('Overview Gradient End Colour'),
-            () => {
-                const config = getConfig(settings);
-                return { colors: config.overviewColors, direction: config.overviewGradientDirection };
-            },
-            (endpoint, color) => {
-                const { overviewColors } = getConfig(settings);
-                overviewColors[endpoint] = color;
-                settings.set_strv(OVERVIEW_COLORS, [overviewColors.start, overviewColors.end]);
-            }
-        );
-        overviewGradientGroup.add(new Adw.PreferencesRow({
-            child: overviewGradientEditor.widget,
-            activatable: false,
-            selectable: false
-        }));
-        overviewGradientGroup.add(overviewDirectionRow);
         this.add(overviewGradientGroup);
 
         const onSettingsChanged = s => {
@@ -272,15 +228,12 @@ class Gradients extends Adw.PreferencesPage {
 
             updatingSettings = true;
             behaviorRow.set_selected(behaviorValues.indexOf(config.maximizedBehavior));
-            setOptionOnRow(directionRow, config.gradientDirection);
-            setOptionOnRow(maximizedDirectionRow, config.maximizedGradientDirection);
             overviewBehaviorRow.set_selected(overviewBehaviorValues.indexOf(config.overviewBehavior));
-            setOptionOnRow(overviewDirectionRow, config.overviewGradientDirection);
+            refreshMainGradient(config);
+            refreshMaximizedGradient(config);
+            refreshOverviewGradient(config);
             updatingSettings = false;
-            gradientEditor.refresh();
-            maximizedGradientEditor.refresh();
             maximizedGradientGroup.set_visible(config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE);
-            overviewGradientEditor.refresh();
             overviewGradientGroup.set_visible(config.overviewBehavior === OVERVIEW_BEHAVIOR.APPLY_STYLE);
         };
         onSettingsChanged(settings);
