@@ -2,7 +2,10 @@ import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 
-import { SHADOW_OFFSET_X, SHADOW_OFFSET_Y, SHADOW_COLOR, SHADOW_BLUR, CONTENT_SHADOWS } from '../../config.js';
+import {
+    SHADOW_OFFSET_X, SHADOW_OFFSET_Y, SHADOW_BLUR, CONTENT_SHADOWS,
+    bindSetting, getShadowOffsets, getShadowColor, setShadowOffsets, setShadowColor
+} from '../../config.js';
 import { createOffsetPicker, OFFSET_LIMIT } from './offsetPicker.js';
 import { createColorDialog } from './colorDialog.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
@@ -18,11 +21,10 @@ export const createShadowEditor = settings => {
         margin_end: 16
     });
     widget.set_direction(Gtk.TextDirection.LTR);
-    const offsets = [SHADOW_OFFSET_X, SHADOW_OFFSET_Y];
     const target = createOffsetPicker(
-        () => offsets.map(key => settings.get_int(key)),
-        () => settings.get_string(SHADOW_COLOR),
-        (x, y) => offsets.forEach((key, index) => settings.set_int(key, [x, y][index]))
+        () => getShadowOffsets(settings),
+        () => getShadowColor(settings),
+        (x, y) => setShadowOffsets(settings, x, y)
     );
     widget.attach(target.widget, 0, 0, 1, 3);
     const rows = [
@@ -36,17 +38,17 @@ export const createShadowEditor = settings => {
         spin.set_valign(Gtk.Align.CENTER);
         label.set_mnemonic_widget(spin);
         spin.update_property([Gtk.AccessibleProperty.LABEL], [title]);
-        settings.bind(key, spin, 'value', Gio.SettingsBindFlags.DEFAULT);
+        bindSetting(settings, key, spin, 'value');
         widget.attach(label, 1, row, 1, 1);
         widget.attach(spin, 2, row, 1, 1);
     });
     const centre = new Gtk.Button({ label: gettext('Centre'), margin_end: 12 });
-    centre.connect('clicked', () => offsets.forEach(key => settings.set_int(key, 0)));
+    centre.connect('clicked', () => setShadowOffsets(settings, 0, 0));
     widget.attach(centre, 0, 3, 1, 1);
     const colorButton = createColorDialog(
         gettext('Shadow colour and opacity'),
-        () => settings.get_string(SHADOW_COLOR),
-        color => settings.set_string(SHADOW_COLOR, color)
+        () => getShadowColor(settings),
+        color => setShadowColor(settings, color)
     );
     colorButton.set_css_classes([]);
     colorButton.set_halign(Gtk.Align.FILL);
@@ -61,7 +63,7 @@ export const createShadowEditor = settings => {
             }
         }
         const color = new Gdk.RGBA();
-        color.parse(settings.get_string(SHADOW_COLOR));
+        color.parse(getShadowColor(settings));
         cr.setSourceRGBA(color.red, color.green, color.blue, color.alpha);
         cr.rectangle(0, 0, width, height);
         cr.fill();
@@ -71,7 +73,7 @@ export const createShadowEditor = settings => {
     colorContent.append(new Gtk.Label({ label: gettext('Colour…') }));
     colorButton.set_child(colorContent);
     widget.attach(colorButton, 1, 3, 2, 1);
-    settings.bind(CONTENT_SHADOWS, widget, 'sensitive', Gio.SettingsBindFlags.GET);
+    bindSetting(settings, CONTENT_SHADOWS, widget, 'sensitive', Gio.SettingsBindFlags.GET);
     const refresh = () => {
         target.refresh();
         swatch.queue_draw();

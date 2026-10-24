@@ -7,6 +7,11 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
+    bindSetting,
+    setGradientDirection,
+    saveGradientColors,
+    setMaximizedBehavior,
+    setOverviewBehavior,
     COLORS,
     GRADIENT_DIRECTION as GRADIENT_DIRECTION_KEY,
     MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
@@ -14,8 +19,8 @@ import {
     MAXIMIZED_GRADIENT_DIRECTION,
     OVERVIEW_BEHAVIOR as OVERVIEW_BEHAVIOR_KEY,
     OVERVIEW_COLORS,
+    OVERVIEW_TRANSITION,
     OVERVIEW_GRADIENT_DIRECTION,
-    setMaximizedBehavior,
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
@@ -101,7 +106,7 @@ class Gradients extends Adw.PreferencesPage {
             });
             directionRow.connect('notify::selected', () => {
                 if (!updatingSettings && directionRow.selectedItem)
-                    settings.set_string(directionKey, directionRow.selectedItem.value);
+                    setGradientDirection(settings, directionKey, directionRow.selectedItem.value);
             });
             const editor = createGradientEditor(
                 startTitle,
@@ -110,7 +115,7 @@ class Gradients extends Adw.PreferencesPage {
                 (endpoint, color) => {
                     const { colors } = getGradient(getConfig(settings));
                     colors[endpoint] = color;
-                    settings.set_strv(colorsKey, [colors.start, colors.end]);
+                    saveGradientColors(settings, colorsKey, colors);
                 }
             );
             // PreferencesGroup renders non-row widgets after its row list, regardless of add order.
@@ -187,9 +192,9 @@ class Gradients extends Adw.PreferencesPage {
             header_suffix: createResetButton(
                 window,
                 gettext('Reset overview appearance?'),
-                gettext('Restore the main gradient in overview and reset the custom gradient colours and direction.'),
+                gettext('Restore the main gradient in overview, turn off gesture blending and reset the custom gradient colours and direction.'),
                 settings,
-                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
+                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_TRANSITION, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
             )
         });
         const overviewBehaviorValues = [
@@ -207,9 +212,15 @@ class Gradients extends Adw.PreferencesPage {
         });
         overviewBehaviorRow.connect('notify::selected', () => {
             if (!updatingSettings)
-                settings.set_string(OVERVIEW_BEHAVIOR_KEY, overviewBehaviorValues[overviewBehaviorRow.selected]);
+                setOverviewBehavior(settings, overviewBehaviorValues[overviewBehaviorRow.selected]);
         });
         overviewGroup.add(overviewBehaviorRow);
+        const overviewTransitionRow = new Adw.SwitchRow({
+            title: gettext('Blend with overview gestures'),
+            subtitle: gettext('Fade backgrounds with gesture progress, including the original theme.')
+        });
+        bindSetting(settings, OVERVIEW_TRANSITION, overviewTransitionRow, 'active');
+        overviewGroup.add(overviewTransitionRow);
         this.add(overviewGroup);
 
         const overviewGradientGroup = new Adw.PreferencesGroup();

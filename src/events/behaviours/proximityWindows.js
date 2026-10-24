@@ -1,11 +1,7 @@
 import { layoutManager, panel } from 'resource:///org/gnome/shell/ui/main.js';
 
 import { getProximityDistance } from '../../config.js';
-
-const calculateProgress = (windowDistance, proximityDistance) =>
-    proximityDistance === 0
-        ? Number(windowDistance <= 0)
-        : Math.max(0, Math.min(1, 1 - windowDistance / proximityDistance));
+import { calculateProximityStrength } from './proximityStrength.js';
 
 // Keeps all panel-layout dependencies inside the proximity behaviour.
 export default class ProximityWindows {
@@ -25,7 +21,7 @@ export default class ProximityWindows {
             const windowDistance = window.get_frame_rect().y - panelBottom;
             return Math.max(
                 effectStrength,
-                calculateProgress(windowDistance, distance)
+                calculateProximityStrength(windowDistance, distance)
             );
         }, 0);
     }

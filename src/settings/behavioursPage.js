@@ -8,6 +8,10 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
+    bindSetting,
+    setProximityDistance,
+    setStyleTrigger,
+    setProximityTransition,
     STYLE_TRIGGER as STYLE_TRIGGER_KEY,
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
@@ -16,11 +20,8 @@ import {
     detachSettingsListeners,
     getMaximizedBehavior,
     getStyleTrigger,
-    setStyleTrigger,
     getProximityDistance,
-    setProximityDistance,
-    getProximityTransition,
-    setProximityTransition
+    getProximityTransition
 } from '../config.js';
 
 import { createResetButton } from './components/resetButton.js';
@@ -69,7 +70,7 @@ class Behavior extends Adw.PreferencesPage {
             title: gettext('Top Bar Style Settings'),
             subtitle: gettext('Show settings when right-clicking empty space on the top bar. Replaces right-click window dragging; left-click dragging remains available.')
         });
-        settings.bind(TOP_BAR_STYLE_SETTINGS, styleSettingsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        bindSetting(settings, TOP_BAR_STYLE_SETTINGS, styleSettingsRow, 'active');
         panelGroup.add(styleSettingsRow);
         this.add(panelGroup);
 
