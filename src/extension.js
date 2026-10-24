@@ -9,6 +9,7 @@ import {
 } from './gradient.js';
 import {
     getConfig,
+    TOP_BAR_STYLE_SETTINGS,
     attachSettingsListeners,
     detachSettingsListeners
 } from './config.js';
@@ -19,10 +20,20 @@ import MaximizedWindows from './events/behaviours/maximizedWindows.js';
 import ProximityWindows from './events/behaviours/proximityWindows.js';
 import DiscreteEffect from './effects/discreteEffect.js';
 import ProgressiveEffect from './effects/progressiveEffect.js';
+import TopBarMenu from './topBarMenu.js';
 
 const SETTINGS_DEBOUNCE_MS = 500;
 
 export default class GradientTopBar extends Extension {
+    updateTopBarMenu() {
+        if (this._settings.get_boolean(TOP_BAR_STYLE_SETTINGS)) {
+            this._topBarMenu ??= new TopBarMenu(() => this.openPreferences());
+        } else {
+            this._topBarMenu?.destroy();
+            this._topBarMenu = null;
+        }
+    }
+
     scheduleConfigure() {
         if (this._configureTimeoutId)
             GLib.Source.remove(this._configureTimeoutId);
@@ -99,6 +110,10 @@ export default class GradientTopBar extends Extension {
 
     enable() {
         this._settings = this.getSettings();
+        this._topBarMenuHandlerId = this._settings.connect(
+            `changed::${TOP_BAR_STYLE_SETTINGS}`, () => this.updateTopBarMenu()
+        );
+        this.updateTopBarMenu();
         this.effect = null;
         this.windowEvents = new WindowEvents(
             global.display,
@@ -119,6 +134,10 @@ export default class GradientTopBar extends Extension {
     disable() {
         this._overviewHandlerIds.forEach(id => overview.disconnect(id));
         this._overviewHandlerIds = null;
+        this._settings.disconnect(this._topBarMenuHandlerId);
+        this._topBarMenuHandlerId = null;
+        this._topBarMenu?.destroy();
+        this._topBarMenu = null;
         if (this._configureTimeoutId) {
             GLib.Source.remove(this._configureTimeoutId);
             this._configureTimeoutId = null;
