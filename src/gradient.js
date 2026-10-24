@@ -3,9 +3,13 @@ import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import Clutter from 'gi://Clutter';
+import Cogl from 'gi://Cogl';
+
+import { OVERVIEW_BEHAVIOR } from './constants.js';
 
 const GRADIENT_CLASS = 'panel-gradient';
 const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
+const OVERVIEW_GRADIENT_CLASS = 'panel-overview-gradient';
 const TRANSITION_DURATION_MS = 200;
 
 let transitionActor = null;
@@ -47,20 +51,31 @@ const setTransitionProgress = (styleClass, progress) => {
 
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
+    const parsedOverviewColors = [config.overviewColors.start, config.overviewColors.end]
+        .map(color => Cogl.Color.from_string(color));
+    const validOverviewColors = parsedOverviewColors.every(([valid]) => valid);
+    const overviewColors = validOverviewColors
+        ? parsedOverviewColors.map(([, { red, green, blue, alpha }]) => `rgba(${red},${green},${blue},${alpha / 255})`)
+        : [colors.start, colors.end];
+    const overviewDirection = validOverviewColors ? config.overviewGradientDirection : gradientDirection;
     const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
     const contentShadows = config.contentShadows ? `
           #panel.${GRADIENT_CLASS} .panel-button,
           #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button,
+          #panel.${OVERVIEW_GRADIENT_CLASS} .panel-button,
           #panel.${GRADIENT_CLASS} .panel-button StLabel,
-          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StLabel {
+          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StLabel,
+          #panel.${OVERVIEW_GRADIENT_CLASS} .panel-button StLabel {
             text-shadow: ${shadow};
           }
           #panel.${GRADIENT_CLASS} .panel-button StIcon,
-          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StIcon {
+          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StIcon,
+          #panel.${OVERVIEW_GRADIENT_CLASS} .panel-button StIcon {
             icon-shadow: ${shadow};
           }
           #panel.${GRADIENT_CLASS} .workspace-dot,
-          #panel.${MAXIMIZED_GRADIENT_CLASS} .workspace-dot {
+          #panel.${MAXIMIZED_GRADIENT_CLASS} .workspace-dot,
+          #panel.${OVERVIEW_GRADIENT_CLASS} .workspace-dot {
             box-shadow: ${shadow};
           }` : '';
     return `#panel {
@@ -77,6 +92,12 @@ const generateCss = config => {
             background-gradient-direction: ${maximizedGradientDirection};
             background-gradient-start: ${maximizedColors.start};
             background-gradient-end: ${maximizedColors.end};
+          }
+          .${OVERVIEW_GRADIENT_CLASS} {
+            background-color: transparent;
+            background-gradient-direction: ${overviewDirection};
+            background-gradient-start: ${overviewColors[0]};
+            background-gradient-end: ${overviewColors[1]};
           }${contentShadows}`;
 };
 
@@ -114,7 +135,9 @@ export const setGradientTransition = progress => {
     if (!transitionActor && progress === 0)
         return;
 
-    getTransitionActor(MAXIMIZED_GRADIENT_CLASS).ease({
+    // A fading workspace/overview overlay must keep its current colours.
+    const actor = progress === 0 ? transitionActor : getTransitionActor(MAXIMIZED_GRADIENT_CLASS);
+    actor.ease({
         opacity: Math.round(progress * 255),
         duration: TRANSITION_DURATION_MS,
         mode: Clutter.AnimationMode.EASE_OUT_QUAD
@@ -130,10 +153,17 @@ export const scrubOriginalTheme = progress => {
 };
 
 export const finishOriginalThemeTransition = showGradient => {
-    if (!transitionActor || !showGradient) {
+    if (!showGradient) {
         removeGradientTransition();
         return;
     }
+
+    fadeGradientTransition();
+};
+
+export const fadeGradientTransition = () => {
+    if (!transitionActor)
+        return;
 
     const actor = transitionActor;
     actor.ease({
@@ -157,6 +187,23 @@ export const toggleGradient = (enabled, useAlternateStyle = false) => {
     if (enabled)
         gradientClass = useAlternateStyle ? MAXIMIZED_GRADIENT_CLASS : GRADIENT_CLASS;
 
+    setGradientClass(gradientClass);
+};
+
+export const applyOverviewStyle = behavior => {
+    switch (behavior) {
+        case OVERVIEW_BEHAVIOR.KEEP_THEME:
+            setGradientClass(null);
+            break;
+        case OVERVIEW_BEHAVIOR.APPLY_STYLE:
+            setGradientClass(OVERVIEW_GRADIENT_CLASS);
+            break;
+        default:
+            setGradientClass(GRADIENT_CLASS);
+    }
+};
+
+const setGradientClass = gradientClass => {
     if (gradientClass === appliedGradientClass)
         return;
 

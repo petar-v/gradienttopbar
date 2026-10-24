@@ -1,5 +1,5 @@
 import Meta from 'gi://Meta';
-import { overview, wm } from 'resource:///org/gnome/shell/ui/main.js';
+import { wm } from 'resource:///org/gnome/shell/ui/main.js';
 
 import EventManager from './eventManager.js';
 import {
@@ -16,8 +16,6 @@ const WINDOW_RAISED_EVENT = 'unminimize';
 const WINDOW_EXIT_MONITOR = 'window-left-monitor';
 // const WINDOW_REMOVED_FROM_WORKSPACE = 'window-removed';
 // const WINDOW_ADDED_TO_WORKSPACE = 'window-added';
-const OVERVIEW_SHOWING = 'showing';
-const OVERVIEW_HIDING = 'hiding';
 const WORKSPACE_SWIPE_BEGIN = 'begin';
 
 // FIXME: this causes the overview to close on login
@@ -53,7 +51,6 @@ export default class WindowEvents {
         this.stateChangeCallback = () => {};
 
         this.workspace = null;
-        this.inOverview = false;
         this.effectStrength = 0;
         this.lastState = null;
         this.workspaceTransitionGroup = null;
@@ -73,13 +70,12 @@ export default class WindowEvents {
     /**
      * Gets the current window state
      *
-     * @returns {Object} The current effect strength, workspace, and overview state
+     * @returns {Object} The current effect strength and workspace
      */
     getCurrentState() {
         return {
-            effectStrength: this.inOverview ? 0 : this.effectStrength,
-            currentWorkspace: this.workspace,
-            inOverview: this.inOverview
+            effectStrength: this.effectStrength,
+            currentWorkspace: this.workspace
         };
     }
 
@@ -335,16 +331,6 @@ export default class WindowEvents {
         // this.eventManager.attachGlobalEventOnce(WINDOW_ADDED_TO_WORKSPACE, this.workspace, () => this.forceStateUpdate());
         // this.eventManager.attachGlobalEventOnce(WINDOW_REMOVED_FROM_WORKSPACE, this.workspace, () => this.forceStateUpdate());
 
-        // disable style changes when in overview - might make this a config option
-        this.eventManager.attachGlobalEventOnce(OVERVIEW_SHOWING, overview, () => {
-            this.inOverview = true;
-            this.emitStateChange();
-        });
-        this.eventManager.attachGlobalEventOnce(OVERVIEW_HIDING, overview, () => {
-            this.inOverview = false;
-            this.updateState(true);
-        });
-
         this.display.list_all_windows().forEach(attachWindowEvents);
 
         this.effectStrength = this.getEffectStrength();
@@ -371,7 +357,6 @@ export default class WindowEvents {
 
         this.workspace = null;
         this.effectStrength = 0;
-        this.inOverview = null;
         this.lastState = null;
         this.workspaceTransitionGroup = null;
         this.workspaceTransitionProgressHandlerId = null;

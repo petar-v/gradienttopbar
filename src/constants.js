@@ -9,6 +9,12 @@ export const MAXIMIZED_BEHAVIOR = {
     APPLY_STYLE: 'apply-style'
 };
 
+export const OVERVIEW_BEHAVIOR = {
+    KEEP_GRADIENT: 'keep-gradient',
+    KEEP_THEME: 'keep-theme',
+    APPLY_STYLE: 'apply-style'
+};
+
 export const STYLE_TRIGGER = {
     MAXIMIZED: 'maximized',
     PROXIMITY: 'proximity'

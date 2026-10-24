@@ -1,4 +1,5 @@
-.panel-gradient {
+.panel-gradient,
+.panel-overview-gradient {
   box-shadow: none;
 }
 

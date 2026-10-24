@@ -1,6 +1,8 @@
 // Run with GSETTINGS_BACKEND=memory and GNOME Shell typelib/library paths.
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import GdkPixbuf from 'gi://GdkPixbuf';
+import Cairo from 'cairo';
 
 imports.gi.versions.Gtk = '4.0';
 const { default: Gtk } = await import('gi://Gtk');
@@ -27,7 +29,18 @@ try {
     assert(getConfig(settings).shadowOffsetY === 0, 'Default Y');
     Gtk.init();
     const picker = createShadowEditor(settings);
-    const preview = createShadowPreview(settings);
+    let drawPreview;
+    const setDraw = Gtk.DrawingArea.prototype.set_draw_func;
+    Gtk.DrawingArea.prototype.set_draw_func = function (callback) {
+        drawPreview = callback;
+        setDraw.call(this, callback);
+    };
+    let preview;
+    try {
+        preview = createShadowPreview(settings);
+    } finally {
+        Gtk.DrawingArea.prototype.set_draw_func = setDraw;
+    }
     const editor = picker.widget;
     const sample = preview.widget.get_last_child();
     const sampleContent = sample.get_last_child();
@@ -37,7 +50,16 @@ try {
     const clock = iconClockRow.get_last_child();
     const capturedTime = clock.get_label();
     assert(/^\d{2}:\d{2}$/.test(capturedTime), 'Clock shows captured current time');
-    assert(sampleContent.get_first_child().get_next_sibling().get_label() === 'AaBbCc', 'Extended text sample');
+    const sampleText = sampleContent.get_first_child().get_next_sibling();
+    assert(sampleText instanceof Gtk.Label && sampleText.get_label() === 'Normal', 'Sample starts with the state as plain text');
+    const textClick = sampleText.observe_controllers().get_item(0);
+    assert(textClick instanceof Gtk.GestureClick, 'Text has a click gesture');
+    for (const expected of ['AaBbCc', 'Gradient', 'Lorem Ipsum', 'Normal']) {
+        textClick.emit('released', 1, 0, 0);
+        assert(sampleText.get_label() === expected, 'Text cycles and wraps');
+        preview.refresh();
+        assert(sampleText.get_label() === expected, 'Refresh preserves the selected text');
+    }
     for (let i = 0; i < 50; i++) {
         const previousIcon = previewIcon.get_icon_name();
         iconButton.emit('clicked');
@@ -49,11 +71,61 @@ try {
     const settingsBeforePreview = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
     assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Normal', 'Initial style label');
     styleSwitch.emit('clicked');
-    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Triggered', 'Cycle to triggered');
+    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Window Nearby', 'Cycle to nearby window');
+    assert(sampleText.get_label() === 'Window Nearby', 'Default sample follows the state');
+    settings.set_string('style-trigger', 'maximized');
+    preview.refresh();
+    assert(sampleText.get_label() === 'Window Maximized', 'Default sample follows the trigger');
+    settings.set_string('style-trigger', 'proximity');
+    preview.refresh();
+    textClick.emit('released', 1, 0, 0);
+    assert(sampleText.get_label() === 'AaBbCc', 'Sample can be selected in any state');
     styleSwitch.emit('clicked');
-    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Normal', 'Cycle back to normal');
+    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Overview', 'Cycle to overview');
+    assert(sampleText.get_label() === 'AaBbCc', 'Switching states preserves the selected sample');
+    for (let i = 0; i < 3; i++)
+        textClick.emit('released', 1, 0, 0);
+    assert(sampleText.get_label() === 'Overview', 'Sample cycle returns to the current state');
     for (const [key, value] of settingsBeforePreview)
         assert(settings.get_value(key).equal(value), `Preview switch changed ${key}`);
+    const pixel = (x, y) => {
+        const surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 240, 72);
+        drawPreview(null, new Cairo.Context(surface), 240, 72);
+        const filename = `${directory}/preview.png`;
+        surface.writeToPNG(filename);
+        const image = GdkPixbuf.Pixbuf.new_from_file(filename);
+        GLib.unlink(filename);
+        const offset = y * image.rowstride + x * image.n_channels;
+        return image.get_pixels().slice(offset, offset + image.n_channels);
+    };
+    settings.set_strv('colors', ['red', 'blue']);
+    for (const behavior of ['keep-gradient', 'keep-theme', 'apply-style']) {
+        settings.set_string('overview-behavior', behavior);
+        settings.set_strv('overview-colors', ['rgba(0,255,0,0.4)', 'rgba(0,0,255,0.2)']);
+        for (const direction of ['vertical', 'horizontal']) {
+            const mainDirection = direction === 'vertical' ? 'horizontal' : 'vertical';
+            settings.set_string('gradient-direction', mainDirection);
+            settings.set_string('overview-gradient-direction', direction);
+            preview.refresh();
+            assert(sample.get_tooltip_text().includes('cannot be reproduced') === (behavior === 'keep-theme'), 'Overview theme preview is identified');
+            if (behavior === 'keep-theme') {
+                assert(pixel(20, 30)[0] !== pixel(30, 30)[0], 'Theme preview shows the checkerboard');
+                continue;
+            }
+            const selectedDirection = behavior === 'apply-style' ? direction : mainDirection;
+            const start = selectedDirection === 'vertical' ? pixel(120, 8) : pixel(15, 36);
+            const end = selectedDirection === 'vertical' ? pixel(120, 64) : pixel(225, 36);
+            const channel = behavior === 'apply-style' ? 1 : 0;
+            assert(start[channel] > start[2] && end[2] > end[channel], 'Overview preview uses the selected gradient, opacity and direction');
+        }
+    }
+    const settingsBeforeCycle = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
+    styleSwitch.emit('clicked');
+    assert(preview.widget.get_first_child().get_first_child().get_label() === 'Preview · Normal', 'Cycle back to normal');
+    for (const [key, value] of settingsBeforeCycle)
+        assert(settings.get_value(key).equal(value), `Preview switch changed ${key}`);
+    for (const [key, value] of settingsBeforePreview)
+        settings.set_value(key, value);
     settings.set_boolean('content-shadows', false);
     assert(sample.is_sensitive() && !editor.is_sensitive(), 'Preview stays usable with shadows disabled');
     settings.set_boolean('content-shadows', true);
@@ -80,21 +152,30 @@ try {
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => { window.destroy(); loop.quit(); return GLib.SOURCE_REMOVE; });
     loop.run();
     const { default: Adw } = await import('gi://Adw');
-    const { default: Appearance } = await import('../src/settings/appearancePage.js');
+    const { default: ContentShadows } = await import('../src/settings/contentShadowsPage.js');
+    const { default: Gradients } = await import('../src/settings/gradientsPage.js');
     const preferences = new Adw.PreferencesWindow();
-    const page = new Appearance(preferences, settings);
+    const page = new ContentShadows(preferences, settings);
+    assert(page.title === 'Content Shadows', 'Shadows have their own tab');
     preferences.add(page);
+    const gradientPage = new Gradients(preferences, settings);
+    assert(gradientPage.title === 'Gradients', 'Gradients have their own tab');
+    preferences.add(gradientPage);
+    preferences.set_visible_page(gradientPage);
+    settings.set_string('maximized-behavior', 'apply-style');
+    settings.set_string('overview-behavior', 'apply-style');
     const widgets = [];
     const collectWidgets = widget => {
         widgets.push(widget);
         for (let child = widget.get_first_child(); child; child = child.get_next_sibling())
             collectWidgets(child);
     };
-    collectWidgets(page);
+    collectWidgets(gradientPage);
     preferences.present();
     for (const [title, startTitle, endTitle, key] of [
         ['Gradient Direction', 'Gradient Start Colour', 'Gradient End Colour', 'gradient-direction'],
-        ['Alternate Gradient Direction', 'Alternate Gradient Start Colour', 'Alternate Gradient End Colour', 'maximized-gradient-direction']
+        ['Alternate Gradient Direction', 'Alternate Gradient Start Colour', 'Alternate Gradient End Colour', 'maximized-gradient-direction'],
+        ['Overview Gradient Direction', 'Overview Gradient Start Colour', 'Overview Gradient End Colour', 'overview-gradient-direction']
     ]) {
         const row = widgets.find(widget => widget instanceof Adw.ComboRow && widget.get_title() === title);
         const start = widgets.find(widget => widget instanceof Gtk.Button && widget.get_tooltip_text() === startTitle);
@@ -137,7 +218,8 @@ try {
     settings.set_int('shadow-offset-x', -4);
     settings.set_int('shadow-offset-y', 5);
     const reset = findReset(page);
-    assert(reset !== null, 'Appearance exposes reset');
+    assert(reset !== null, 'Content Shadows exposes reset');
+    preferences.set_visible_page(page);
     preferences.present();
     reset.emit('clicked');
     let confirmation = preferences.get_visible_dialog();
@@ -159,9 +241,9 @@ try {
     loop.run();
     const { default: Behavior } = await import('../src/settings/behavioursPage.js');
     const sectionsWindow = new Adw.PreferencesWindow();
-    const appearance = new Appearance(sectionsWindow, settings);
+    const gradients = new Gradients(sectionsWindow, settings);
     const behavior = new Behavior(sectionsWindow, settings);
-    sectionsWindow.add(appearance);
+    sectionsWindow.add(gradients);
     sectionsWindow.add(behavior);
     sectionsWindow.present();
     const findByTitle = (widget, title) => {
@@ -174,11 +256,11 @@ try {
         return null;
     };
     const sections = [
-        ['Reset main gradient?', appearance, {
+        ['Reset main gradient?', gradients, {
             colors: new GLib.Variant('as', ['red', 'blue']),
             'gradient-direction': new GLib.Variant('s', 'horizontal')
         }],
-        ['Reset window interaction?', appearance, {
+        ['Reset window interaction?', gradients, {
             'maximized-behavior': new GLib.Variant('s', 'keep-theme'),
             'maximized-colors': new GLib.Variant('as', ['green', 'white']),
             'maximized-gradient-direction': new GLib.Variant('s', 'vertical')
