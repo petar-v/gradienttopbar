@@ -173,8 +173,8 @@ The project includes several scripts to help with development:
 
 # To Do
 
-- [ ] Add box shadow settings
-- [ ] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
+- [x] Add box shadow settings
+- [x] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
 - [x] Add demo videos
 - [x] Figure out reliable testing methods or at least unit tests - the [demo recording scripts](resources/demos/README.md) provide reproducible scenarios for visual testing.
 - [x] Make it work with something like tiling when the window occupies the whole top horizontally - proximity mode detects tiled windows near or touching the panel, resolving the styling issue without relying on maximized-window detection.
