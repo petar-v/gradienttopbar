@@ -8,6 +8,11 @@ class Actor {
     signals = new Map();
     connect(name, callback) { this.signals.set(name, callback); return name; }
     add_action(action) { this.actions.add(action); }
+    add_action_full(name, phase, action) {
+        this.actionName = name;
+        this.actionPhase = phase;
+        this.actions.add(action);
+    }
     remove_action(action) { this.actions.delete(action); }
 }
 
@@ -53,7 +58,7 @@ class PopupMenu {
 const source = new SourceTextModule(await readFile(new URL('../src/topBarMenu.js', import.meta.url), 'utf8'));
 let mainModule;
 const modules = {
-    'gi://Clutter': { default: { BUTTON_SECONDARY: 3, ClickGesture } },
+    'gi://Clutter': { default: { BUTTON_SECONDARY: 3, ClickGesture, EventPhase: { CAPTURE: 1 } } },
     'gi://St': { default: { Side: { TOP: 0 } } },
     'resource:///org/gnome/shell/ui/main.js': main,
     'resource:///org/gnome/shell/ui/popupMenu.js': {
@@ -75,6 +80,7 @@ await source.link(specifier => {
 await source.evaluate();
 globalThis.stage = { get_event_actor: () => target };
 const interaction = new source.namespace.default(() => preferences++);
+assert.equal(panel.actionPhase, 1, 'Settings gesture captures right-click before native window dragging');
 const click = () => {
     const gesture = [...panel.actions][0];
     if (gesture.signals.get('may-recognize')())
