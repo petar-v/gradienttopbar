@@ -32,7 +32,7 @@ const exports = {
     Extension: class {},
     applyGradientStyle() {},
     applyOverviewStyle() {},
-    removeGradientTransition() {},
+    fadeGradientTransition() {},
     overview: { connect() { return 1; }, disconnect() {} },
     unloadGradientStylesheet() {},
     getConfig() {},

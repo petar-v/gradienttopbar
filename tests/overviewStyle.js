@@ -58,9 +58,11 @@ const stubs = {
         DataOutputStream: class { static new() { return new this(); } put_string(value) { css = value; } close() {} }
     } },
     'config.js': {
+        TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
         getConfig: settings => settings,
         attachSettingsListeners: () => [], detachSettingsListeners() {}
     },
+    'topBarMenu.js': { default: class {} },
     'events/windowEvents.js': { default: WindowEvents },
     'events/behaviours/maximizedWindows.js': { default: class {} },
     'events/behaviours/proximityWindows.js': { default: class {} }
@@ -86,6 +88,9 @@ const module = await load(new URL('extension.js', src).href);
 await module.evaluate();
 globalThis.get_workspace_manager = () => ({});
 const settings = {
+    get_boolean: () => false,
+    connect: () => 1,
+    disconnect() {},
     maximizedBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false,
     overviewBehavior: 'apply-style',
     colors: { start: '#000000ff', end: '#00000000' }, gradientDirection: 'vertical',
