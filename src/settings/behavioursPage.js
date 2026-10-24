@@ -67,7 +67,7 @@ class Behavior extends Adw.PreferencesPage {
         const panelGroup = new Adw.PreferencesGroup({ title: gettext('Top bar') });
         const styleSettingsRow = new Adw.SwitchRow({
             title: gettext('Top Bar Style Settings'),
-            subtitle: gettext('Show a settings option when right-clicking empty space on the top bar')
+            subtitle: gettext('Show settings when right-clicking empty space on the top bar. Replaces right-click window dragging; left-click dragging remains available.')
         });
         settings.bind(TOP_BAR_STYLE_SETTINGS, styleSettingsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         panelGroup.add(styleSettingsRow);
