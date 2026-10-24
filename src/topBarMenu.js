@@ -28,7 +28,8 @@ export default class TopBarMenu {
             const { x, y } = this._gesture.get_coords_abs();
             this._open(x, y);
         });
-        this._panel.add_action(this._gesture);
+        // Claim right-click before the panel's native window-drag gesture.
+        this._panel.add_action_full('top-bar-style-settings', Clutter.EventPhase.CAPTURE, this._gesture);
     }
 
     _isEmptyPanel(actor) {
