@@ -173,8 +173,8 @@ The project includes several scripts to help with development:
 
 # To Do
 
-- [ ] Add box shadow settings
-- [ ] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
+- [x] Add box shadow settings
+- [x] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
 - [x] Add demo videos
 - [x] Figure out reliable testing methods or at least unit tests - the [demo recording scripts](resources/demos/README.md) provide reproducible scenarios for visual testing.
 - [x] Make it work with something like tiling when the window occupies the whole top horizontally - proximity mode detects tiled windows near or touching the panel, resolving the styling issue without relying on maximized-window detection.
@@ -190,7 +190,7 @@ DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
 
         Version 2, December 2004
 
-Copyright (C) 2004 Sam Hocevar <sam@hocevar.net>
+Copyright (C) 2026 Peter Vasilev <peter@pshow.org>
 
 Everyone is permitted to copy and distribute verbatim or modified
 copies of this license document, and changing it is allowed as long
