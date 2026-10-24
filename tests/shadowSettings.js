@@ -243,6 +243,17 @@ try {
     const sectionsWindow = new Adw.PreferencesWindow();
     const gradients = new Gradients(sectionsWindow, settings);
     const behavior = new Behavior(sectionsWindow, settings);
+    widgets.length = 0;
+    collectWidgets(behavior);
+    const menuSwitch = widgets.find(widget =>
+        widget instanceof Adw.SwitchRow && widget.title === 'Top Bar Style Settings');
+    assert(menuSwitch && !menuSwitch.active, 'Top bar menu switch defaults to off');
+    menuSwitch.active = true;
+    assert(settings.get_boolean('top-bar-style-settings'), 'Switch enables top bar menu setting');
+    settings.set_boolean('top-bar-style-settings', false);
+    assert(!menuSwitch.active, 'External setting updates switch');
+    settings.set_string('maximized-behavior', 'keep-gradient');
+    assert(menuSwitch.is_sensitive(), 'Menu switch remains usable with trigger settings disabled');
     sectionsWindow.add(gradients);
     sectionsWindow.add(behavior);
     sectionsWindow.present();
