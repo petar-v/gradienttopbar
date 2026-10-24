@@ -15,6 +15,7 @@ export const MAXIMIZED_BEHAVIOR = 'maximized-behavior';
 export const STYLE_TRIGGER = 'style-trigger';
 export const PROXIMITY_DISTANCE = 'proximity-distance';
 export const PROXIMITY_TRANSITION = 'proximity-transition';
+export const TOP_BAR_STYLE_SETTINGS = 'top-bar-style-settings';
 export const GRADIENT_DIRECTION = 'gradient-direction';
 export const MAXIMIZED_GRADIENT_DIRECTION = 'maximized-gradient-direction';
 export const COLORS = 'colors';

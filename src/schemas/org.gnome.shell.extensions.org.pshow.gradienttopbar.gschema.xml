@@ -14,6 +14,11 @@
     <value nick="proximity" value="1"/>
   </enum>
   <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
+    <key name="top-bar-style-settings" type="b">
+      <default>false</default>
+      <summary>Top Bar Style Settings</summary>
+      <description>Show a preferences menu when right-clicking empty space on the top bar.</description>
+    </key>
     <key name="style-trigger" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.StyleTrigger">
       <default>'proximity'</default>
       <summary>Condition that triggers the alternate panel style</summary>

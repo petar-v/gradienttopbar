@@ -11,6 +11,7 @@ import {
     STYLE_TRIGGER as STYLE_TRIGGER_KEY,
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
+    TOP_BAR_STYLE_SETTINGS,
     attachSettingsListeners,
     detachSettingsListeners,
     getMaximizedBehavior,
@@ -63,6 +64,15 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         this._settings = settings;
+        const panelGroup = new Adw.PreferencesGroup({ title: gettext('Top bar') });
+        const styleSettingsRow = new Adw.SwitchRow({
+            title: gettext('Top Bar Style Settings'),
+            subtitle: gettext('Show settings when right-clicking empty space on the top bar. Replaces right-click window dragging; left-click dragging remains available.')
+        });
+        settings.bind(TOP_BAR_STYLE_SETTINGS, styleSettingsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        panelGroup.add(styleSettingsRow);
+        this.add(panelGroup);
+
         let proximityDistanceTimeoutId = null;
         let updatingSettings = false;
 

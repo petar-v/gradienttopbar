@@ -10,6 +10,7 @@ Give GNOME’s top bar a customizable gradient.
 - Optionally blend gradually into the alternate style as a window approaches the panel
 - Smooth transitions when switching between workspaces with different top-bar styles
 - Configure the style trigger, proximity distance, and transition controls in the preferences dialog
+- Enable **Top Bar Style Settings** in **Behaviour** to open preferences from an empty-space right-click menu on the top bar (off by default)
 
 Note:
 
