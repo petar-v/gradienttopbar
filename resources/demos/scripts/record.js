@@ -220,9 +220,9 @@ async function showPreferences() {
     demoWindow.set_default_size(880, 560);
     demoWindow.present();
     await placeWindow(extension.metadata.name, 72, 50, 880, 560);
-    const trigger = findRow(demoWindow, 'Style trigger');
+    const trigger = findRow(demoWindow, 'Change appearance when');
     const distance = findRow(demoWindow, 'Proximity distance');
-    const transition = findRow(demoWindow, 'Transition proximity style');
+    const transition = findRow(demoWindow, 'Blend as windows approach');
     if (!trigger || !distance || !transition)
         throw new Error('The actual preferences controls were not found');
     return { trigger, distance, transition };

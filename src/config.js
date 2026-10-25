@@ -1,9 +1,9 @@
 import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 
 import { normalizeColor } from './colors.js';
 
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
+Gio._promisify(Gio.File.prototype, 'load_contents_async');
 
 export const SETTINGS_GSCHEMA =
   'org.gnome.shell.extensions.org.pshow.gradienttopbar';
@@ -236,26 +236,15 @@ export const exportSettingsToFile = async file => {
  *
  * @param {Gio.File} settingsFile - The file to load settings from
  */
-export const loadSettingsFromFile = settingsFile => {
-    const [success_, pid_, stdin, stdout, stderr] = GLib.spawn_async_with_pipes(
-        null,
+export const loadSettingsFromFile = async settingsFile => {
+    const [contents] = await settingsFile.load_contents_async(null);
+    const input = new TextDecoder('utf-8', { fatal: true }).decode(contents);
+    const process = Gio.Subprocess.new(
         ['dconf', 'load', SETTINGS_GSCHEMA_PATH],
-        null,
-        GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD,
-        null
+        Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDERR_PIPE
     );
+    const [, stderr] = await process.communicate_utf8_async(input, null);
 
-    const outputStream = new Gio.UnixOutputStream({
-        fd: stdin,
-        close_fd: true
-    });
-    GLib.close(stdout);
-    GLib.close(stderr);
-
-    outputStream.splice(
-        settingsFile.read(null),
-        Gio.OutputStreamSpliceFlags.CLOSE_SOURCE |
-      Gio.OutputStreamSpliceFlags.CLOSE_TARGET,
-        null
-    );
+    if (!process.get_successful())
+        throw new Error(stderr.trim() || 'Failed to import settings');
 };

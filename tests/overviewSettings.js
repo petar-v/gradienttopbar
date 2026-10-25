@@ -13,6 +13,7 @@ Gio.Resource.load('/usr/share/gnome-shell/org.gnome.Shell.Extensions.src.gresour
 const { ExtensionPreferences } = await import('resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js');
 ExtensionPreferences.lookupByURL = () => ({ gettext: text => text });
 const { default: Gradients } = await import('../src/settings/gradientsPage.js');
+const { default: Behavior } = await import('../src/settings/behavioursPage.js');
 const directory = GLib.dir_make_tmp('overview-settings-test-XXXXXX');
 const schemaName = `${SETTINGS_GSCHEMA}.gschema.xml`;
 Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_child(`src/schemas/${schemaName}`)
@@ -36,6 +37,24 @@ try {
         }
         return null;
     };
+    const behaviorPage = new Behavior(window, settings);
+    window.add(behaviorPage);
+    const transitions = find(behaviorPage, widget => widget instanceof Adw.PreferencesGroup && widget.title === 'Transitions');
+    const proximityBlend = find(transitions, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend as windows approach');
+    const overviewBlend = find(transitions, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend with overview gestures');
+    assert(proximityBlend && overviewBlend, 'Both blending controls belong to Transitions');
+    assert(!find(page, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend with overview gestures'), 'Overview blending moved out of Gradients');
+    overviewBlend.active = true;
+    assert(settings.get_boolean('overview-transition'), 'Overview blending writes its setting');
+    settings.set_boolean('overview-transition', false);
+    assert(!overviewBlend.active, 'Overview blending refreshes from settings');
+    settings.set_string('maximized-behavior', 'keep-gradient');
+    settings.set_string('style-trigger', 'proximity');
+    assert(!proximityBlend.is_sensitive() && overviewBlend.is_sensitive(), 'Disabled window interaction leaves overview blending available');
+    settings.set_string('maximized-behavior', 'keep-theme');
+    assert(proximityBlend.is_sensitive(), 'Window blending is available with proximity interaction');
+    settings.set_string('style-trigger', 'maximized');
+    assert(!proximityBlend.is_sensitive(), 'Window blending is unavailable with maximized interaction');
     const behavior = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'When overview is open');
     const gradients = [
         ['Gradient Direction', 'Gradient Start Colour', 'colors', 'gradient-direction'],
@@ -109,7 +128,7 @@ try {
     dialog.emit('response', 'reset');
     dialog.force_close();
     for (const [key, value] of before) {
-        const expected = key.startsWith('overview-') ? settings.get_default_value(key) : value;
+        const expected = key.startsWith('overview-') && key !== 'overview-transition' ? settings.get_default_value(key) : value;
         assert(settings.get_value(key).equal(expected), `Overview reset changed the wrong setting: ${key}`);
     }
     detachSettingsListeners(settings, handlers);

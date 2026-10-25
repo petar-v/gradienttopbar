@@ -7,7 +7,6 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
-    bindSetting,
     setGradientDirection,
     saveGradientColors,
     setMaximizedBehavior,
@@ -19,7 +18,6 @@ import {
     MAXIMIZED_GRADIENT_DIRECTION,
     OVERVIEW_BEHAVIOR as OVERVIEW_BEHAVIOR_KEY,
     OVERVIEW_COLORS,
-    OVERVIEW_TRANSITION,
     OVERVIEW_GRADIENT_DIRECTION,
     attachSettingsListeners,
     detachSettingsListeners
@@ -157,9 +155,9 @@ class Gradients extends Adw.PreferencesPage {
             header_suffix: createResetButton(
                 window,
                 gettext('Reset overview appearance?'),
-                gettext('Restore the main gradient in overview, turn off gesture blending and reset the custom gradient colours and direction.'),
+                gettext('Restore the main gradient in overview and reset the custom gradient colours and direction.'),
                 settings,
-                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_TRANSITION, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
+                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
             )
         });
         const overviewBehaviorValues = [
@@ -180,12 +178,6 @@ class Gradients extends Adw.PreferencesPage {
                 setOverviewBehavior(settings, overviewBehaviorValues[overviewBehaviorRow.selected]);
         });
         overviewGroup.add(overviewBehaviorRow);
-        const overviewTransitionRow = new Adw.SwitchRow({
-            title: gettext('Blend with overview gestures'),
-            subtitle: gettext('Fade backgrounds with gesture progress, including the original theme.')
-        });
-        bindSetting(settings, OVERVIEW_TRANSITION, overviewTransitionRow, 'active');
-        overviewGroup.add(overviewTransitionRow);
         this.add(overviewGroup);
 
         const overviewGradientGroup = new Adw.PreferencesGroup();

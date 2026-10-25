@@ -276,10 +276,13 @@ try {
             'maximized-colors': new GLib.Variant('as', ['rgb(0,128,0)', 'rgb(255,255,255)']),
             'maximized-gradient-direction': new GLib.Variant('s', 'vertical')
         }],
-        ['Reset trigger settings?', behavior, {
+        ['Reset window interaction?', behavior, {
             'style-trigger': new GLib.Variant('s', 'maximized'),
-            'proximity-distance': new GLib.Variant('i', 79),
-            'proximity-transition': new GLib.Variant('b', false)
+            'proximity-distance': new GLib.Variant('i', 79)
+        }],
+        ['Reset transitions?', behavior, {
+            'proximity-transition': new GLib.Variant('b', false),
+            'overview-transition': new GLib.Variant('b', true)
         }]
     ];
     for (const [title, root, changes] of sections) {

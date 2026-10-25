@@ -16,6 +16,7 @@ import {
     STYLE_TRIGGER as STYLE_TRIGGER_KEY,
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
+    OVERVIEW_TRANSITION,
     TOP_BAR_STYLE_SETTINGS,
     attachSettingsListeners,
     detachSettingsListeners,
@@ -86,13 +87,13 @@ class Behavior extends Adw.PreferencesPage {
         };
 
         const behaviorGroup = new Adw.PreferencesGroup({
-            title: gettext('Trigger settings'),
+            title: gettext('Window interaction'),
             header_suffix: createResetButton(
                 window,
-                gettext('Reset trigger settings?'),
-                gettext('Restore the default style trigger, proximity distance and transition behaviour.'),
+                gettext('Reset window interaction?'),
+                gettext('Restore the default window trigger and proximity distance.'),
                 settings,
-                [STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE, PROXIMITY_TRANSITION],
+                [STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE],
                 () => {
                     if (proximityDistanceTimeoutId) {
                         GLib.Source.remove(proximityDistanceTimeoutId);
@@ -106,12 +107,11 @@ class Behavior extends Adw.PreferencesPage {
         const triggerModel = new Gio.ListStore({ item_type: ChoiceOption });
         [
             new ChoiceOption(gettext('Maximized windows'), STYLE_TRIGGER.MAXIMIZED),
-            new ChoiceOption(gettext('Proximity'), STYLE_TRIGGER.PROXIMITY)
+            new ChoiceOption(gettext('Nearby windows'), STYLE_TRIGGER.PROXIMITY)
         ].forEach(trigger => triggerModel.append(trigger));
 
         const triggerRow = new Adw.ComboRow({
-            title: gettext('Style trigger'),
-            subtitle: gettext('Choose when to change the top bar appearance'),
+            title: gettext('Change appearance when'),
             model: triggerModel,
             expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
@@ -131,8 +131,8 @@ class Behavior extends Adw.PreferencesPage {
         });
 
         const proximityTransitionRow = new Adw.SwitchRow({
-            title: gettext('Transition proximity style'),
-            subtitle: gettext('Blend into the selected appearance as windows approach the panel'),
+            title: gettext('Blend as windows approach'),
+            subtitle: gettext('Gradually blend into the selected appearance as windows approach the panel.'),
             active: getProximityTransition(this._settings)
         });
 
@@ -144,7 +144,7 @@ class Behavior extends Adw.PreferencesPage {
             disabledGroup.set_visible(!enabled);
             const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
             proximityDistanceRow.set_sensitive(usesProximity);
-            proximityTransitionRow.set_sensitive(usesProximity);
+            proximityTransitionRow.set_sensitive(enabled && usesProximity);
         };
 
         // Connect to changes
@@ -163,12 +163,30 @@ class Behavior extends Adw.PreferencesPage {
 
         behaviorGroup.add(triggerRow);
         behaviorGroup.add(proximityDistanceRow);
-        behaviorGroup.add(proximityTransitionRow);
         const disabledGroup = new Adw.PreferencesGroup({
             description: gettext('Outside overview, the main gradient is always shown. Choose “Use original theme” or “Use alternate gradient” under Window interaction in Gradients to enable these settings.')
         });
         this.add(disabledGroup);
         this.add(behaviorGroup);
+
+        const transitionsGroup = new Adw.PreferencesGroup({
+            title: gettext('Transitions'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset transitions?'),
+                gettext('Restore the default window proximity and overview gesture blending.'),
+                settings,
+                [PROXIMITY_TRANSITION, OVERVIEW_TRANSITION]
+            )
+        });
+        transitionsGroup.add(proximityTransitionRow);
+        const overviewTransitionRow = new Adw.SwitchRow({
+            title: gettext('Blend with overview gestures'),
+            subtitle: gettext('Gradually blend between backgrounds as you open or close overview.')
+        });
+        bindSetting(settings, OVERVIEW_TRANSITION, overviewTransitionRow, 'active');
+        transitionsGroup.add(overviewTransitionRow);
+        this.add(transitionsGroup);
 
         const onSettingsChanged = (s, key) => {
             const config = getConfig(s);

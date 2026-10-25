@@ -1,5 +1,4 @@
 import Gtk from 'gi://Gtk';
-import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 
 import { getConfig } from '../../config.js';
@@ -18,10 +17,11 @@ export const createShadowPreview = settings => {
     let styleIndex = 0;
     const styleLabel = new Gtk.Label({ xalign: 0, css_classes: ['dim-label'] });
     const styleSwitch = new Gtk.Button({
-        icon_name: Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).has_icon('horizontal-arrows-none-symbolic')
-            ? 'horizontal-arrows-none-symbolic' : 'view-refresh-symbolic',
+        icon_name: 'view-refresh-symbolic',
         tooltip_text: gettext('Preview triggered appearance'),
-        css_classes: ['osd', 'circular'],
+        css_classes: ['circular', 'osd'],
+        width_request: 40,
+        height_request: 40,
         valign: Gtk.Align.CENTER
     });
     const getGradient = () => getAppearance(getConfig(settings), states[styleIndex]);
