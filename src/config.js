@@ -1,7 +1,6 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import { DEFAULT_PROXIMITY_DISTANCE } from './constants.js';
 import { normalizeColor } from './colors.js';
 
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
@@ -108,7 +107,7 @@ export const setStyleTrigger = (settings, value) => {
 };
 
 export const getProximityDistance = settings =>
-    settings?.get_int(PROXIMITY_DISTANCE) ?? DEFAULT_PROXIMITY_DISTANCE;
+    settings.get_int(PROXIMITY_DISTANCE);
 
 export const setProximityDistance = (settings, value) => {
     settings.set_int(PROXIMITY_DISTANCE, value);
@@ -147,6 +146,9 @@ export const saveGradientColors = (settings, key, colors) => {
 export const getTopBarStyleSettings = settings => settings.get_boolean(TOP_BAR_STYLE_SETTINGS);
 
 export const getShadowColor = settings => settings.get_string(SHADOW_COLOR);
+
+export const getSettingRange = (settings, key) =>
+    settings.settings_schema.get_key(key).get_range().deep_unpack()[1].deep_unpack();
 
 export const getShadowOffsets = settings =>
     [settings.get_int(SHADOW_OFFSET_X), settings.get_int(SHADOW_OFFSET_Y)];

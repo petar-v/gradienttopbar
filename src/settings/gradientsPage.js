@@ -26,43 +26,8 @@ import {
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
 import { createResetButton } from './components/resetButton.js';
+import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
 import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
-
-const GradientOption = GObject.registerClass(
-    {
-        Properties: {
-            name: GObject.ParamSpec.string(
-                'name',
-                'name',
-                'name',
-                GObject.ParamFlags.READWRITE,
-                null
-            ),
-            value: GObject.ParamSpec.string(
-                'value',
-                'value',
-                'value',
-                GObject.ParamFlags.READWRITE,
-                null
-            )
-        }
-    },
-    class GradientOptionObject extends GObject.Object {
-        _init(name, value) {
-            super._init({ name, value });
-        }
-    }
-);
-
-const setOptionOnRow = (row, value) => {
-    const { model } = row;
-    for (let i = 0; i < model.get_n_items(); i++) {
-        if (model.get_item(i).value === value) {
-            row.set_selected(i);
-            break;
-        }
-    }
-};
 
 class Gradients extends Adw.PreferencesPage {
     _init(window, settings) {
@@ -86,12 +51,12 @@ class Gradients extends Adw.PreferencesPage {
         });
 
         const gradientDirectionModel = new Gio.ListStore({
-            item_type: GradientOption
+            item_type: ChoiceOption
         });
 
         [
-            new GradientOption(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
-            new GradientOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
+            new ChoiceOption(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
+            new ChoiceOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
         ].forEach(d => gradientDirectionModel.append(d));
 
         const createGradientSection = (group, {
@@ -102,7 +67,7 @@ class Gradients extends Adw.PreferencesPage {
                 title: directionTitle,
                 subtitle: directionSubtitle ?? '',
                 model: gradientDirectionModel,
-                expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
+                expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
             });
             directionRow.connect('notify::selected', () => {
                 if (!updatingSettings && directionRow.selectedItem)
@@ -127,7 +92,7 @@ class Gradients extends Adw.PreferencesPage {
             group.add(directionRow);
 
             return config => {
-                setOptionOnRow(directionRow, getGradient(config).direction);
+                selectRowValue(directionRow, getGradient(config).direction);
                 editor.refresh();
             };
         };

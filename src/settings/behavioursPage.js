@@ -8,6 +8,7 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
+    getSettingRange,
     bindSetting,
     setProximityDistance,
     setStyleTrigger,
@@ -25,36 +26,11 @@ import {
 } from '../config.js';
 
 import { createResetButton } from './components/resetButton.js';
+import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
 
 import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
 
 const PROXIMITY_DISTANCE_SAVE_DELAY_MS = 300;
-
-const TriggerOption = GObject.registerClass(
-    {
-        Properties: {
-            name: GObject.ParamSpec.string(
-                'name',
-                'name',
-                'name',
-                GObject.ParamFlags.READWRITE,
-                null
-            ),
-            value: GObject.ParamSpec.string(
-                'value',
-                'value',
-                'value',
-                GObject.ParamFlags.READWRITE,
-                null
-            )
-        }
-    },
-    class TriggerOptionObject extends GObject.Object {
-        _init(name, value) {
-            super._init({ name, value });
-        }
-    }
-);
 
 class Behavior extends Adw.PreferencesPage {
     _init(window, settings) {
@@ -127,25 +103,26 @@ class Behavior extends Adw.PreferencesPage {
             )
         });
 
-        const triggerModel = new Gio.ListStore({ item_type: TriggerOption });
+        const triggerModel = new Gio.ListStore({ item_type: ChoiceOption });
         [
-            new TriggerOption(gettext('Maximized windows'), STYLE_TRIGGER.MAXIMIZED),
-            new TriggerOption(gettext('Proximity'), STYLE_TRIGGER.PROXIMITY)
+            new ChoiceOption(gettext('Maximized windows'), STYLE_TRIGGER.MAXIMIZED),
+            new ChoiceOption(gettext('Proximity'), STYLE_TRIGGER.PROXIMITY)
         ].forEach(trigger => triggerModel.append(trigger));
 
         const triggerRow = new Adw.ComboRow({
             title: gettext('Style trigger'),
             subtitle: gettext('Choose when to change the top bar appearance'),
             model: triggerModel,
-            expression: new Gtk.PropertyExpression(TriggerOption, null, 'name')
+            expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
 
+        const [minDistance, maxDistance] = getSettingRange(settings, PROXIMITY_DISTANCE);
         const proximityDistanceRow = new Adw.SpinRow({
             title: gettext('Proximity distance'),
             subtitle: gettext('Distance from the panel in pixels'),
             adjustment: new Gtk.Adjustment({
-                lower: 0,
-                upper: 100,
+                lower: minDistance,
+                upper: maxDistance,
                 step_increment: 1,
                 page_increment: 5,
                 value: getProximityDistance(this._settings)
@@ -159,19 +136,8 @@ class Behavior extends Adw.PreferencesPage {
             active: getProximityTransition(this._settings)
         });
 
-        // Set the selected item based on the current setting
-        const setTriggerOnRow = (row, behaviorValue) => {
-            const { model } = row;
-            for (let i = 0; i < model.get_n_items(); i++) {
-                if (model.get_item(i).value === behaviorValue) {
-                    row.set_selected(i);
-                    break;
-                }
-            }
-        };
-
         // Set initial value
-        setTriggerOnRow(triggerRow, getStyleTrigger(this._settings));
+        selectRowValue(triggerRow, getStyleTrigger(this._settings));
         const updateProximityControls = () => {
             const enabled = getMaximizedBehavior(this._settings) !== MAXIMIZED_BEHAVIOR.KEEP_GRADIENT;
             behaviorGroup.set_sensitive(enabled);
@@ -207,7 +173,7 @@ class Behavior extends Adw.PreferencesPage {
         const onSettingsChanged = (s, key) => {
             const config = getConfig(s);
             updatingSettings = true;
-            setTriggerOnRow(triggerRow, config.styleTrigger);
+            selectRowValue(triggerRow, config.styleTrigger);
             if (!key || key === 'proximity-distance') {
                 if (proximityDistanceTimeoutId) {
                     GLib.Source.remove(proximityDistanceTimeoutId);

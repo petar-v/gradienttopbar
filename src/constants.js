@@ -20,8 +20,6 @@ export const STYLE_TRIGGER = {
     PROXIMITY: 'proximity'
 };
 
-export const DEFAULT_PROXIMITY_DISTANCE = 30;
-
 // Gradient directions
 export const GRADIENT_DIRECTION = {
     VERTICAL: 'vertical',

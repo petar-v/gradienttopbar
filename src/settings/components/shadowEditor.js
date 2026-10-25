@@ -4,10 +4,11 @@ import Gio from 'gi://Gio';
 
 import {
     SHADOW_OFFSET_X, SHADOW_OFFSET_Y, SHADOW_BLUR, CONTENT_SHADOWS,
-    bindSetting, getShadowOffsets, getShadowColor, setShadowOffsets, setShadowColor
+    bindSetting, getSettingRange, getShadowOffsets, getShadowColor, setShadowOffsets, setShadowColor
 } from '../../config.js';
-import { createOffsetPicker, OFFSET_LIMIT } from './offsetPicker.js';
+import { createOffsetPicker } from './offsetPicker.js';
 import { createColorDialog } from './colorDialog.js';
+import { drawCheckerboard } from './checkerboard.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export const createShadowEditor = settings => {
@@ -24,15 +25,17 @@ export const createShadowEditor = settings => {
     const target = createOffsetPicker(
         () => getShadowOffsets(settings),
         () => getShadowColor(settings),
-        (x, y) => setShadowOffsets(settings, x, y)
+        (x, y) => setShadowOffsets(settings, x, y),
+        [SHADOW_OFFSET_X, SHADOW_OFFSET_Y].map(key => getSettingRange(settings, key))
     );
     widget.attach(target.widget, 0, 0, 1, 3);
     const rows = [
-        [gettext('X (px)'), SHADOW_OFFSET_X, -OFFSET_LIMIT, OFFSET_LIMIT],
-        [gettext('Y (px)'), SHADOW_OFFSET_Y, -OFFSET_LIMIT, OFFSET_LIMIT],
-        [gettext('Blur (px)'), SHADOW_BLUR, 0, 12]
+        [gettext('X (px)'), SHADOW_OFFSET_X],
+        [gettext('Y (px)'), SHADOW_OFFSET_Y],
+        [gettext('Blur (px)'), SHADOW_BLUR]
     ];
-    rows.forEach(([title, key, min, max], row) => {
+    rows.forEach(([title, key], row) => {
+        const [min, max] = getSettingRange(settings, key);
         const label = new Gtk.Label({ label: title, xalign: 1 });
         const spin = Gtk.SpinButton.new_with_range(min, max, 1);
         spin.set_valign(Gtk.Align.CENTER);
@@ -54,14 +57,7 @@ export const createShadowEditor = settings => {
     colorButton.set_halign(Gtk.Align.FILL);
     const swatch = new Gtk.DrawingArea({ content_width: 20, content_height: 20, valign: Gtk.Align.CENTER });
     swatch.set_draw_func((_area, cr, width, height) => {
-        for (let y = 0; y < height; y += 5) {
-            for (let x = 0; x < width; x += 5) {
-                const shade = (x / 5 + y / 5) % 2 ? 0.72 : 0.9;
-                cr.setSourceRGB(shade, shade, shade);
-                cr.rectangle(x, y, 5, 5);
-                cr.fill();
-            }
-        }
+        drawCheckerboard(cr, 0, 0, width, height, 5);
         const color = new Gdk.RGBA();
         color.parse(getShadowColor(settings));
         cr.setSourceRGBA(color.red, color.green, color.blue, color.alpha);
