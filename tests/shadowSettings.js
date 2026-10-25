@@ -98,7 +98,7 @@ try {
         const offset = y * image.rowstride + x * image.n_channels;
         return image.get_pixels().slice(offset, offset + image.n_channels);
     };
-    settings.set_strv('colors', ['red', 'blue']);
+    settings.set_strv('colors', ['rgb(255,0,0)', 'rgb(0,0,255)']);
     for (const behavior of ['keep-gradient', 'keep-theme', 'apply-style']) {
         settings.set_string('overview-behavior', behavior);
         settings.set_strv('overview-colors', ['rgba(0,255,0,0.4)', 'rgba(0,0,255,0.2)']);
@@ -268,12 +268,12 @@ try {
     };
     const sections = [
         ['Reset main gradient?', gradients, {
-            colors: new GLib.Variant('as', ['red', 'blue']),
+            colors: new GLib.Variant('as', ['rgb(255,0,0)', 'rgb(0,0,255)']),
             'gradient-direction': new GLib.Variant('s', 'horizontal')
         }],
         ['Reset window interaction?', gradients, {
             'maximized-behavior': new GLib.Variant('s', 'keep-theme'),
-            'maximized-colors': new GLib.Variant('as', ['green', 'white']),
+            'maximized-colors': new GLib.Variant('as', ['rgb(0,128,0)', 'rgb(255,255,255)']),
             'maximized-gradient-direction': new GLib.Variant('s', 'vertical')
         }],
         ['Reset trigger settings?', behavior, {

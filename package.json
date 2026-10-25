@@ -29,6 +29,8 @@
     "zip": "cd src && zip -FS -r ../gradienttopbar@pshow.org.shell-extension.zip .",
     "prettify": "prettier --write 'src/**/*.{css}' && yarn lint --fix",
     "lint": "eslint 'src/**/*.{js,json}'",
+    "test": "node --experimental-vm-modules --test tests/appearance.js tests/colors.js tests/configureDebounce.js tests/eventBoundary.js tests/eventManager.js tests/overviewStyle.js tests/topBarMenu.js",
+    "test:gtk": "gjs -m tests/gradientEditor.js && gjs -m tests/overviewSettings.js && gjs -m tests/shadowSettings.js",
     "setup-python": "python3 -m venv .venv && .venv/bin/python -m pip install -r requirements-dev.txt",
     "shexli": ".venv/bin/shexli --format json \"$PWD/src\" | .venv/bin/python -c \"import json, sys; report = json.load(sys.stdin); print(json.dumps(report, indent=2)); raise SystemExit(any(finding['rule_id'] != 'EGO-M-004' for finding in report['findings']))\"",
     "verify": "yarn lint && yarn shexli",

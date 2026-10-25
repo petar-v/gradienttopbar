@@ -11,12 +11,34 @@ const overview = {
     disconnect(id) { handlers.delete(id); }
 };
 const showOverview = visible => {
+    overview.visible = visible;
     overview.visibleTarget = visible;
-    for (const { signal, callback } of handlers.values()) {
-        if (signal === (visible ? 'showing' : 'hiding'))
-            callback();
+    for (const event of visible ? ['showing', 'shown'] : ['hiding', 'hidden']) {
+        for (const { signal, callback } of handlers.values()) {
+            if (signal === event)
+                callback();
+        }
     }
 };
+let animationsEnabled = false;
+const timelines = new Set();
+class Timeline {
+    constructor() { this.handlers = new Map(); }
+    set_progress_mode() {}
+    connect(signal, callback) { this.handlers.set(signal, callback); }
+    start() { timelines.add(this); }
+    stop() { timelines.delete(this); }
+    get_progress() { return this.progress; }
+    advance(progress) {
+        assert(timelines.has(this), 'Only live animations can advance');
+        this.progress = progress;
+        this.handlers.get('new-frame')();
+        if (progress === 1) {
+            timelines.delete(this);
+            this.handlers.get('completed')();
+        }
+    }
+}
 const classes = new Set();
 const children = new Set();
 const allocations = new Map();
@@ -37,12 +59,25 @@ class Widget {
     add_child(actor) { (this.children ??= []).push(actor); }
     get_style_class_name() { return this.style_class; }
     get_children() { return this.children ?? []; }
-    hide() { this.hidden = true; }
-    show() { this.hidden = false; }
     allocate(box) { this.box = { ...box }; }
-    set_style_class_name(name) { this.style_class = name; }
-    remove_transition() {}
-    ease(properties) { this.opacity = properties.opacity; properties.onComplete?.(); }
+    get_theme_node() {
+        // Model only background alpha; actual CSS parsing/rendering belongs to Shell.
+        const gradientClass = this.style_class?.match(/panel-(?:maximized-|overview-)?gradient/)?.[0];
+        const rule = gradientClass && css.match(new RegExp(`\\.${gradientClass}\\s*\\{([^}]+)\\}`))?.[1];
+        const alpha = property => {
+            const color = rule.match(new RegExp(`${property}: (rgba\\([^)]+\\))`))?.[1];
+            assert(color, `Missing normalized ${property} in fixture`);
+            return { alpha: Number(color.slice(color.lastIndexOf(',') + 1, -1)) * 255 };
+        };
+        return {
+            get_background_image: () => null,
+            get_border_image: () => null,
+            get_background_gradient: () => rule
+                ? [1, alpha('background-gradient-start'), alpha('background-gradient-end')]
+                : [0, null, null],
+            get_background_color: () => ({ alpha: 153 })
+        };
+    }
     destroy() { this.children?.forEach(child => child.destroy()); children.delete(this); allocations.delete(this); }
 }
 let strength = 0;
@@ -68,12 +103,12 @@ const stubs = {
     'resource:///org/gnome/shell/ui/main.js': { overview, panel },
     'resource:///org/gnome/shell/extensions/extension.js': { Extension: class {} },
     'gi://GLib': { default: { Source: { remove() {} } } },
-    'gi://St': { default: { Widget, ThemeContext: { get_for_stage: () => ({ get_theme: () => theme }) } } },
-    'gi://Clutter': { default: { ActorBox: class {}, AnimationMode: { EASE_OUT_QUAD: 1 } } },
-    'gi://Cogl': { default: { Color: { from_string: value => [value !== 'invalid', {
-        red: Number.parseInt(value.slice(1, 3), 16), green: Number.parseInt(value.slice(3, 5), 16),
-        blue: Number.parseInt(value.slice(5, 7), 16), alpha: Number.parseInt(value.slice(7, 9), 16)
-    }] } } },
+    'gi://St': { default: {
+        Widget, GradientType: { NONE: 0 },
+        Settings: { get: () => ({ enable_animations: animationsEnabled }) },
+        ThemeContext: { get_for_stage: () => ({ get_theme: () => theme }) }
+    } },
+    'gi://Clutter': { default: { ActorBox: class {}, Timeline, AnimationMode: { EASE_OUT_QUAD: 1 } } },
     'gi://Gio': { default: {
         File: { new_for_path: () => ({ replace() {} }) },
         FileCreateFlags: { NONE: 0 },
@@ -120,9 +155,10 @@ const settings = {
     disconnect() {},
     maximizedBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false,
     overviewBehavior: 'apply-style',
-    colors: { start: '#000000ff', end: '#00000000' }, gradientDirection: 'vertical',
-    maximizedColors: { start: '#ff0000ff', end: '#0000ffff' }, maximizedGradientDirection: 'horizontal',
-    overviewColors: { start: '#00ff0066', end: '#ffffffff' }, overviewGradientDirection: 'horizontal',
+    // Rendering receives normalized config; overviewSettings.js exercises real settings normalization.
+    colors: { start: 'rgba(0,0,0,1)', end: 'rgba(0,0,0,0)' }, gradientDirection: 'vertical',
+    maximizedColors: { start: 'rgba(255,0,0,1)', end: 'rgba(0,0,255,1)' }, maximizedGradientDirection: 'horizontal',
+    overviewColors: { start: 'rgba(0,255,0,0.4)', end: 'rgba(255,255,255,1)' }, overviewGradientDirection: 'horizontal',
     contentShadows: true, shadowColor: 'black', shadowBlur: 3, shadowOffsetX: 0, shadowOffsetY: 0
 };
 const extension = new module.namespace.default();
@@ -152,12 +188,8 @@ for (const behavior of ['keep-gradient', 'keep-theme', 'apply-style']) {
         expectStyle(expected);
         assert.equal(children.size, 0, 'Window transitions cannot cover overview');
         showOverview(false);
-        if (windowBehavior === 'keep-theme')
-            expectStyle(null);
-        else
-            expectStyle('panel-gradient');
-        if (windowBehavior === 'apply-style')
-            assert.equal([...children][0].opacity, 255, 'Exit restores current window style');
+        expectStyle({ 'keep-gradient': 'panel-gradient', 'keep-theme': null, 'apply-style': 'panel-maximized-gradient' }[windowBehavior]);
+        assert.equal(children.size, 0, 'Reduced-motion exit commits the destination without temporary actors');
         showOverview(true);
         expectStyle(expected);
         assert.equal(children.size, 0, 'Entering overview removes the old transition overlay');
@@ -170,7 +202,7 @@ settings.overviewBehavior = 'apply-style';
 extension.configure(settings);
 strength = 0.25;
 showOverview(false);
-assert.equal([...children][0].opacity, 64, 'Exit recalculates partial proximity on the destination workspace');
+assert.equal([...children][1].opacity, 64, 'Exit recalculates partial proximity on the destination workspace');
 showOverview(true);
 extension.disable();
 expectStyle(null);
@@ -179,10 +211,6 @@ assert.equal(handlers.size, 0, 'Disable disconnects overview signals');
 extension.enable();
 expectStyle('panel-overview-gradient');
 assert.equal(handlers.size, 4, 'Re-enable while open installs one set of overview handlers');
-settings.overviewColors.start = 'invalid';
-extension.configure(settings);
-assert.doesNotMatch(css, /invalid/, 'Malformed overview colours cannot enter CSS');
-assert.match(css, /\.panel-overview-gradient\s*\{[^}]*background-gradient-direction: vertical;[^}]*background-gradient-start: #000000ff;/);
 extension.disable();
 console.log('Overview precedence, transitions, cleanup and reconfiguration passed');
 
@@ -214,20 +242,22 @@ extension.enable();
 extension.disable();
 assert.equal(children.size, 0, 'Re-enable starts with fresh overview state');
 
-// Drive the overview functions with explicit state, without Shell.
-const gradient = (await modules.get(new URL('gradient/gradient.js', src).href)).namespace;
+// Exercise the current renderer API directly, preserving gesture and ownership checks.
+const { default: Gradient } = (await modules.get(new URL('gradient/gradient.js', src).href)).namespace;
+const { createPanelBackground } = (await modules.get(new URL('gradient/panelBackground.js', src).href)).namespace;
+const { calculateBackgroundBlend } = (await modules.get(new URL('gradient/backgroundBlend.js', src).href)).namespace;
 const oldClasses = panel.get_style_class_name;
 const oldPseudoClasses = panel.get_style_pseudo_class;
 const oldStyle = panel.get_style;
-panel.get_style_class_name = () => 'custom-panel panel-gradient panel-overview-blending';
+panel.get_style_class_name = () => 'custom-panel panel-gradient panel-background-blending';
 panel.get_style_pseudo_class = () => 'overview custom-state';
 panel.get_style = () => 'background-color: red';
-const themeBackground = gradient.createPanelBackground(null, true);
+const themeBackground = createPanelBackground({ gradientClass: null, inOverview: true });
 assert.equal(themeBackground.name, 'panel');
 assert.equal(themeBackground.style_class, 'custom-panel');
 assert.equal(themeBackground.pseudo_class, 'custom-state overview');
 assert.match(themeBackground.style, /background-color: red; transition-duration: 0ms;/);
-const desktopBackground = gradient.createPanelBackground('panel-gradient', false);
+const desktopBackground = createPanelBackground({ gradientClass: 'panel-gradient' });
 assert.equal(desktopBackground.style_class, 'custom-panel panel-gradient');
 assert.equal(desktopBackground.pseudo_class, 'custom-state');
 themeBackground.destroy();
@@ -235,65 +265,95 @@ desktopBackground.destroy();
 panel.get_style_class_name = oldClasses;
 panel.get_style_pseudo_class = oldPseudoClasses;
 panel.get_style = oldStyle;
-const restores = [];
-const { updateOverviewTransition, endOverviewTransition } = (await modules.get(new URL('gradient/overviewTransition.js', src).href)).namespace;
-const state = {
-    config: { overviewBehavior: 'apply-style', overviewTransition: true },
-    target: null,
-    layers: null
-};
-const restoreDesktop = settle => {
-    restores.push(settle);
-    gradient.toggleGradient(true);
-};
-gradient.toggleGradient(true);
-updateOverviewTransition(state, { progress: 0.25, hidden: false, target: true }, restoreDesktop);
-assert.equal(children.size, 2, 'A gesture owns exactly two background layers');
+
+let renderer = new Gradient('/test');
+renderer.configure(settings);
+const update = (progress, target = true, hidden = false, strength = 0) =>
+    renderer.updateOverview({ progress, target, hidden }, strength);
+update(0, false, true);
+update(0.25);
+assert.equal(children.size, 2, 'A gesture owns two root backgrounds');
 assert.equal(allocations.size, 1, 'A gesture owns one allocation handler');
 const originalLayers = [...children];
-updateOverviewTransition(state, { progress: 0.75, hidden: false, target: true }, restoreDesktop);
-assert.deepEqual([...children], originalLayers, 'Progress reuses the same layers');
-updateOverviewTransition(state, { progress: 0.25, hidden: false, target: false }, restoreDesktop);
-assert.deepEqual([...children], originalLayers, 'Reversing retraces the existing blend');
-assert.equal(originalLayers[0].opacity, 191);
+const originalOpacities = originalLayers.map(actor => actor.opacity);
+update(0.75);
+assert.deepEqual([...children], originalLayers, 'Progress reuses the same actors');
+update(0.25, false);
+assert.deepEqual([...children], originalLayers, 'Reversal reuses the original endpoints');
+assert.deepEqual(originalLayers.map(actor => actor.opacity), originalOpacities, 'Reversal retraces the same blend');
+// Mean destination alpha is 0.7. Assert correction independently of the production helper.
+assert.equal(originalLayers[0].opacity, Math.round(0.75 / (1 - 0.25 * 0.7) * 255));
 assert.equal(originalLayers[1].opacity, 64);
-updateOverviewTransition(state, { progress: 0, hidden: true, target: false }, restoreDesktop);
-assert.equal(children.size, 0, 'Cancellation removes all layers');
-assert.equal(state.layers, null);
-assert.equal(allocations.size, 0, 'Cancellation disconnects the allocation handler');
+update(0, false, true);
+assert.equal(children.size, 0, 'Cancellation removes temporary actors');
+assert.equal(allocations.size, 0, 'Cancellation removes allocation handlers');
 expectStyle('panel-gradient');
-updateOverviewTransition(state, { progress: 1, hidden: false, target: true }, restoreDesktop);
+
+update(1);
 const completedLayers = [...children];
-updateOverviewTransition(state, { progress: 0.5, hidden: false, target: false }, restoreDesktop);
-assert.equal(restores.at(-1), true, 'Leaving completed overview resolves the desktop destination');
+update(0.5, false, false, 1);
 assert.equal(children.size, 2);
-assert.ok([...children].every(actor => !completedLayers.includes(actor)), 'Exit starts fresh layers');
-endOverviewTransition(state);
-state.config = { overviewBehavior: 'keep-theme', overviewTransition: true };
-state.target = null;
-assert.equal(children.size, 0, 'Reconfiguration cleans up active layers');
-updateOverviewTransition(state, { progress: 0.5, hidden: false, target: true }, restoreDesktop);
-assert.equal(children.size, 2);
-endOverviewTransition(state);
-endOverviewTransition(state);
+assert.ok([...children].every(actor => !completedLayers.includes(actor)), 'Exit rebuilds endpoints for the current desktop');
+renderer.configure({ ...settings, overviewBehavior: 'keep-theme' });
+assert.equal(children.size, 0, 'Reconfiguration removes active layers');
+assert.equal(allocations.size, 0);
+update(0.5);
+assert.equal([...children][0].opacity, Math.round(0.5 / (1 - 0.5 * 0.6) * 255), 'Native theme alpha participates in correction');
+renderer.destroy();
+renderer.destroy();
 assert.equal(children.size, 0, 'Repeated cleanup is safe');
-assert.ok(!classes.has('panel-overview-blending'));
-gradient.toggleGradient(true);
-gradient.setGradientTransition(0.4);
-const alternate = [...children][0];
-updateOverviewTransition(state, { progress: 0.5, hidden: false, target: true }, restoreDesktop);
-assert.equal(alternate.hidden, true, 'The original partial window blend is hidden during overview');
-const source = [...children][1];
-assert.equal(source.children[0].opacity, 102, 'Overview preserves the partial desktop blend');
+expectStyle(null);
+
+renderer = new Gradient('/test');
+renderer.configure({ ...settings, maximizedBehavior: 'apply-style' });
+update(0, false, true);
+renderer.updateWindow({ effectStrength: 0.4 });
+const partialDesktop = [...children];
+assert.equal(partialDesktop[1].opacity, 102);
+update(0.5);
+assert.ok(partialDesktop.every(actor => !children.has(actor)), 'Overview replaces the desktop actors');
+const source = [...children][0];
+assert.equal(source.get_children()[1].opacity, 102, 'Overview preserves the partial desktop composition');
 const oldWidth = panel.width;
 panel.width = 1280;
 allocations.get(source).callback();
-assert.equal(source.children[0].box.x2, 1280, 'Nested layers follow panel allocation');
+assert.equal(source.get_children()[1].box.x2, 1280, 'Nested backgrounds follow panel allocation');
 panel.width = oldWidth;
-endOverviewTransition(state);
-assert.equal(alternate.hidden, false, 'Cleanup restores the original window overlay');
-assert.equal(children.size, 1);
-gradient.removeGradientTransition();
-gradient.toggleGradient(false);
-assert.equal(allocations.size, 0, 'All background allocation handlers are removed');
-console.log('Overview functions: progress, reversal, cancellation, allocation and cleanup passed');
+update(0, false, true, 0.4);
+assert.equal([...children][1].opacity, 102, 'Cancellation restores the partial desktop appearance');
+renderer.destroy();
+assert.equal(allocations.size, 0);
+
+// Drive timed transitions deterministically, with no wall-clock waits.
+animationsEnabled = true;
+renderer = new Gradient('/test');
+renderer.configure({ ...settings, maximizedBehavior: 'apply-style' });
+update(0, false, true);
+renderer.updateWindow({ effectStrength: 1 });
+assert.equal(timelines.size, 1, 'Window changes start a timed transition');
+const interrupted = [...timelines][0];
+interrupted.advance(0.5);
+renderer.updateWindow({ effectStrength: 0 });
+assert(!timelines.has(interrupted), 'A new destination stops the previous animation');
+[...timelines][0].advance(1);
+expectStyle('panel-gradient');
+assert.equal(children.size, 0, 'Completed animations remove endpoint actors');
+renderer.updateWindow({ effectStrength: 1 });
+renderer.destroy();
+assert.equal(timelines.size, 0, 'Disable stops an unfinished animation');
+assert.equal(allocations.size, 0);
+assert.equal(children.size, 0);
+expectStyle(null);
+
+for (const [a, b] of [[1, 1], [0.1, 0.6], [0, 0], [1, 0]]) {
+    for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+        const { sourceOpacity: s, destinationOpacity: d } = calculateBackgroundBlend(p, b, b);
+        assert(Math.abs(d * b + s * a * (1 - d * b) - ((1 - p) * a + p * b)) < 1e-12,
+            `Uniform-alpha compositing at progress ${p}, source ${a}, destination ${b}`);
+    }
+}
+for (const invalid of [NaN, Infinity, -0.1, 1.1]) {
+    for (const args of [[invalid, 0, 1], [0.5, invalid, 1], [0.5, 0, invalid]])
+        assert.throws(() => calculateBackgroundBlend(...args), { name: 'RangeError' });
+}
+console.log('Overview progress, reversal, cancellation, partial blends, animation and cleanup passed');

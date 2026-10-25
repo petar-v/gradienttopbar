@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   lint:
-    name: ESLint and schemas
+    name: ESLint, schemas and Node tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -21,6 +21,33 @@ jobs:
       - run: yarn install --immutable
       - run: yarn lint
       - run: yarn validate-schemas
+      - run: yarn test
+
+  gtk:
+    name: GTK preferences tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GSETTINGS_BACKEND: memory
+      GIO_USE_VFS: local
+      GTK_A11Y: none
+      GSK_RENDERER: cairo
+      GDK_BACKEND: x11
+      GI_TYPELIB_PATH: /usr/lib/gnome-shell:/usr/lib/gnome-shell/girepository-1.0
+      LD_LIBRARY_PATH: /usr/lib/gnome-shell
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: yarn
+      - run: corepack enable
+      - run: yarn install --immutable
+      - name: Install GTK test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y gjs gnome-shell gir1.2-adw-1 xvfb xauth dbus-x11
+      - run: timeout 120s dbus-run-session -- xvfb-run -a yarn test:gtk
 
   shexli:
     name: Shexli

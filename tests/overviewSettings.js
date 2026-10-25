@@ -3,6 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw';
+import { normalizeColor } from '../src/colors.js';
 
 import { getConfig, attachSettingsListeners, detachSettingsListeners, SETTINGS_GSCHEMA } from '../src/config.js';
 
@@ -60,7 +61,7 @@ try {
             assert(button, `${startTitle} exists`);
             button.emit('clicked');
             assert(settings.get_strv(colorsKey)[0] === 'rgb(12,34,56)', `${startTitle} writes its own colour`);
-            assert(settings.get_strv(colorsKey)[1] === beforeColors.get(colorsKey).deep_unpack()[1], `${startTitle} preserves the other endpoint`);
+            assert(normalizeColor(settings.get_strv(colorsKey)[1]) === normalizeColor(beforeColors.get(colorsKey).deep_unpack()[1]), `${startTitle} preserves the other endpoint's colour and alpha`);
             for (const [key, value] of beforeColors) {
                 if (key !== colorsKey)
                     assert(settings.get_value(key).equal(value), `${startTitle} leaves ${key} unchanged`);
@@ -91,6 +92,8 @@ try {
     assert(settings.get_value('colors').equal(originalMain) && settings.get_value('maximized-colors').equal(originalAlternate), 'Overview edits leave other gradients intact');
     settings.set_strv('overview-colors', []);
     assert(getConfig(settings).overviewColors.start === getConfig(settings).colors.start, 'Malformed colour pair falls back to main');
+    settings.set_strv('overview-colors', ['invalid', 'rgba(0,0,255,0.2)']);
+    assert(getConfig(settings).overviewColors.start === getConfig(settings).colors.start, 'Invalid overview colour falls back to main');
     settings.set_string('overview-gradient-direction', 'horizontal');
     const before = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
     const reset = find(page, widget => widget instanceof Gtk.Button && widget.tooltip_text === 'Reset overview appearance?');
