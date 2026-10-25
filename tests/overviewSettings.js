@@ -84,7 +84,7 @@ test('overview controls refresh external changes, preserve other gradients and r
     behavior.selected = 2;
     assert(getConfig(settings).overviewBehavior === 'apply-style' && direction.is_visible(), 'Custom selection enables the editor');
     direction.selected = 1;
-    assert(getConfig(settings).overviewGradientDirection === 'horizontal', 'Direction persists');
+    assert(getConfig(settings).gradients.overview.direction === 'horizontal', 'Direction persists');
     const originalMain = settings.get_value('colors');
     const originalAlternate = settings.get_value('maximized-colors');
     const changed = [];
@@ -96,12 +96,12 @@ test('overview controls refresh external changes, preserve other gradients and r
     assert(behavior.selected === 1 && direction.selected === 0 && !direction.is_visible(), 'External settings refresh controls');
     assert(changed.includes('overview-colors') && changed.includes('overview-gradient-direction') && changed.includes('overview-behavior'), 'All overview settings notify runtime');
     behavior.selected = 2;
-    assert(getConfig(settings).overviewColors.start === 'rgba(255,0,0,0.4)', 'Switching modes preserves saved colours and opacity');
+    assert(getConfig(settings).gradients.overview.colors.start === 'rgba(255,0,0,0.4)', 'Switching modes preserves saved colours and opacity');
     assert(settings.get_value('colors').equal(originalMain) && settings.get_value('maximized-colors').equal(originalAlternate), 'Overview edits leave other gradients intact');
     settings.set_strv('overview-colors', []);
-    assert(getConfig(settings).overviewColors.start === getConfig(settings).colors.start, 'Malformed colour pair falls back to main');
+    assert(getConfig(settings).gradients.overview.colors.start === getConfig(settings).gradients.main.colors.start, 'Malformed colour pair falls back to main');
     settings.set_strv('overview-colors', ['invalid', 'rgba(0,0,255,0.2)']);
-    assert(getConfig(settings).overviewColors.start === getConfig(settings).colors.start, 'Invalid overview colour falls back to main');
+    assert(getConfig(settings).gradients.overview.colors.start === getConfig(settings).gradients.main.colors.start, 'Invalid overview colour falls back to main');
 });
 
 test('overview reset requires confirmation and resets only its own appearance', t => {

@@ -166,12 +166,14 @@ export const createRendererFixture = async t => {
         get_boolean: () => false,
         connect: () => 1,
         disconnect() {},
-        maximizedBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false,
+        windowBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false,
         overviewBehavior: 'apply-style',
         // Rendering receives normalized config; overviewSettings.js exercises real settings normalization.
-        colors: { start: 'rgba(0,0,0,1)', end: 'rgba(0,0,0,0)' }, gradientDirection: 'vertical',
-        maximizedColors: { start: 'rgba(255,0,0,1)', end: 'rgba(0,0,255,1)' }, maximizedGradientDirection: 'horizontal',
-        overviewColors: { start: 'rgba(0,255,0,0.4)', end: 'rgba(255,255,255,1)' }, overviewGradientDirection: 'horizontal',
+        gradients: {
+            main: { colors: { start: 'rgba(0,0,0,1)', end: 'rgba(0,0,0,0)' }, direction: 'vertical' },
+            alternate: { colors: { start: 'rgba(255,0,0,1)', end: 'rgba(0,0,255,1)' }, direction: 'horizontal' },
+            overview: { colors: { start: 'rgba(0,255,0,0.4)', end: 'rgba(255,255,255,1)' }, direction: 'horizontal' }
+        },
         contentShadows: true, shadowColor: 'black', shadowBlur: 3, shadowOffsetX: 0, shadowOffsetY: 0
     };
 

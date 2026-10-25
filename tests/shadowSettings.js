@@ -217,7 +217,7 @@ test('content shadow reset confirms, cancels and restores every default', t => {
     confirmation.force_close();
     const config = getConfig(settings);
     assert(config.shadowOffsetX === 0 && config.shadowOffsetY === 0, 'Reset centres offsets');
-    assert(config.shadowBlur === 3 && config.shadowColor === 'rgba(0, 0, 0, 0.6)', 'Reset restores blur and colour including opacity');
+    assert(config.shadowBlur === 3 && config.shadowColor === 'rgba(0,0,0,0.6)', 'Reset restores blur and colour including opacity');
     assert(!config.contentShadows, 'Reset restores the disabled toggle default');
 });
 

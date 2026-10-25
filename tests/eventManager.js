@@ -43,23 +43,22 @@ test('workspace swipes refresh endpoints, retrace reversal and release completed
     events.configure(config);
     first.y = 42;
     let group = startSwipe(workspaceA, workspaceB, 0.5);
-    assert.equal(windowStates.at(-1).workspaceTransition, 'progress');
-    assert.equal(windowStates.at(-1).startEffectStrength, 0.75);
-    assert.equal(windowStates.at(-1).endEffectStrength, 1);
+    assert.equal(windowStates.at(-1).type, 'progress');
+    assert.equal(windowStates.at(-1).startStrength, 0.75);
+    assert.equal(windowStates.at(-1).endStrength, 1);
     let count = windowStates.length;
     first.y = 52;
     first.emit('position-changed');
     assert.equal(windowStates.length, count, 'Window changes do not overwrite an active swipe');
     group.progress = 0.25;
     group.emit('notify::progress');
-    assert.equal(windowStates.at(-1).transitionProgress, 0.25, 'A reversed swipe retraces progress');
-    assert.equal(windowStates.at(-1).startEffectStrength, 0.5, 'Swipe endpoints use fresh window state');
+    assert.equal(windowStates.at(-1).progress, 0.25, 'A reversed swipe retraces progress');
+    assert.equal(windowStates.at(-1).startStrength, 0.5, 'Swipe endpoints use fresh window state');
     state.activeWorkspace = workspaceB;
     workspaceManager.emit('workspace-switched');
     group.emit('destroy');
-    assert.equal(windowStates.at(-1).workspaceTransition, 'complete');
+    assert.equal(windowStates.at(-1).type, 'complete');
     assert.equal(windowStates.at(-1).effectStrength, 1);
-    assert.equal(windowStates.at(-1).currentWorkspace, workspaceB);
     assert.equal(group.handlers.size, 0, 'Completed swipe releases its connections');
     count = windowStates.length;
     second.emit('position-changed');
@@ -77,7 +76,7 @@ test('cancelled workspace swipes restore the active workspace', async t => {
     group.emit('notify::progress');
     group.emit('destroy');
     assert.equal(windowStates.at(-1).effectStrength, 1, 'Cancellation restores the still-active workspace');
-    assert.equal(windowStates.at(-1).workspaceTransition, 'complete');
+    assert.equal(windowStates.at(-1).type, 'complete');
 });
 
 test('overview interrupts swipes and forwards gesture progress', async t => {
@@ -113,16 +112,15 @@ test('reconfiguration preserves swipe connections and refreshes endpoint strengt
     const swipeSnapshot = events.configure(config);
     assert.equal(first.nextId, connections, 'No-op configuration keeps detector connections');
     assert.equal(group.handlers.size, 2, 'Reconfiguration preserves swipe listeners');
-    assert.equal(swipeSnapshot.window.transitionProgress, 0.5);
+    assert.equal(swipeSnapshot.workspaceTransition.progress, 0.5);
     const distanceSnapshot = events.configure({ ...config, proximityDistance: 80 });
     assert.equal(first.nextId, connections, 'Distance changes do not reconnect the detector');
-    assert.equal(distanceSnapshot.window.endEffectStrength, 0.75, 'Distance changes refresh swipe endpoints');
+    assert.equal(distanceSnapshot.workspaceTransition.endStrength, 0.75, 'Distance changes refresh swipe endpoints');
     events.configure(config);
     state.activeWorkspace = workspaceA;
     workspaceManager.emit('workspace-switched');
     group.emit('destroy');
-    assert.equal(windowStates.at(-1).currentWorkspace, workspaceA, 'Keyboard switching refreshes the workspace');
-    assert.equal(windowStates.at(-1).effectStrength, 0.5);
+    assert.equal(windowStates.at(-1).effectStrength, 0.5, 'Keyboard switching refreshes the workspace');
 });
 
 test('disabling window interaction releases vanished windows and leaves overview active', async t => {
@@ -136,7 +134,7 @@ test('disabling window interaction releases vanished windows and leaves overview
     shell.display.emit('window-created', vanished);
     assert(vanished.handlers.size > 0);
     state.windows = [first, second];
-    const disabled = events.configure({ ...config, maximizedBehavior: 'keep-gradient' });
+    const disabled = events.configure({ ...config, windowBehavior: 'keep-gradient' });
     for (const target of [vanished, first, second, swipeTracker, workspaceManager, screenShield, layoutManager])
         assert.equal(target.handlers.size, 0, 'Disabling window interaction releases its owned signals');
     assert.equal(disabled.window.effectStrength, 0, 'Overview works independently of window tracking');
@@ -204,7 +202,7 @@ test('workspace switching still works without private swipe APIs', async t => {
     events.configure(config);
     state.activeWorkspace = workspaceB;
     workspaceManager.emit('workspace-switched');
-    assert.equal(windowStates.at(-1).currentWorkspace, workspaceB, 'Workspace switching works without private swipe APIs');
+    assert.equal(windowStates.at(-1).effectStrength, 1, 'Workspace switching works without private swipe APIs');
     events.destroy();
 });
 

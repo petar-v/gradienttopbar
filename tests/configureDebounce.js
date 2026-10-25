@@ -92,7 +92,7 @@ test('scoped settings subscriptions detach independently and runtime subscriptio
     };
     const config = configModule.namespace;
     t.after(() => config.detachSettingsListeners(scopedSettings, [...subscriptions.keys()]));
-    const ids = config.attachSettingsListeners(scopedSettings, state.onChange, [config.COLORS, config.MAXIMIZED_BEHAVIOR]);
+    const ids = config.attachSettingsListeners(scopedSettings, state.onChange, [config.COLORS, config.WINDOW_BEHAVIOR_KEY]);
     assert.deepEqual([...subscriptions.values()].map(({ signal }) => signal), ['changed::colors', 'changed::maximized-behavior']);
     config.detachSettingsListeners(scopedSettings, ids);
     assert.equal(subscriptions.size, 0, 'Scoped subscriptions release their owned handlers');

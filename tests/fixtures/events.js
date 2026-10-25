@@ -99,11 +99,13 @@ export const createEventsFixture = async t => {
         first, second, workspaceA, workspaceB, state, shell, workspaceManager, swipeTracker,
         controller, overview, adjustment, screenShield, layoutManager, windowStates, overviewStates,
         EventManager, WindowEvents, SignalTarget, Window, startSwipe,
-        config: { styleTrigger: 'proximity', maximizedBehavior: 'apply-style', proximityDistance: 40 },
-        createEvents: () => track(new EventManager(
-            snapshot => windowStates.push(snapshot),
-            (snapshot, strength) => overviewStates.push({ ...snapshot, strength })
-        ), 'destroy'),
+        config: { styleTrigger: 'proximity', windowBehavior: 'apply-style', proximityDistance: 40 },
+        createEvents: () => track(new EventManager({
+            onWindowChanged: snapshot => windowStates.push(snapshot),
+            onWorkspaceProgress: snapshot => windowStates.push({ ...snapshot, type: 'progress' }),
+            onWorkspaceCompleted: snapshot => windowStates.push({ ...snapshot, type: 'complete' }),
+            onOverviewChanged: snapshot => overviewStates.push(snapshot)
+        }), 'destroy'),
         createObserver: (targetDisplay, manager, workspaces) => track(new WindowEvents(targetDisplay, manager, workspaces), 'disable'),
         createConnections: () => track(new SignalConnections(), 'disconnectAll')
     };

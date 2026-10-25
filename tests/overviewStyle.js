@@ -4,23 +4,23 @@ import { test } from 'node:test';
 import { createRendererFixture } from './fixtures/renderer.js';
 
 const overviewUpdate = renderer => (progress, target = true, hidden = false, strength = 0) =>
-    renderer.updateOverview({ progress, target, hidden }, strength);
+    renderer.updateOverview({ progress, target, hidden, effectStrength: strength });
 
 test('renderer fixtures isolate settings, actors, timelines and stylesheet caches', async t => {
     const fixture = await createRendererFixture(t);
     const otherFixture = await createRendererFixture(t);
     const renderer = fixture.createRenderer();
     const otherRenderer = otherFixture.createRenderer();
-    renderer.configure(fixture.settings);
-    otherRenderer.configure(otherFixture.settings);
+    renderer.configure(fixture.settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
+    otherRenderer.configure(otherFixture.settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     assert.equal(fixture.state.writes, 1);
     assert.equal(otherFixture.state.writes, 1, 'Each module graph owns its stylesheet cache');
-    assert.notEqual(fixture.settings.colors, otherFixture.settings.colors);
-    fixture.settings.colors.start = 'rgba(255,255,0,1)';
-    assert.equal(otherFixture.settings.colors.start, 'rgba(0,0,0,1)');
+    assert.notEqual(fixture.settings.gradients.main.colors, otherFixture.settings.gradients.main.colors);
+    fixture.settings.gradients.main.colors.start = 'rgba(255,255,0,1)';
+    assert.equal(otherFixture.settings.gradients.main.colors.start, 'rgba(0,0,0,1)');
     fixture.state.animationsEnabled = true;
-    Object.assign(fixture.settings, { maximizedBehavior: 'apply-style' });
-    renderer.configure(fixture.settings);
+    Object.assign(fixture.settings, { windowBehavior: 'apply-style' });
+    renderer.configure(fixture.settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     renderer.updateWindow({ effectStrength: 1 });
     assert.equal(fixture.timelines.size, 1);
     assert.equal(otherFixture.timelines.size, 0);
@@ -29,12 +29,12 @@ test('renderer fixtures isolate settings, actors, timelines and stylesheet cache
     assert.equal(fixture.allocations.size, 1);
     assert.equal(otherFixture.allocations.size, 0);
     const before = otherFixture.state.writes;
-    renderer.configure({ ...fixture.settings, shadowBlur: 9 });
+    renderer.configure({ ...fixture.settings, shadowBlur: 9 }, { window: { effectStrength: 1 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     assert.equal(otherFixture.state.writes, before);
     assert.equal(otherFixture.settings.shadowBlur, 3);
     renderer.destroy();
     assert.equal(otherFixture.classes.has('panel-gradient'), true, 'Destroying one fixture cannot clear another panel');
-    otherRenderer.configure(otherFixture.settings);
+    otherRenderer.configure(otherFixture.settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     assert.equal(otherFixture.state.writes, before, 'Destroying another fixture cannot invalidate this stylesheet cache');
 });
 
@@ -61,7 +61,7 @@ for (const behavior of ['keep-gradient', 'keep-theme', 'apply-style']) {
             extension.enable();
             showOverview(true);
             settings.overviewBehavior = behavior;
-            settings.maximizedBehavior = windowBehavior;
+            settings.windowBehavior = windowBehavior;
             state.strength = 1;
             extension.configure(settings);
             const expected = { 'keep-gradient': 'panel-gradient', 'keep-theme': null, 'apply-style': 'panel-overview-gradient' }[behavior];
@@ -83,7 +83,7 @@ for (const behavior of ['keep-gradient', 'keep-theme', 'apply-style']) {
 test('overview exit refreshes proximity and disable/re-enable releases observers', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, handlers, expectStyle, showOverview } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true });
     const extension = fixture.createExtension();
     extension.enable();
     showOverview(true);
@@ -126,7 +126,7 @@ test('configuration preserves gesture actors and settles disabled gesture blendi
     extension.configure(settings);
     assert([...children].every((actor, index) => actor === configuredLayers[index]), 'Shadow changes retain gesture actors');
     assert.equal([...children][1].opacity, 102, 'Shadow changes retain gesture progress');
-    settings.maximizedBehavior = 'apply-style';
+    settings.windowBehavior = 'apply-style';
     state.strength = 0.6;
     extension.configure(settings);
     assert.equal([...children][1].opacity, 102, 'Mixed behavior and appearance changes retain overview progress');
@@ -178,9 +178,9 @@ test('background snapshots preserve custom panel classes, pseudo-classes and inl
 test('overview gestures reuse endpoints, retrace reversal and clean up cancellation', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, children, allocations, expectStyle } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     const renderer = fixture.createRenderer();
-    renderer.configure(settings);
+    renderer.configure(settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     const update = overviewUpdate(renderer);
     update(0, false, true);
     update(0.25);
@@ -205,9 +205,9 @@ test('overview gestures reuse endpoints, retrace reversal and clean up cancellat
 test('overview exit refreshes endpoints and reduced motion commits the destination', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, children, classes, allocations, expectStyle } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     const renderer = fixture.createRenderer();
-    renderer.configure(settings);
+    renderer.configure(settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     const update = overviewUpdate(renderer);
     update(1);
     const completedLayers = [...children];
@@ -216,14 +216,14 @@ test('overview exit refreshes endpoints and reduced motion commits the destinati
     assert.notEqual([...children][0], completedLayers[0], 'Exit replaces the stale desktop endpoint');
     assert.match([...children][0].get_style_class_name(), /panel-maximized-gradient/,
         'Exit resolves the endpoint for the current desktop');
-    renderer.configure({ ...settings, overviewBehavior: 'keep-theme' });
+    renderer.configure({ ...settings, overviewBehavior: 'keep-theme' }, { window: { effectStrength: 1 }, workspaceTransition: null, overview: { progress: 0.5, hidden: false, target: false } });
     assert.equal(children.size, 2, 'Endpoint changes preserve an active gesture');
     assert.equal([...children][1].opacity, 128, 'Endpoint changes preserve gesture progress');
     assert.equal(allocations.size, 1);
     assert(!classes.has('panel-overview-gradient'), 'Endpoint changes update the panel content styling too');
     update(0.5);
     assert.equal([...children][0].opacity, Math.round(0.5 / (1 - 0.5 * 0.6) * 255), 'Native theme alpha participates in correction');
-    renderer.configure({ ...settings, overviewBehavior: 'keep-theme', overviewTransition: false });
+    renderer.configure({ ...settings, overviewBehavior: 'keep-theme', overviewTransition: false }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0.5, hidden: false, target: true } });
     assert.equal(children.size, 0, 'Reduced motion commits a disabled gesture blend immediately');
     expectStyle(null);
     renderer.destroy();
@@ -235,10 +235,10 @@ test('overview exit refreshes endpoints and reduced motion commits the destinati
 test('overview captures partial proximity and refreshes nested alpha and allocation', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, panel, children, allocations } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     const renderer = fixture.createRenderer();
     const update = overviewUpdate(renderer);
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style' });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style' }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     update(0, false, true);
     renderer.updateWindow({ effectStrength: 0.4 });
     const partialDesktop = [...children];
@@ -249,9 +249,9 @@ test('overview captures partial proximity and refreshes nested alpha and allocat
     assert.equal(source.get_children()[1].opacity, 102, 'Overview preserves the partial desktop composition');
     const nestedLayers = source.get_children();
     renderer.configure({
-        ...settings, maximizedBehavior: 'apply-style',
-        maximizedColors: { start: 'rgba(255,0,0,0.5)', end: 'rgba(0,0,255,0.5)' }
-    });
+        ...settings, windowBehavior: 'apply-style',
+        gradients: { ...settings.gradients, alternate: { ...settings.gradients.alternate, colors: { start: 'rgba(255,0,0,0.5)', end: 'rgba(0,0,255,0.5)' } } }
+    }, { window: { effectStrength: 0.4 }, workspaceTransition: null, overview: { progress: 0.5, hidden: false, target: true } });
     assert.equal([...children][0], source, 'Alpha changes retain a composed source actor');
     assert.equal(nestedLayers[0].opacity, Math.round(0.6 / (1 - 0.4 * 0.5) * 255),
         'Alpha changes refresh opacity correction inside the captured desktop blend');
@@ -270,10 +270,10 @@ test('overview captures partial proximity and refreshes nested alpha and allocat
 test('paused captures refresh native theme alpha without traversing on gesture frames', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, styleHandlers } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     const renderer = fixture.createRenderer();
     const update = overviewUpdate(renderer);
-    renderer.configure({ ...settings, maximizedBehavior: 'keep-theme' });
+    renderer.configure({ ...settings, windowBehavior: 'keep-theme' }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     renderer.updateWindow({ effectStrength: 0.4 });
     update(0.5);
     const pausedActors = [...children];
@@ -296,26 +296,25 @@ test('paused captures refresh native theme alpha without traversing on gesture f
 test('workspace swipes apply directly and overview interruption restores current windows', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, timelines, expectStyle } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     const renderer = fixture.createRenderer();
     const update = overviewUpdate(renderer);
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style' });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style' }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     const swipeState = {
-        effectStrength: 0, workspaceTransition: 'progress',
-        startEffectStrength: 0, endEffectStrength: 1, transitionProgress: 0.25
+        startStrength: 0, endStrength: 1, progress: 0.25
     };
     state.animationsEnabled = true;
-    renderer.updateWindow(swipeState);
+    renderer.updateWorkspaceProgress(swipeState);
     assert.equal([...children][1].opacity, 64);
     assert.equal(timelines.size, 0, 'Workspace progress is applied directly without a timed animation');
     const swipeLayers = [...children];
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style', shadowBlur: 8 });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style', shadowBlur: 8 }, { window: { effectStrength: 0 }, workspaceTransition: swipeState, overview: { progress: 0, hidden: true, target: false } });
     assert([...children].every((actor, index) => actor === swipeLayers[index]), 'Workspace settings updates retain actors');
     assert.equal([...children][1].opacity, 64, 'Workspace settings updates retain the gesture position');
     update(0, false, true);
     expectStyle('panel-gradient');
     assert.equal(children.size, 0, 'Restoration uses current window strength rather than workspace gesture progress');
-    renderer.updateWindow(swipeState);
+    renderer.updateWorkspaceProgress(swipeState);
     update(0.5, true, false, 1);
     update(0, false, true, 1);
     expectStyle('panel-maximized-gradient');
@@ -326,11 +325,11 @@ test('workspace swipes apply directly and overview interruption restores current
 test('initial overview state and repeated targets retain progress and restore latest strength', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, timelines } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     state.animationsEnabled = true;
     const renderer = fixture.createRenderer();
     const update = overviewUpdate(renderer);
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style' }, {
+    renderer.configure({ ...settings, windowBehavior: 'apply-style' }, {
         window: { effectStrength: 0.4 }, overview: { progress: 0.25, hidden: false, target: true }
     });
     const initialOverviewLayers = [...children];
@@ -359,23 +358,23 @@ test('initial overview state and repeated targets retain progress and restore la
 test('timed desktop transitions retain actors, retarget and stop on destroy', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, timelines, allocations, expectStyle } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     state.animationsEnabled = true;
     const renderer = fixture.createRenderer();
     const update = overviewUpdate(renderer);
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style' });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style' }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     update(0, false, true);
     renderer.updateWindow({ effectStrength: 1 });
     assert.equal(timelines.size, 1, 'Window changes start a timed transition');
     const interrupted = [...timelines][0];
     interrupted.advance(0.5);
     const animatedLayers = [...children];
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style', shadowBlur: 9 });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style', shadowBlur: 9 }, { window: { effectStrength: 1 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     assert([...children].every((actor, index) => actor === animatedLayers[index]), 'Appearance changes retain animated actors');
     assert(timelines.has(interrupted), 'Appearance changes retain the running timeline');
     assert.equal([...children][1].opacity, 128, 'Appearance changes preserve timed progress');
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style', proximityDistance: 80 }, {
-        window: { effectStrength: 0.25 }, overview: { progress: 0, hidden: true, target: false }
+    renderer.configure({ ...settings, windowBehavior: 'apply-style', proximityDistance: 80 }, {
+        window: { effectStrength: 0.25 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false }
     });
     assert(!timelines.has(interrupted), 'A changed destination retargets the previous animation');
     assert.equal([...children][1].opacity, 128, 'Retargeting starts at the current visual progress');
@@ -398,17 +397,17 @@ test('timed desktop transitions retain actors, retarget and stop on destroy', as
 test('inactive distance edits preserve a captured desktop animation', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, timelines } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     state.animationsEnabled = true;
     const renderer = fixture.createRenderer();
     const update = overviewUpdate(renderer);
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style', styleTrigger: 'maximized' });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style', styleTrigger: 'maximized' }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     renderer.updateWindow({ effectStrength: 1 });
     [...timelines][0].advance(0.5);
     update(0.4, true, false, 1);
     const capturedSource = [...children][0];
     const beforeInactiveEdit = state.writes;
-    renderer.configure({ ...settings, maximizedBehavior: 'apply-style', styleTrigger: 'maximized', proximityDistance: 123 });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style', styleTrigger: 'maximized', proximityDistance: 123 }, { window: { effectStrength: 1 }, workspaceTransition: null, overview: { progress: 0.4, hidden: false, target: true } });
     assert.equal([...children][0], capturedSource, 'An inactive distance setting does not replace a captured desktop blend');
     assert.equal(state.writes, beforeInactiveEdit, 'Behavior changes with identical CSS do not reload it');
     renderer.destroy();
@@ -417,10 +416,10 @@ test('inactive distance edits preserve a captured desktop animation', async t =>
 test('composed blends retain equivalent endpoints and release replaced actors and listeners', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, timelines, allocations, styleHandlers } = fixture;
-    Object.assign(settings, { maximizedBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
+    Object.assign(settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true, overviewTransition: true });
     state.animationsEnabled = true;
     const renderer = fixture.createRenderer();
-    renderer.configure(settings);
+    renderer.configure(settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     const mainStyle = { gradientClass: 'panel-gradient' };
     const alternateStyle = { gradientClass: 'panel-maximized-gradient' };
     const overviewStyle = { gradientClass: 'panel-overview-gradient', inOverview: true };
@@ -486,10 +485,10 @@ test('failed stylesheet loads remain retryable on identical configuration', asyn
     const renderer = fixture.createRenderer();
     const loadStylesheet = theme.load_stylesheet;
     theme.load_stylesheet = () => { throw new Error('Theme load failed'); };
-    assert.throws(() => renderer.configure(settings), /Theme load failed/);
+    assert.throws(() => renderer.configure(settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } }), /Theme load failed/);
     const failedWrites = state.writes;
     theme.load_stylesheet = loadStylesheet;
-    renderer.configure(settings);
+    renderer.configure(settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, hidden: true, target: false } });
     assert.equal(state.writes, failedWrites + 1, 'A failed load is retried on identical configuration');
     renderer.destroy();
 });
