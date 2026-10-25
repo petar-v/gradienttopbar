@@ -1,5 +1,6 @@
 // Run with: node tests/appearance.js
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { APPEARANCE_STATE, getAppearance } from '../src/gradient/appearance.js';
 
 const config = {
@@ -20,10 +21,11 @@ for (const [windowBehavior, triggered] of [
     for (const [overviewBehavior, selectedOverview] of [
         ['keep-gradient', main], ['keep-theme', null], ['apply-style', overview]
     ]) {
-        const settings = { ...config, maximizedBehavior: windowBehavior, overviewBehavior };
-        assert.deepEqual(getAppearance(settings, APPEARANCE_STATE.NORMAL), main);
-        assert.deepEqual(getAppearance(settings, APPEARANCE_STATE.TRIGGERED), triggered);
-        assert.deepEqual(getAppearance(settings, APPEARANCE_STATE.OVERVIEW), selectedOverview);
+        test(`window ${windowBehavior}, overview ${overviewBehavior}`, () => {
+            const settings = { ...config, maximizedBehavior: windowBehavior, overviewBehavior };
+            assert.deepEqual(getAppearance(settings, APPEARANCE_STATE.NORMAL), main);
+            assert.deepEqual(getAppearance(settings, APPEARANCE_STATE.TRIGGERED), triggered);
+            assert.deepEqual(getAppearance(settings, APPEARANCE_STATE.OVERVIEW), selectedOverview);
+        });
     }
 }
-console.log('Appearance selection passed for all window and overview behavior combinations');
