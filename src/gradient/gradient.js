@@ -9,7 +9,7 @@ const getWindowBlendProgress = (config, strength) => {
         return 0;
 
     const progressive = config.styleTrigger === STYLE_TRIGGER.PROXIMITY &&
-        config.proximityTransition && config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
+        config.proximityTransition;
     return progressive ? strength : Number(strength > 0);
 };
 

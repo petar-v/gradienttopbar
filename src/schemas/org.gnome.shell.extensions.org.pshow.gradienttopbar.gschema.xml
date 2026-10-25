@@ -56,8 +56,8 @@
     </key>
     <key name="proximity-transition" type="b">
       <default>true</default>
-      <summary>Transition the alternate style based on proximity</summary>
-      <description>Gradually blend the alternate style as a window approaches the panel.</description>
+      <summary>Transition the selected appearance based on proximity</summary>
+      <description>Gradually blend into the alternate gradient or original theme as a window approaches the panel.</description>
     </key>
     <key name="maximized-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
       <default>'apply-style'</default>

@@ -155,7 +155,7 @@ class Behavior extends Adw.PreferencesPage {
 
         const proximityTransitionRow = new Adw.SwitchRow({
             title: gettext('Transition proximity style'),
-            subtitle: gettext('Blend the alternate style as windows approach the panel'),
+            subtitle: gettext('Blend into the selected appearance as windows approach the panel'),
             active: getProximityTransition(this._settings)
         });
 
@@ -178,10 +178,7 @@ class Behavior extends Adw.PreferencesPage {
             disabledGroup.set_visible(!enabled);
             const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
             proximityDistanceRow.set_sensitive(usesProximity);
-            proximityTransitionRow.set_sensitive(
-                usesProximity &&
-                getMaximizedBehavior(this._settings) === MAXIMIZED_BEHAVIOR.APPLY_STYLE
-            );
+            proximityTransitionRow.set_sensitive(usesProximity);
         };
 
         // Connect to changes
