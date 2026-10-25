@@ -1,5 +1,6 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
+import { resetSettings } from '../../config.js';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -19,8 +20,7 @@ export const createResetButton = (window, heading, body, settings, keys, onReset
         confirmation.set_close_response('cancel');
         confirmation.connect('response', (_dialog, response) => {
             if (response === 'reset') {
-                for (const key of keys)
-                    settings.reset(key);
+                resetSettings(settings, keys);
                 onReset?.();
             }
         });

@@ -1,12 +1,18 @@
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
+import { drawCheckerboard } from './checkerboard.js';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-export const OFFSET_LIMIT = 6;
+const coordinateToOffset = (coordinate, size, [min, max]) => {
+    const offset = Math.round(min + coordinate / size * (max - min));
+    return Math.max(min, Math.min(max, offset));
+};
 
-export const createOffsetPicker = (getOffsets, getColor, setOffsets) => {
-    const limit = OFFSET_LIMIT;
+const offsetToCoordinate = (offset, size, [min, max]) =>
+    (offset - min) / (max - min) * size;
+
+export const createOffsetPicker = (getOffsets, getColor, setOffsets, ranges) => {
     const padding = 1;
     const pad = new Gtk.DrawingArea({
         content_width: 180,
@@ -24,22 +30,17 @@ export const createOffsetPicker = (getOffsets, getColor, setOffsets) => {
         const { size, left, top } = geometry();
         if (size <= 0)
             return;
-        setOffsets(...[x - left, y - top].map(coordinate =>
-            Math.max(-limit, Math.min(limit, Math.round(coordinate / size * limit * 2 - limit)))));
+        setOffsets(
+            coordinateToOffset(x - left, size, ranges[0]),
+            coordinateToOffset(y - top, size, ranges[1])
+        );
     };
     pad.set_draw_func((_area, cr, width, height) => {
         const { size, left, top } = geometry();
         cr.save();
         cr.rectangle(left, top, size, size);
         cr.clip();
-        for (let y = 0; y < size; y += 10) {
-            for (let x = 0; x < size; x += 10) {
-                const shade = (x / 10 + y / 10) % 2 ? 0.72 : 0.9;
-                cr.setSourceRGB(shade, shade, shade);
-                cr.rectangle(left + x, top + y, 10, 10);
-                cr.fill();
-            }
-        }
+        drawCheckerboard(cr, left, top, size, size, 10);
         const rgba = new Gdk.RGBA();
         rgba.parse(getColor());
         cr.setSourceRGBA(rgba.red, rgba.green, rgba.blue, rgba.alpha);
@@ -57,8 +58,11 @@ export const createOffsetPicker = (getOffsets, getColor, setOffsets) => {
         cr.stroke();
         const [x, y] = getOffsets();
         cr.setSourceRGB(1, 1, 1);
-        cr.arc(left + (x + limit) / (limit * 2) * size,
-            top + (y + limit) / (limit * 2) * size, 6, 0, Math.PI * 2);
+        cr.arc(
+            left + offsetToCoordinate(x, size, ranges[0]),
+            top + offsetToCoordinate(y, size, ranges[1]),
+            6, 0, Math.PI * 2
+        );
         cr.fillPreserve();
         cr.setSourceRGB(0, 0, 0);
         cr.stroke();

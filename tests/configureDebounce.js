@@ -24,30 +24,27 @@ const GLib = {
         return nextId;
     }
 };
-class WindowEvents {
-    setStateChangeCallback() {}
-    disable() {}
-}
 const exports = {
     Extension: class {},
     applyGradientStyle() {},
-    applyOverviewStyle() {},
-    fadeGradientTransition() {},
+    updateOverviewTransition() {},
+    endOverviewTransition() {},
     overview: { connect() { return 1; }, disconnect() {} },
     unloadGradientStylesheet() {},
     getConfig() {},
     TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
+    getTopBarStyleSettings: settings => settings.get_boolean('top-bar-style-settings'),
+    attachSettingListener: (settings, key, callback) => settings.connect(`changed::${key}`, callback),
     attachSettingsListeners(_settings, callback) { onChange = callback; return []; },
-    detachSettingsListeners() {},
+    detachSettingsListeners(settings, ids) { ids.forEach(id => settings.disconnect(id)); },
     MAXIMIZED_BEHAVIOR: {},
     STYLE_TRIGGER: {}
 };
 const source = new SourceTextModule(await readFile(new URL('../src/extension.js', import.meta.url), 'utf8'));
 await source.link(specifier => {
     const values = specifier === 'gi://GLib' ? { default: GLib }
-        : specifier.endsWith('/windowEvents.js') ? { default: WindowEvents }
-            : specifier.endsWith('/topBarMenu.js') ? { default: TopBarMenu }
-            : { ...exports, default: class {} };
+        : specifier.endsWith('/topBarMenu.js') ? { default: TopBarMenu }
+            : { ...exports, default: class { destroy() {} } };
     return new SyntheticModule(Object.keys(values), function () {
         for (const [key, value] of Object.entries(values))
             this.setExport(key, value);

@@ -192,5 +192,17 @@ export default [
             'no-console': 'off',
             'no-underscore-dangle': 'off'
         }
+    },
+    {
+        files: ['src/**/*.js'],
+        ignores: ['src/events/**'],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [{
+                    regex: '(^|/)events/(?!eventManager\\.js$)',
+                    message: 'Import EventManager; event observers and signal connections are internal.'
+                }]
+            }]
+        }
     }
 ];

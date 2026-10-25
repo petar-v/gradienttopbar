@@ -19,6 +19,11 @@ If you use a tiling extension, switching the style trigger from **Maximized wind
 
 In **Gradients → Overview**, choose the top bar style for overview and the application grid. **Keep main gradient** preserves the default behavior. **Use original theme** restores the active Shell theme, and **Use custom gradient** provides independent colours, opacity and direction. Overview styling takes priority over window interaction; closing overview restores the style for the current workspace. Switching options retains your custom gradient. The **Content Shadows** tab controls text and icon shadows for all gradients, including overview. Shadows do not apply to the original theme.
 
+**Blend with overview gestures** is off by default and independent of proximity blending. When enabled, CSS background opacity follows gesture progress, including the original theme. The theme background fades along with the gradients, so translucent gradients keep their appearance at both endpoints.
+
+## Recommended companion: Overview Seamless Zoom
+
+I recommend [Overview Seamless Zoom](https://extensions.gnome.org/extension/10794/overview-seamless-zoom/) for smoother wallpaper movement when entering and leaving overview. GNOME normally animates only the work area, excluding the desktop behind panels that reserve screen space. This can make strips of wallpaper abruptly disappear or reappear, especially with a transparent top bar. Overview Seamless Zoom includes those areas in the animation and works well alongside Gradient Top Bar.
 
 ## Screenshot
 ![gradient-bar-after](https://user-images.githubusercontent.com/3801306/236593253-bce6342f-67d4-4e68-9c1e-85db33074dfe.png)

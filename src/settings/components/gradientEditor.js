@@ -4,6 +4,7 @@ import Cairo from 'cairo';
 
 import { GRADIENT_DIRECTION } from '../../constants.js';
 import { createColorDialog } from './colorDialog.js';
+import { drawCheckerboard } from './checkerboard.js';
 
 export const createGradientPreview = getGradient => {
     const preview = new Gtk.DrawingArea({
@@ -21,14 +22,7 @@ export const createGradientPreview = getGradient => {
         cr.closePath();
         cr.clip();
 
-        for (let y = 0; y < height; y += 10) {
-            for (let x = 0; x < width; x += 10) {
-                const shade = (x / 10 + y / 10) % 2 ? 0.72 : 0.9;
-                cr.setSourceRGB(shade, shade, shade);
-                cr.rectangle(x, y, 10, 10);
-                cr.fill();
-            }
-        }
+        drawCheckerboard(cr, 0, 0, width, height, 10);
 
         const selected = getGradient();
         if (!selected)

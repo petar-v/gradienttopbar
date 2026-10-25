@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import { DEFAULT_PROXIMITY_DISTANCE } from './constants.js';
+import { normalizeColor } from './colors.js';
 
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 
@@ -26,8 +26,22 @@ export const SHADOW_OFFSET_X = 'shadow-offset-x';
 export const SHADOW_OFFSET_Y = 'shadow-offset-y';
 export const MAXIMIZED_COLORS = 'maximized-colors';
 export const OVERVIEW_BEHAVIOR = 'overview-behavior';
+export const OVERVIEW_TRANSITION = 'overview-transition';
 export const OVERVIEW_COLORS = 'overview-colors';
 export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
+
+const readGradient = (settings, colorsKey, directionKey, fallback = null) => {
+    let colors = settings.get_strv(colorsKey).map(normalizeColor);
+    if (colors.length !== 2 || colors.includes(null)) {
+        if (fallback)
+            return fallback;
+        colors = settings.settings_schema.get_key(colorsKey).get_default_value().deep_unpack().map(normalizeColor);
+    }
+    return {
+        colors: { start: colors[0], end: colors[1] },
+        direction: settings.get_string(directionKey)
+    };
+};
 
 /**
  * Gets the complete configuration object from settings
@@ -36,17 +50,14 @@ export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
  * @returns {Object} The complete configuration object
  */
 export const getConfig = settings => {
-    const maximizedBehavior = settings.get_string(MAXIMIZED_BEHAVIOR);
-    const styleTrigger = settings.get_string(STYLE_TRIGGER);
-    const proximityDistance = settings.get_int(PROXIMITY_DISTANCE);
-    const proximityTransition = settings.get_boolean(PROXIMITY_TRANSITION);
+    const maximizedBehavior = getMaximizedBehavior(settings);
+    const styleTrigger = getStyleTrigger(settings);
+    const proximityDistance = getProximityDistance(settings);
+    const proximityTransition = getProximityTransition(settings);
     const contentShadows = settings.get_boolean(CONTENT_SHADOWS);
-    const colors = settings.get_value(COLORS).deep_unpack();
-    const gradientDirection = settings.get_string(GRADIENT_DIRECTION);
-    const maximizedColors = settings.get_value(MAXIMIZED_COLORS).deep_unpack();
-    const maximizedGradientDirection = settings.get_string(MAXIMIZED_GRADIENT_DIRECTION);
-    const overviewColors = settings.get_strv(OVERVIEW_COLORS);
-    const validOverviewPair = overviewColors.length === 2;
+    const main = readGradient(settings, COLORS, GRADIENT_DIRECTION);
+    const maximized = readGradient(settings, MAXIMIZED_COLORS, MAXIMIZED_GRADIENT_DIRECTION);
+    const overview = readGradient(settings, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION, main);
 
     return {
         maximizedBehavior,
@@ -54,27 +65,18 @@ export const getConfig = settings => {
         proximityDistance,
         proximityTransition,
         contentShadows,
-        shadowColor: settings.get_string(SHADOW_COLOR),
+        shadowColor: getShadowColor(settings),
         shadowBlur: settings.get_int(SHADOW_BLUR),
         shadowOffsetX: settings.get_int(SHADOW_OFFSET_X),
         shadowOffsetY: settings.get_int(SHADOW_OFFSET_Y),
-        gradientDirection,
-        colors: {
-            start: colors[0],
-            end: colors[1]
-        },
-        maximizedGradientDirection,
+        gradientDirection: main.direction,
+        colors: main.colors,
+        maximizedGradientDirection: maximized.direction,
         overviewBehavior: settings.get_string(OVERVIEW_BEHAVIOR),
-        overviewGradientDirection: validOverviewPair
-            ? settings.get_string(OVERVIEW_GRADIENT_DIRECTION) : gradientDirection,
-        overviewColors: {
-            start: validOverviewPair ? overviewColors[0] : colors[0],
-            end: validOverviewPair ? overviewColors[1] : colors[1]
-        },
-        maximizedColors: {
-            start: maximizedColors[0],
-            end: maximizedColors[1]
-        }
+        overviewTransition: settings.get_boolean(OVERVIEW_TRANSITION),
+        overviewGradientDirection: overview.direction,
+        overviewColors: overview.colors,
+        maximizedColors: maximized.colors
     };
 };
 
@@ -105,7 +107,7 @@ export const setStyleTrigger = (settings, value) => {
 };
 
 export const getProximityDistance = settings =>
-    settings?.get_int(PROXIMITY_DISTANCE) ?? DEFAULT_PROXIMITY_DISTANCE;
+    settings.get_int(PROXIMITY_DISTANCE);
 
 export const setProximityDistance = (settings, value) => {
     settings.set_int(PROXIMITY_DISTANCE, value);
@@ -118,87 +120,57 @@ export const setProximityTransition = (settings, value) => {
     settings.set_boolean(PROXIMITY_TRANSITION, value);
 };
 
-/**
- * Gets the gradient direction setting
- *
- * @param {Gio.Settings} settings - The settings object
- * @returns {string} The gradient direction value
- */
-export const getGradientDirection = settings => {
-    return settings.get_string(GRADIENT_DIRECTION);
-};
 
 /**
  * Sets the gradient direction setting
  *
  * @param {Gio.Settings} settings - The settings object
+ * @param {string} key - The gradient direction settings key
  * @param {string} value - The gradient direction value to set
  */
-export const setGradientDirection = (settings, value) => {
-    settings.set_string(GRADIENT_DIRECTION, value);
-};
-
-/**
- * Gets the maximized gradient direction setting
- *
- * @param {Gio.Settings} settings - The settings object
- * @returns {string} The maximized gradient direction value
- */
-export const getMaximizedGradientDirection = settings => {
-    return settings.get_string(MAXIMIZED_GRADIENT_DIRECTION);
-};
-
-/**
- * Sets the maximized gradient direction setting
- *
- * @param {Gio.Settings} settings - The settings object
- * @param {string} value - The maximized gradient direction value to set
- */
-export const setMaximizedGradientDirection = (settings, value) => {
-    settings.set_string(MAXIMIZED_GRADIENT_DIRECTION, value);
-};
-
-/**
- * Gets the colors setting
- *
- * @param {Gio.Settings} settings - The settings object
- * @returns {Array} Array containing start and end color values
- */
-export const getColors = settings => {
-    return settings.get_value(COLORS).deep_unpack();
+export const setGradientDirection = (settings, key, value) => {
+    settings.set_string(key, value);
 };
 
 /**
  * Sets the colors for the gradient
  *
  * @param {Gio.Settings} settings - The settings object
- * @param {string} startRgba - The start color in RGBA format
- * @param {string} endRgba - The end color in RGBA format
+ * @param {string} key - The gradient colors settings key
+ * @param {{start: string, end: string}} colors - The start and end colors in RGBA format
  */
-export const saveColors = (settings, startRgba, endRgba) => {
-    settings.set_strv(COLORS, [startRgba, endRgba]);
+export const saveGradientColors = (settings, key, colors) => {
+    settings.set_strv(key, [colors.start, colors.end]);
 };
 
-/**
- * Gets the maximized colors setting
- *
- * @param {Gio.Settings} settings - The settings object
- * @returns {Array} Array containing start and end maximized color values
- */
-export const getMaximizedColors = settings => {
-    return settings.get_value(MAXIMIZED_COLORS).deep_unpack();
+export const getTopBarStyleSettings = settings => settings.get_boolean(TOP_BAR_STYLE_SETTINGS);
+
+export const getShadowColor = settings => settings.get_string(SHADOW_COLOR);
+
+export const getSettingRange = (settings, key) =>
+    settings.settings_schema.get_key(key).get_range().deep_unpack()[1].deep_unpack();
+
+export const getShadowOffsets = settings =>
+    [settings.get_int(SHADOW_OFFSET_X), settings.get_int(SHADOW_OFFSET_Y)];
+
+export const setShadowColor = (settings, color) => settings.set_string(SHADOW_COLOR, color);
+
+export const setShadowOffsets = (settings, x, y) => {
+    settings.set_int(SHADOW_OFFSET_X, x);
+    settings.set_int(SHADOW_OFFSET_Y, y);
 };
 
-/**
- * Sets the colors for the maximized gradient
- *
- * @param {Gio.Settings} settings - The settings object
- * @param {string} startRgba - The start color in RGBA format
- * @param {string} endRgba - The end color in RGBA format
- */
-export const saveMaximizedColors = (settings, startRgba, endRgba) => {
-    settings.set_strv(MAXIMIZED_COLORS, [startRgba, endRgba]);
+export const setOverviewBehavior = (settings, value) => settings.set_string(OVERVIEW_BEHAVIOR, value);
+
+export const bindSetting = (settings, key, object, property, flags = Gio.SettingsBindFlags.DEFAULT) => {
+    settings.bind(key, object, property, flags);
 };
+
+export const resetSettings = (settings, keys) => {
+    keys.forEach(key => settings.reset(key));
+};
+
+export const attachSettingListener = (settings, key, listener) => settings.connect(`changed::${key}`, listener);
 
 /**
  * Attaches listeners for all settings changes
@@ -222,9 +194,10 @@ export const attachSettingsListeners = (settings, listener) => {
         MAXIMIZED_COLORS,
         MAXIMIZED_GRADIENT_DIRECTION,
         OVERVIEW_BEHAVIOR,
+        OVERVIEW_TRANSITION,
         OVERVIEW_COLORS,
         OVERVIEW_GRADIENT_DIRECTION
-    ].map(key => settings.connect(`changed::${key}`, listener));
+    ].map(key => attachSettingListener(settings, key, listener));
 };
 
 /**

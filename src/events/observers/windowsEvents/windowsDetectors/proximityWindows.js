@@ -1,8 +1,8 @@
 import { layoutManager, panel } from 'resource:///org/gnome/shell/ui/main.js';
 
-import { getProximityDistance } from '../../config.js';
+import { getProximityDistance } from '../../../../config.js';
 
-const calculateProgress = (windowDistance, proximityDistance) =>
+const calculateProximityStrength = (windowDistance, proximityDistance) =>
     proximityDistance === 0
         ? Number(windowDistance <= 0)
         : Math.max(0, Math.min(1, 1 - windowDistance / proximityDistance));
@@ -25,23 +25,23 @@ export default class ProximityWindows {
             const windowDistance = window.get_frame_rect().y - panelBottom;
             return Math.max(
                 effectStrength,
-                calculateProgress(windowDistance, distance)
+                calculateProximityStrength(windowDistance, distance)
             );
         }, 0);
     }
 
     // Proximity can change when a window moves, resizes, or changes workspace.
-    attachWindowEvents(eventManager, window, updateState) {
-        eventManager.attachWindowEventOnce('size-changed', window, updateState);
-        eventManager.attachWindowEventOnce('position-changed', window, updateState);
-        eventManager.attachWindowEventOnce('workspace-changed', window, updateState);
+    attachWindowEvents(signals, window, updateState) {
+        signals.connect(window, 'size-changed', updateState);
+        signals.connect(window, 'position-changed', updateState);
+        signals.connect(window, 'workspace-changed', updateState);
     }
 
     // Recalculate the boundary whenever GNOME changes the monitor layout.
-    attachGlobalEvents(eventManager, updateState) {
-        eventManager.attachGlobalEventOnce(
-            'monitors-changed',
+    attachGlobalEvents(signals, updateState) {
+        signals.connect(
             layoutManager,
+            'monitors-changed',
             () => updateState(true)
         );
     }

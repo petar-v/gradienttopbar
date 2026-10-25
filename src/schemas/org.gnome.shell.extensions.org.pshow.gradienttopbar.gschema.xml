@@ -24,6 +24,11 @@
       <summary>Top bar appearance in overview</summary>
       <description>Keep the main gradient, use the original Shell theme, or use a custom gradient while overview is open. Takes priority over window interaction.</description>
     </key>
+    <key name="overview-transition" type="b">
+      <default>false</default>
+      <summary>Blend with overview gestures</summary>
+      <description>Follow overview gesture and animation progress when changing the panel background.</description>
+    </key>
     <key name="overview-colors" type="as">
       <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
       <summary>Start and end colours for the overview gradient</summary>
@@ -51,8 +56,8 @@
     </key>
     <key name="proximity-transition" type="b">
       <default>true</default>
-      <summary>Transition the alternate style based on proximity</summary>
-      <description>Gradually blend the alternate style as a window approaches the panel.</description>
+      <summary>Transition the selected appearance based on proximity</summary>
+      <description>Gradually blend into the alternate gradient or original theme as a window approaches the panel.</description>
     </key>
     <key name="maximized-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
       <default>'apply-style'</default>

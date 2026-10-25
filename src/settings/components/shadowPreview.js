@@ -3,12 +3,18 @@ import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 
 import { getConfig } from '../../config.js';
-import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, STYLE_TRIGGER } from '../../constants.js';
+import { STYLE_TRIGGER } from '../../constants.js';
+import { APPEARANCE_STATE, getAppearance } from '../../gradient/appearance.js';
 import { createGradientPreview } from './gradientEditor.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export const createShadowPreview = settings => {
-    const styles = [gettext('Normal'), gettext('Triggered'), gettext('Overview')];
+    const states = [APPEARANCE_STATE.NORMAL, APPEARANCE_STATE.TRIGGERED, APPEARANCE_STATE.OVERVIEW];
+    const styles = {
+        [APPEARANCE_STATE.NORMAL]: gettext('Normal'),
+        [APPEARANCE_STATE.TRIGGERED]: gettext('Triggered'),
+        [APPEARANCE_STATE.OVERVIEW]: gettext('Overview')
+    };
     let styleIndex = 0;
     const styleLabel = new Gtk.Label({ xalign: 0, css_classes: ['dim-label'] });
     const styleSwitch = new Gtk.Button({
@@ -18,19 +24,7 @@ export const createShadowPreview = settings => {
         css_classes: ['osd', 'circular'],
         valign: Gtk.Align.CENTER
     });
-    const getGradient = () => {
-        const config = getConfig(settings);
-        if ((styleIndex === 1 && config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_THEME) ||
-            (styleIndex === 2 && config.overviewBehavior === OVERVIEW_BEHAVIOR.KEEP_THEME))
-            return null;
-        if (styleIndex === 2 && config.overviewBehavior === OVERVIEW_BEHAVIOR.APPLY_STYLE)
-            return { colors: config.overviewColors, direction: config.overviewGradientDirection };
-        const alternate = styleIndex === 1 && config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE;
-        return {
-            colors: alternate ? config.maximizedColors : config.colors,
-            direction: alternate ? config.maximizedGradientDirection : config.gradientDirection
-        };
-    };
+    const getGradient = () => getAppearance(getConfig(settings), states[styleIndex]);
     const background = createGradientPreview(getGradient);
     background.set_content_height(72);
     const sample = new Gtk.Overlay({ child: background, hexpand: true });
@@ -81,17 +75,18 @@ export const createShadowPreview = settings => {
     const refresh = () => {
         const config = getConfig(settings);
         const { shadowOffsetX, shadowOffsetY, shadowBlur, shadowColor } = config;
-        styles[1] = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
+        styles[APPEARANCE_STATE.TRIGGERED] = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
             ? gettext('Window Nearby') : gettext('Window Maximized');
-        sampleText.set_label(sampleTexts[textIndex] ?? styles[styleIndex]);
+        const style = styles[states[styleIndex]];
+        sampleText.set_label(sampleTexts[textIndex] ?? style);
         const originalTheme = getGradient() === null;
         const shadow = config.contentShadows && !originalTheme
             ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}` : 'none';
         sampleStyle.load_from_string(`
         label { font-size: 24px; font-weight: bold; color: white; text-shadow: ${shadow}; }
         image { color: white; -gtk-icon-shadow: ${shadow}; }`);
-        styleLabel.set_label(`${gettext('Preview')} · ${styles[styleIndex]}`);
-        const nextStyle = styles[(styleIndex + 1) % styles.length];
+        styleLabel.set_label(`${gettext('Preview')} · ${style}`);
+        const nextStyle = styles[states[(styleIndex + 1) % states.length]];
         const nextLabel = gettext('Next preview style: %s').replace('%s', nextStyle);
         styleSwitch.set_tooltip_text(nextLabel);
         styleSwitch.update_property([Gtk.AccessibleProperty.LABEL], [nextLabel]);
@@ -102,7 +97,7 @@ export const createShadowPreview = settings => {
     };
 
     styleSwitch.connect('clicked', () => {
-        styleIndex = (styleIndex + 1) % styles.length;
+        styleIndex = (styleIndex + 1) % states.length;
         refresh();
     });
 

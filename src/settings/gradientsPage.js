@@ -7,6 +7,11 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
+    bindSetting,
+    setGradientDirection,
+    saveGradientColors,
+    setMaximizedBehavior,
+    setOverviewBehavior,
     COLORS,
     GRADIENT_DIRECTION as GRADIENT_DIRECTION_KEY,
     MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
@@ -14,50 +19,15 @@ import {
     MAXIMIZED_GRADIENT_DIRECTION,
     OVERVIEW_BEHAVIOR as OVERVIEW_BEHAVIOR_KEY,
     OVERVIEW_COLORS,
+    OVERVIEW_TRANSITION,
     OVERVIEW_GRADIENT_DIRECTION,
-    setMaximizedBehavior,
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
 import { createGradientEditor } from './components/gradientEditor.js';
 import { createResetButton } from './components/resetButton.js';
+import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
 import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
-
-const GradientOption = GObject.registerClass(
-    {
-        Properties: {
-            name: GObject.ParamSpec.string(
-                'name',
-                'name',
-                'name',
-                GObject.ParamFlags.READWRITE,
-                null
-            ),
-            value: GObject.ParamSpec.string(
-                'value',
-                'value',
-                'value',
-                GObject.ParamFlags.READWRITE,
-                null
-            )
-        }
-    },
-    class GradientOptionObject extends GObject.Object {
-        _init(name, value) {
-            super._init({ name, value });
-        }
-    }
-);
-
-const setOptionOnRow = (row, value) => {
-    const { model } = row;
-    for (let i = 0; i < model.get_n_items(); i++) {
-        if (model.get_item(i).value === value) {
-            row.set_selected(i);
-            break;
-        }
-    }
-};
 
 class Gradients extends Adw.PreferencesPage {
     _init(window, settings) {
@@ -81,12 +51,12 @@ class Gradients extends Adw.PreferencesPage {
         });
 
         const gradientDirectionModel = new Gio.ListStore({
-            item_type: GradientOption
+            item_type: ChoiceOption
         });
 
         [
-            new GradientOption(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
-            new GradientOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
+            new ChoiceOption(gettext('Vertical'), GRADIENT_DIRECTION.VERTICAL),
+            new ChoiceOption(gettext('Horizontal'), GRADIENT_DIRECTION.HORIZONTAL)
         ].forEach(d => gradientDirectionModel.append(d));
 
         const createGradientSection = (group, {
@@ -97,11 +67,11 @@ class Gradients extends Adw.PreferencesPage {
                 title: directionTitle,
                 subtitle: directionSubtitle ?? '',
                 model: gradientDirectionModel,
-                expression: new Gtk.PropertyExpression(GradientOption, null, 'name')
+                expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
             });
             directionRow.connect('notify::selected', () => {
                 if (!updatingSettings && directionRow.selectedItem)
-                    settings.set_string(directionKey, directionRow.selectedItem.value);
+                    setGradientDirection(settings, directionKey, directionRow.selectedItem.value);
             });
             const editor = createGradientEditor(
                 startTitle,
@@ -110,7 +80,7 @@ class Gradients extends Adw.PreferencesPage {
                 (endpoint, color) => {
                     const { colors } = getGradient(getConfig(settings));
                     colors[endpoint] = color;
-                    settings.set_strv(colorsKey, [colors.start, colors.end]);
+                    saveGradientColors(settings, colorsKey, colors);
                 }
             );
             // PreferencesGroup renders non-row widgets after its row list, regardless of add order.
@@ -122,7 +92,7 @@ class Gradients extends Adw.PreferencesPage {
             group.add(directionRow);
 
             return config => {
-                setOptionOnRow(directionRow, getGradient(config).direction);
+                selectRowValue(directionRow, getGradient(config).direction);
                 editor.refresh();
             };
         };
@@ -187,9 +157,9 @@ class Gradients extends Adw.PreferencesPage {
             header_suffix: createResetButton(
                 window,
                 gettext('Reset overview appearance?'),
-                gettext('Restore the main gradient in overview and reset the custom gradient colours and direction.'),
+                gettext('Restore the main gradient in overview, turn off gesture blending and reset the custom gradient colours and direction.'),
                 settings,
-                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
+                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_TRANSITION, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
             )
         });
         const overviewBehaviorValues = [
@@ -207,9 +177,15 @@ class Gradients extends Adw.PreferencesPage {
         });
         overviewBehaviorRow.connect('notify::selected', () => {
             if (!updatingSettings)
-                settings.set_string(OVERVIEW_BEHAVIOR_KEY, overviewBehaviorValues[overviewBehaviorRow.selected]);
+                setOverviewBehavior(settings, overviewBehaviorValues[overviewBehaviorRow.selected]);
         });
         overviewGroup.add(overviewBehaviorRow);
+        const overviewTransitionRow = new Adw.SwitchRow({
+            title: gettext('Blend with overview gestures'),
+            subtitle: gettext('Fade backgrounds with gesture progress, including the original theme.')
+        });
+        bindSetting(settings, OVERVIEW_TRANSITION, overviewTransitionRow, 'active');
+        overviewGroup.add(overviewTransitionRow);
         this.add(overviewGroup);
 
         const overviewGradientGroup = new Adw.PreferencesGroup();

@@ -1,11 +1,11 @@
 import Adw from 'gi://Adw';
-import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {
     CONTENT_SHADOWS,
+    bindSetting,
     SHADOW_BLUR,
     SHADOW_COLOR,
     SHADOW_OFFSET_X,
@@ -40,7 +40,7 @@ class ContentShadows extends Adw.PreferencesPage {
             title: gettext('Text and icon shadows'),
             subtitle: gettext('Improve contrast against light backgrounds while a gradient is shown.')
         });
-        settings.bind(CONTENT_SHADOWS, contentShadowsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        bindSetting(settings, CONTENT_SHADOWS, contentShadowsRow, 'active');
         contentGroup.add(contentShadowsRow);
         const offsetPreview = new Adw.ExpanderRow({
             title: gettext('Shadow appearance'),
