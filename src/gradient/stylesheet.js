@@ -1,6 +1,5 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
-import Cogl from 'gi://Cogl';
 
 export const GRADIENT_CLASS = 'panel-gradient';
 export const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
@@ -11,13 +10,6 @@ export const TRANSITION_DURATION_MS = 200;
 
 const generateCss = config => {
     const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
-    const parsedOverviewColors = [config.overviewColors.start, config.overviewColors.end]
-        .map(color => Cogl.Color.from_string(color));
-    const validOverviewColors = parsedOverviewColors.every(([valid]) => valid);
-    const overviewColors = validOverviewColors
-        ? parsedOverviewColors.map(([, { red, green, blue, alpha }]) => `rgba(${red},${green},${blue},${alpha / 255})`)
-        : [colors.start, colors.end];
-    const overviewDirection = validOverviewColors ? config.overviewGradientDirection : gradientDirection;
     const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
     const contentShadows = config.contentShadows ? `
           #panel.${GRADIENT_CLASS} .panel-button,
@@ -66,9 +58,9 @@ const generateCss = config => {
           }
           .${OVERVIEW_GRADIENT_CLASS} {
             background-color: transparent;
-            background-gradient-direction: ${overviewDirection};
-            background-gradient-start: ${overviewColors[0]};
-            background-gradient-end: ${overviewColors[1]};
+            background-gradient-direction: ${config.overviewGradientDirection};
+            background-gradient-start: ${config.overviewColors.start};
+            background-gradient-end: ${config.overviewColors.end};
           }${contentShadows}`;
 };
 

@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import { DEFAULT_PROXIMITY_DISTANCE } from './constants.js';
+import { normalizeColor } from './colors.js';
 
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 
@@ -30,6 +31,19 @@ export const OVERVIEW_TRANSITION = 'overview-transition';
 export const OVERVIEW_COLORS = 'overview-colors';
 export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
 
+const readGradient = (settings, colorsKey, directionKey, fallback = null) => {
+    let colors = settings.get_strv(colorsKey).map(normalizeColor);
+    if (colors.length !== 2 || colors.includes(null)) {
+        if (fallback)
+            return fallback;
+        colors = settings.settings_schema.get_key(colorsKey).get_default_value().deep_unpack().map(normalizeColor);
+    }
+    return {
+        colors: { start: colors[0], end: colors[1] },
+        direction: settings.get_string(directionKey)
+    };
+};
+
 /**
  * Gets the complete configuration object from settings
  *
@@ -42,12 +56,9 @@ export const getConfig = settings => {
     const proximityDistance = getProximityDistance(settings);
     const proximityTransition = getProximityTransition(settings);
     const contentShadows = settings.get_boolean(CONTENT_SHADOWS);
-    const colors = settings.get_value(COLORS).deep_unpack();
-    const gradientDirection = settings.get_string(GRADIENT_DIRECTION);
-    const maximizedColors = settings.get_value(MAXIMIZED_COLORS).deep_unpack();
-    const maximizedGradientDirection = settings.get_string(MAXIMIZED_GRADIENT_DIRECTION);
-    const overviewColors = settings.get_strv(OVERVIEW_COLORS);
-    const validOverviewPair = overviewColors.length === 2;
+    const main = readGradient(settings, COLORS, GRADIENT_DIRECTION);
+    const maximized = readGradient(settings, MAXIMIZED_COLORS, MAXIMIZED_GRADIENT_DIRECTION);
+    const overview = readGradient(settings, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION, main);
 
     return {
         maximizedBehavior,
@@ -59,24 +70,14 @@ export const getConfig = settings => {
         shadowBlur: settings.get_int(SHADOW_BLUR),
         shadowOffsetX: settings.get_int(SHADOW_OFFSET_X),
         shadowOffsetY: settings.get_int(SHADOW_OFFSET_Y),
-        gradientDirection,
-        colors: {
-            start: colors[0],
-            end: colors[1]
-        },
-        maximizedGradientDirection,
+        gradientDirection: main.direction,
+        colors: main.colors,
+        maximizedGradientDirection: maximized.direction,
         overviewBehavior: settings.get_string(OVERVIEW_BEHAVIOR),
         overviewTransition: settings.get_boolean(OVERVIEW_TRANSITION),
-        overviewGradientDirection: validOverviewPair
-            ? settings.get_string(OVERVIEW_GRADIENT_DIRECTION) : gradientDirection,
-        overviewColors: {
-            start: validOverviewPair ? overviewColors[0] : colors[0],
-            end: validOverviewPair ? overviewColors[1] : colors[1]
-        },
-        maximizedColors: {
-            start: maximizedColors[0],
-            end: maximizedColors[1]
-        }
+        overviewGradientDirection: overview.direction,
+        overviewColors: overview.colors,
+        maximizedColors: maximized.colors
     };
 };
 
