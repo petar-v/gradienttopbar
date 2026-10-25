@@ -67,8 +67,11 @@ const generateCss = config => {
 /*
  * Locate the generated stylesheet so loading, replacement and unloading use the same file.
  */
-const getUserStylesheet = extensionPath =>
-    Gio.File.new_for_path(`${extensionPath}/user-stylesheet.css`);
+// FIXME: this is a hack to get the path to the user-stylesheet.css file
+const getUserStylesheet = () => Gio.File.new_for_uri(import.meta.url)
+    .get_parent()
+    .get_parent()
+    .get_child('user-stylesheet.css');
 
 /*
  * Replace the generated CSS file so the theme can load the latest settings.
@@ -83,26 +86,35 @@ const saveUserCss = (file, stylesheet) => {
 /*
  * Regenerate and reload the stylesheet after settings change, avoiding inline panel styles that clash with other extensions.
  */
-export const applyGradientStyle = (config, extensionPath) => {
+let loadedStylesheet = null;
+
+export const applyGradientStyle = config => {
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-    const userStylesheet = getUserStylesheet(extensionPath);
+    const css = generateCss(config);
+    if (loadedStylesheet?.theme === theme && loadedStylesheet.css === css)
+        return false;
+    const userStylesheet = getUserStylesheet();
 
     // generate a stylesheet based on the user preferences. note: this is somewhat of a hack.
     // I couldn't figure out how to dynamically alter classes. I could have used Main.panel.set_style
     // but I found this interferes with other extensions and becomes a mess to maintain.
     // unload the previous version
-    theme.unload_stylesheet(userStylesheet);
     // save the current version
-    saveUserCss(userStylesheet, generateCss(config));
+    saveUserCss(userStylesheet, css);
+    loadedStylesheet = null;
+    theme.unload_stylesheet(userStylesheet);
     // load again
     theme.load_stylesheet(userStylesheet);
+    loadedStylesheet = { theme, css };
+    return true;
 };
 
 /*
  * Remove the generated stylesheet from the theme when the extension is disabled.
  */
-export const unloadGradientStylesheet = extensionPath => {
+export const unloadGradientStylesheet = () => {
+    loadedStylesheet = null;
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-    theme.unload_stylesheet(getUserStylesheet(extensionPath));
+    theme.unload_stylesheet(getUserStylesheet());
 };
 

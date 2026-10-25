@@ -132,7 +132,36 @@ try {
         assert(settings.get_value(key).equal(expected), `Overview reset changed the wrong setting: ${key}`);
     }
     detachSettingsListeners(settings, handlers);
+
+    const distance = find(behaviorPage, widget => widget instanceof Adw.SpinRow && widget.title === 'Proximity distance');
+    const waitForDistanceSave = () => {
+        const loop = new GLib.MainLoop(null, false);
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 400, () => { loop.quit(); return GLib.SOURCE_REMOVE; });
+        loop.run();
+    };
+    distance.set_value(65);
+    settings.set_int('proximity-distance', 80);
+    assert(distance.value === 80, 'External distance changes replace pending edits in the row');
+    waitForDistanceSave();
+    assert(settings.get_int('proximity-distance') === 80, 'A pending edit cannot overwrite an external distance change');
+
+    settings.reset('proximity-distance');
+    const defaultDistance = settings.get_int('proximity-distance');
+    distance.set_value(65);
+    const resetInteraction = find(behaviorPage, widget => widget instanceof Gtk.Button && widget.tooltip_text === 'Reset window interaction?');
+    resetInteraction.emit('clicked');
+    dialog = window.get_visible_dialog();
+    dialog.emit('response', 'reset');
+    dialog.force_close();
+    assert(distance.value === defaultDistance, 'Reset discards an edit even when the saved distance was already default');
+    waitForDistanceSave();
+    assert(settings.get_int('proximity-distance') === defaultDistance, 'No stale edit is saved after reset');
+
+    distance.set_value(70);
     window.close();
+    assert(settings.get_int('proximity-distance') === 70, 'Closing preferences immediately commits the pending distance');
+    waitForDistanceSave();
+    assert(settings.get_int('proximity-distance') === 70, 'Closing leaves no stale distance save');
     print('Overview defaults, preferences, notifications, isolation and reset passed');
 } finally {
     for (const name of [schemaName, 'gschemas.compiled'])

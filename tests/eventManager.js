@@ -58,8 +58,7 @@ const stubs = {
         overview, screenShield, layoutManager,
         panel: { get_height: () => 32 }, wm: { _workspaceAnimation: controller }
     },
-    'gi://Meta': { default: { WindowType: { DESKTOP: 1 }, MaximizeFlags: { VERTICAL: 2, BOTH: 3 } } },
-    'config.js': { getProximityDistance: settings => settings.distance }
+    'gi://Meta': { default: { WindowType: { DESKTOP: 1 }, MaximizeFlags: { VERTICAL: 2, BOTH: 3 } } }
 };
 const src = new URL('../src/', import.meta.url);
 const modules = new Map();
@@ -79,6 +78,7 @@ const module = await load(new URL('events/eventManager.js', src).href);
 await module.link((specifier, parent) => load(specifier.startsWith('.')
     ? new URL(specifier, parent.identifier).href : specifier));
 await module.evaluate();
+const WindowEvents = (await load(new URL('events/observers/windowsEvents/windowEvents.js', src).href)).namespace.default;
 assert.deepEqual(Object.getOwnPropertyNames(module.namespace.default.prototype).sort(),
     ['configure', 'constructor', 'destroy'], 'Only lifecycle operations are public');
 const windowStates = [];
@@ -88,10 +88,12 @@ let events = new module.namespace.default(
     (state, strength) => overviewStates.push({ ...state, strength })
 );
 assert.equal(typeof events.configure, 'function', 'EventManager configures its observers');
-const config = { styleTrigger: 'proximity', maximizedBehavior: 'apply-style' };
-events.configure(config, { distance: 40 });
-assert.equal(windowStates.at(-1).effectStrength, 0.5, 'Nearby windows supply partial strength');
-assert.equal(overviewStates.at(-1).strength, 0.5, 'Overview receives the current desktop strength');
+const config = { styleTrigger: 'proximity', maximizedBehavior: 'apply-style', proximityDistance: 40 };
+const initial = events.configure(config);
+assert.equal(initial.window.effectStrength, 0.5, 'Nearby windows supply partial strength');
+assert.equal(initial.overview.hidden, true);
+assert.equal(windowStates.length, 0, 'Configuration returns a snapshot without intermediate rendering');
+assert.equal(overviewStates.length, 0);
 let count = windowStates.length;
 first.emit('position-changed');
 assert.equal(windowStates.length, count, 'Unchanged state is not emitted again');
@@ -162,10 +164,18 @@ overview.visibleTarget = false;
 overview.emit('hidden');
 
 group = startSwipe(workspaceB, workspaceA, 0.5);
-events.configure(config, { distance: 40 });
-assert.equal(group.handlers.size, 0, 'Reconfiguration cancels old swipe listeners');
+const connections = first.nextId;
+const swipeSnapshot = events.configure(config);
+assert.equal(first.nextId, connections, 'No-op configuration keeps detector connections');
+assert.equal(group.handlers.size, 2, 'Reconfiguration preserves swipe listeners');
+assert.equal(swipeSnapshot.window.transitionProgress, 0.5);
+const distanceSnapshot = events.configure({ ...config, proximityDistance: 80 });
+assert.equal(first.nextId, connections, 'Distance changes do not reconnect the detector');
+assert.equal(distanceSnapshot.window.endEffectStrength, 0.75, 'Distance changes refresh swipe endpoints');
+events.configure(config);
 activeWorkspace = workspaceA;
 workspaceManager.emit('workspace-switched');
+group.emit('destroy');
 assert.equal(windowStates.at(-1).currentWorkspace, workspaceA, 'Keyboard switching refreshes the workspace');
 assert.equal(windowStates.at(-1).effectStrength, 0.5);
 
@@ -175,22 +185,24 @@ windows.push(vanished);
 globalThis.display.emit('window-created', vanished);
 assert(vanished.handlers.size > 0);
 windows = [first, second];
-events.configure({ ...config, maximizedBehavior: 'keep-gradient' }, { distance: 40 });
+const disabled = events.configure({ ...config, maximizedBehavior: 'keep-gradient' });
 for (const target of [vanished, first, second, swipeTracker, workspaceManager, screenShield, layoutManager])
     assert.equal(target.handlers.size, 0, 'Disabling window interaction releases its owned signals');
-assert.equal(overviewStates.at(-1).strength, 0, 'Overview works independently of window tracking');
+assert.equal(disabled.window.effectStrength, 0, 'Overview works independently of window tracking');
 count = overviewStates.length;
 overview.emit('showing');
 assert.equal(overviewStates.length, count + 1);
-events.configure(config, { distance: 40 });
-events.configure({ ...config, styleTrigger: 'maximized' }, { distance: 40 });
+events.configure(config);
+count = windowStates.length;
+events.configure({ ...config, styleTrigger: 'maximized' });
+assert.equal(windowStates.length, count, 'Detector replacement does not emit an intermediate render');
 assert.equal([...first.handlers.values()].some(handler => handler.signal === 'position-changed'), false,
     'Switching detectors disconnects proximity-only window signals');
 assert.equal(layoutManager.handlers.size, 0, 'Switching detectors disconnects proximity-only global signals');
 first.get_maximize_flags = () => 3;
 first.emit('size-changed');
 assert.equal(windowStates.at(-1).effectStrength, 1, 'The new detector handles window state');
-events.configure(config, { distance: 40 });
+events.configure(config);
 controller._switchData.baseMonitorGroup = {};
 swipeTracker.emit('begin');
 first.y = 62;
@@ -226,9 +238,46 @@ assert.equal(targetB.handlers.size, 0);
 
 controller._swipeTracker = null;
 events = new module.namespace.default(state => windowStates.push(state), () => {});
-events.configure(config, { distance: 40 });
+events.configure(config);
 activeWorkspace = workspaceB;
 workspaceManager.emit('workspace-switched');
 assert.equal(windowStates.at(-1).currentWorkspace, workspaceB, 'Workspace switching works without private swipe APIs');
 events.destroy();
+
+const detectorWindow = new Window(4, 52);
+const detectorWorkspace = { list_windows: () => [detectorWindow] };
+const detectorDisplay = new SignalTarget();
+detectorDisplay.list_all_windows = () => [detectorWindow];
+const detectorWindowManager = new SignalTarget();
+const observer = new WindowEvents(detectorDisplay, detectorWindowManager, {
+    get_active_workspace: () => detectorWorkspace
+});
+const observedStrengths = [];
+observer.setStateChangeCallback(state => observedStrengths.push(state.effectStrength));
+observer.configureDetector('proximity', 40);
+assert.equal(observer.getEffectStrength(), 0.5, 'The observer configures proximity detection directly');
+observer.configureDetector('maximized', 40);
+assert.equal(observer.getEffectStrength(), 0, 'A disabled observer can replace its detector');
+assert.equal(observer.enabled, false, 'Detector configuration does not enable tracking');
+for (const target of [detectorWindow, detectorDisplay, detectorWindowManager, layoutManager, screenShield])
+    assert.equal(target.handlers.size, 0, 'Configuring a disabled observer does not connect signals');
+
+observer.configureDetector('proximity', 40);
+observer.enable();
+const observerTargets = [detectorWindow, detectorDisplay, detectorWindowManager, layoutManager, screenShield];
+const connectionCounts = observerTargets.map(target => target.nextId);
+observer.configureDetector('proximity', 40);
+observer.configureDetector('proximity', 80);
+assert.deepEqual(observerTargets.map(target => target.nextId), connectionCounts,
+    'No-op and distance-only configuration preserve all connections');
+assert.equal(observer.getEffectStrength(), 0.75, 'Distance updates change detection without reconnecting');
+observer.configureDetector('maximized', 80);
+assert.equal(observer.enabled, true, 'Replacing a detector preserves enabled tracking');
+assert.deepEqual(observedStrengths, [0.5, 0], 'Replacement publishes only the new detector state');
+assert.equal([...detectorWindow.handlers.values()].some(handler => handler.signal === 'position-changed'), false,
+    'Replacing proximity detection removes its window signals');
+assert.equal(layoutManager.handlers.size, 0, 'Replacing proximity detection removes its global signals');
+observer.disable();
+for (const target of observerTargets)
+    assert.equal(target.handlers.size, 0, 'The observer releases every connection after replacement');
 console.log('Window, workspace, overview coordination and signal ownership checks passed');

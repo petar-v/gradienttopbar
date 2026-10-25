@@ -173,32 +173,30 @@ export const resetSettings = (settings, keys) => {
 export const attachSettingListener = (settings, key, listener) => settings.connect(`changed::${key}`, listener);
 
 /**
- * Attaches listeners for all settings changes
+ * Attaches listeners for the requested settings (all runtime settings by default).
  *
  * @param {Gio.Settings} settings - The settings object
  * @param {Function} listener - The callback function to call when settings change
  */
-export const attachSettingsListeners = (settings, listener) => {
-    return [
-        GRADIENT_DIRECTION,
-        MAXIMIZED_BEHAVIOR,
-        STYLE_TRIGGER,
-        PROXIMITY_DISTANCE,
-        PROXIMITY_TRANSITION,
-        CONTENT_SHADOWS,
-        SHADOW_COLOR,
-        SHADOW_BLUR,
-        SHADOW_OFFSET_X,
-        SHADOW_OFFSET_Y,
-        COLORS,
-        MAXIMIZED_COLORS,
-        MAXIMIZED_GRADIENT_DIRECTION,
-        OVERVIEW_BEHAVIOR,
-        OVERVIEW_TRANSITION,
-        OVERVIEW_COLORS,
-        OVERVIEW_GRADIENT_DIRECTION
-    ].map(key => attachSettingListener(settings, key, listener));
-};
+export const attachSettingsListeners = (settings, listener, keys = [
+    GRADIENT_DIRECTION,
+    MAXIMIZED_BEHAVIOR,
+    STYLE_TRIGGER,
+    PROXIMITY_DISTANCE,
+    PROXIMITY_TRANSITION,
+    CONTENT_SHADOWS,
+    SHADOW_COLOR,
+    SHADOW_BLUR,
+    SHADOW_OFFSET_X,
+    SHADOW_OFFSET_Y,
+    COLORS,
+    MAXIMIZED_COLORS,
+    MAXIMIZED_GRADIENT_DIRECTION,
+    OVERVIEW_BEHAVIOR,
+    OVERVIEW_TRANSITION,
+    OVERVIEW_COLORS,
+    OVERVIEW_GRADIENT_DIRECTION
+]) => keys.map(key => attachSettingListener(settings, key, listener));
 
 /**
  * Detaches listeners for all settings changes

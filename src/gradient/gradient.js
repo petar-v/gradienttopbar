@@ -42,37 +42,67 @@ const getOverviewStyle = config => ({
 });
 
 export default class Gradient {
-    constructor(extensionPath) {
-        this._extensionPath = extensionPath;
-    }
-
-    configure(config) {
-        this.clearBlend();
-        this._config = config;
-        this._desktopStyles = getWindowBlendStyles(config);
+    constructor() {
         this._desktopProgress = 0;
         this._overviewTarget = null;
         this._strength = 0;
-        applyGradientStyle(config, this._extensionPath);
+        this._windowState = { effectStrength: 0 };
+        this._overviewState = { progress: null, hidden: true, target: false };
+    }
+
+    configure(config, state) {
+        const previous = this._config;
+        const styles = getWindowBlendStyles(config);
+        const desktopChanged = previous && (
+            this._desktopStyles[1].gradientClass !== styles[1].gradientClass ||
+            getWindowBlendProgress(previous, this._strength) !==
+                getWindowBlendProgress(config, state?.window.effectStrength ?? this._strength)
+        );
+        applyGradientStyle(config);
+        this._config = config;
+        this._desktopStyles = styles;
+        if (state) {
+            this._windowState = state.window;
+            this._overviewState = state.overview;
+            this._strength = state.window.effectStrength;
+        }
+        if (this._blendKind === 'desktop') {
+            this._blend.updateStyles(...this._desktopStyles);
+        } else if (this._blendKind === 'overview') {
+            const source = desktopChanged ? this.getDesktopStyle() : this._blend.sourceStyle;
+            this._blend.updateStyles(source, getOverviewStyle(config));
+            this.setStyle(getOverviewStyle(config));
+        }
+        this.updateOverview(this._overviewState, this._strength, true);
     }
 
     updateWindow(state) {
+        this._windowState = state;
         this._strength = state.effectStrength;
         if (this._overviewVisible)
             return;
 
         if (state.workspaceTransition === 'progress') {
-            this.renderDesktop(getWorkspaceBlendProgress(
-                this._config, state.startEffectStrength, state.endEffectStrength, state.transitionProgress
-            ));
+            const progress = getWorkspaceBlendProgress(this._config,
+                state.startEffectStrength, state.endEffectStrength, state.transitionProgress);
+            this.renderDesktop(progress);
         } else {
-            this.renderDesktop(getWindowBlendProgress(this._config, state.effectStrength),
-                state.workspaceTransition !== 'complete');
+            this.restoreDesktop(state.workspaceTransition !== 'complete');
         }
     }
 
     restoreDesktop(animate = false) {
         this.renderDesktop(getWindowBlendProgress(this._config, this._strength), animate);
+    }
+
+    getDesktopStyle() {
+        const progress = getWindowBlendProgress(this._config, this._strength);
+        if (progress === 0 || progress === 1)
+            return this._desktopStyles[progress];
+        return {
+            progress,
+            layers: this._desktopStyles
+        };
     }
 
     setStyle(style) {
@@ -105,7 +135,7 @@ export default class Gradient {
         const complete = () => {
             this._desktopProgress = progress;
             if (progress === 0 || progress === 1) {
-                this.setStyle(progress === 0 ? source : target);
+                this.setStyle(this._desktopStyles[progress]);
                 this.clearBlend();
             }
         };
@@ -117,20 +147,27 @@ export default class Gradient {
         }
     }
 
-    updateOverview({ progress, hidden, target }, strength) {
+    updateOverview({ progress, hidden, target }, strength, reconfigure = false) {
+        this._overviewState = { progress, hidden, target };
         this._strength = strength;
+        // Overview cancels workspace gestures; its exit must use the current desktop state.
+        if (!hidden || target || this._overviewVisible)
+            this._windowState = { effectStrength: strength };
         this._overviewVisible = !hidden || target;
         if (!this._config)
             return;
 
-        if (this._overviewTarget === null)
+        if (this._overviewTarget === null && (!hidden || target))
             this.restoreDesktop();
 
         const targetChanged = target !== this._overviewTarget;
         this._overviewTarget = target;
 
         if (hidden && !target) {
-            this.restoreDesktop();
+            if (reconfigure)
+                this.updateWindow(this._windowState);
+            else
+                this.restoreDesktop();
             return;
         }
 
@@ -150,11 +187,20 @@ export default class Gradient {
             return;
         }
 
-        if (!targetChanged)
+        if (!targetChanged && !reconfigure)
             return;
 
-        if (target) {
-            this.setStyle(getOverviewStyle(this._config));
+        if (this._blendKind === 'overview') {
+            this._blend.animateTo(target ? 1 : 0, () => {
+                if (target)
+                    this.setStyle(getOverviewStyle(this._config));
+                this.clearBlend();
+                if (!target)
+                    this.restoreDesktop();
+            });
+        } else if (target) {
+            const destination = getOverviewStyle(this._config);
+            this.setStyle(destination);
             this.clearBlend();
         } else {
             this.restoreDesktop(true);
@@ -164,7 +210,7 @@ export default class Gradient {
     destroy() {
         setGradientClass(null);
         this.clearBlend();
-        unloadGradientStylesheet(this._extensionPath);
+        unloadGradientStylesheet();
         this._config = null;
         this._baseStyle = null;
         this._desktopStyles = null;

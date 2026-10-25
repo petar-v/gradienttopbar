@@ -31,7 +31,7 @@ const exports = {
     endOverviewTransition() {},
     overview: { connect() { return 1; }, disconnect() {} },
     unloadGradientStylesheet() {},
-    getConfig() {},
+    getConfig: settings => ({ ...settings }),
     TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
     getTopBarStyleSettings: settings => settings.get_boolean('top-bar-style-settings'),
     attachSettingListener: (settings, key, callback) => settings.connect(`changed::${key}`, callback),
@@ -53,6 +53,16 @@ await source.link(specifier => {
 await source.evaluate();
 globalThis.get_workspace_manager = () => ({});
 const extension = new source.namespace.default();
+const snapshot = { window: { effectStrength: 0.6 }, overview: { progress: 0.4, hidden: false, target: true } };
+const reconciled = [];
+extension.events = { configure: config => { reconciled.push(config); return snapshot; } };
+extension.gradient = { configure: (config, state) => { reconciled.push(config, state); } };
+extension.configure({ shadowBlur: 6, proximityDistance: 80, overviewBehavior: 'keep-theme' });
+assert.equal(reconciled.length, 3, 'One observer reconciliation and one renderer configuration per batch');
+assert.equal(reconciled[0], reconciled[1], 'Both owners receive the same final normalized config');
+assert.equal(reconciled[2], snapshot, 'The renderer receives the reconciled observer state');
+assert.equal(reconciled[0].shadowBlur, 6);
+assert.equal(reconciled[0].proximityDistance, 80);
 const settings = {
     value: 0,
     showMenu: false,
@@ -104,3 +114,30 @@ assert.deepEqual(applied, [0, 1000, 1000], 'Re-enable configures immediately');
 extension.disable();
 assert.equal(menusDestroyed, 3, 'Re-enabled menu is cleaned up');
 console.log('Debounce burst, latest settings, disable and re-enable checks passed');
+
+// Exercise the real subscription boundary without requiring a GTK display.
+const configUrl = new URL('../src/config.js', import.meta.url);
+const configModule = new SourceTextModule(await readFile(configUrl, 'utf8'));
+await configModule.link(async specifier => {
+    const values = specifier === 'gi://Gio'
+        ? { default: { _promisify() {}, Subprocess: class {}, File: class {} } }
+        : await import(new URL(specifier, configUrl));
+    return new SyntheticModule(Object.keys(values), function () {
+        for (const [key, value] of Object.entries(values))
+            this.setExport(key, value);
+    });
+});
+await configModule.evaluate();
+const subscriptions = new Map();
+const scopedSettings = {
+    connect(signal, callback) { const id = ++nextId; subscriptions.set(id, { signal, callback }); return id; },
+    disconnect(id) { assert(subscriptions.delete(id)); }
+};
+const config = configModule.namespace;
+const ids = config.attachSettingsListeners(scopedSettings, onChange, [config.COLORS, config.MAXIMIZED_BEHAVIOR]);
+assert.deepEqual([...subscriptions.values()].map(({ signal }) => signal), ['changed::colors', 'changed::maximized-behavior']);
+config.detachSettingsListeners(scopedSettings, ids);
+assert.equal(subscriptions.size, 0, 'Scoped subscriptions release their owned handlers');
+const allIds = config.attachSettingsListeners(scopedSettings, onChange);
+assert.equal(allIds.length, 17, 'Runtime subscriptions still cover all rendering and behavior settings');
+config.detachSettingsListeners(scopedSettings, allIds);

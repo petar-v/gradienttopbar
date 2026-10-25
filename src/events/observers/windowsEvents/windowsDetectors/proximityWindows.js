@@ -1,7 +1,5 @@
 import { layoutManager, panel } from 'resource:///org/gnome/shell/ui/main.js';
 
-import { getProximityDistance } from '../../../../config.js';
-
 const calculateProximityStrength = (windowDistance, proximityDistance) =>
     proximityDistance === 0
         ? Number(windowDistance <= 0)
@@ -9,8 +7,8 @@ const calculateProximityStrength = (windowDistance, proximityDistance) =>
 
 // Keeps all panel-layout dependencies inside the proximity behaviour.
 export default class ProximityWindows {
-    constructor(settings) {
-        this.settings = settings;
+    constructor(distance) {
+        this.distance = distance;
     }
 
     getEffectStrength(windows) {
@@ -18,7 +16,7 @@ export default class ProximityWindows {
         if (!primaryMonitor)
             return 0;
 
-        const distance = getProximityDistance(this.settings);
+        const distance = this.distance;
         const panelBottom = primaryMonitor.y + panel.get_height();
 
         return windows.reduce((effectStrength, window) => {

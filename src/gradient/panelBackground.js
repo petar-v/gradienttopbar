@@ -13,11 +13,8 @@ const GRADIENT_CLASSES = [GRADIENT_CLASS, MAXIMIZED_GRADIENT_CLASS, OVERVIEW_GRA
 export const createPanelBackground = style => {
     if (style.layers) {
         const group = new St.Widget({ reactive: false });
-        for (const layer of style.layers) {
-            const child = createPanelBackground(layer.style);
-            child.opacity = Math.round(layer.opacity * 255);
-            group.add_child(child);
-        }
+        for (const layer of style.layers)
+            group.add_child(createPanelBackground(layer));
         return group;
     }
 

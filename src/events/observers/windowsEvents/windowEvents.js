@@ -1,6 +1,9 @@
 import Meta from 'gi://Meta';
 import { screenShield } from 'resource:///org/gnome/shell/ui/main.js';
 import SignalConnections from '../../signalConnections.js';
+import MaximizedWindows from './windowsDetectors/maximizedWindows.js';
+import ProximityWindows from './windowsDetectors/proximityWindows.js';
+import { STYLE_TRIGGER } from '../../../constants.js';
 
 // Ignore Desktop Icons NG's synthetic windows.
 // FIXME: this causes the overview to close on login.
@@ -17,11 +20,12 @@ const isApplicationWindow = window =>
  * Manages window events and tracks the behaviour detector's effect strength.
  */
 export default class WindowEvents {
+    #detector = null;
+
     constructor(display, windowManager, workspaceManager) {
         this.display = display;
         this.windowManager = windowManager;
         this.workspaceManager = workspaceManager;
-        this.behaviourDetector = null;
         this._signals = new SignalConnections();
         this.enabled = false;
 
@@ -60,7 +64,7 @@ export default class WindowEvents {
         this.enabled = true;
         const attachWindowEvents = window => {
             if (!isDesktopIconsNG(window))
-                this.behaviourDetector.attachWindowEvents(this._signals, window, () => this.updateState());
+                this.#detector.attachWindowEvents(this._signals, window, () => this.updateState());
         };
         this._signals.connect(this.display, 'window-created', (_, window) => {
             attachWindowEvents(window);
@@ -76,7 +80,7 @@ export default class WindowEvents {
         });
         this._signals.connect(this.windowManager, 'unminimize', () => this.updateState());
         this._signals.connect(this.display, 'window-left-monitor', () => this.updateState());
-        this.behaviourDetector.attachGlobalEvents(this._signals, force => this.updateState(force));
+        this.#detector.attachGlobalEvents(this._signals, force => this.updateState(force));
         this.display.list_all_windows().forEach(attachWindowEvents);
         // Screen unlock can require a refresh even if the detected state is unchanged.
         this._signals.connect(screenShield, 'unlock-screen', () => this.updateState(true));
@@ -110,19 +114,24 @@ export default class WindowEvents {
         const windows = workspace.list_windows()
             .filter(isApplicationWindow)
             .filter(window => window.get_id() !== excludedWindowId);
-        return this.behaviourDetector.getEffectStrength(windows);
+        return this.#detector.getEffectStrength(windows);
     }
 
-    setBehaviourDetector(behaviourDetector) {
-        if (this.behaviourDetector?.constructor === behaviourDetector.constructor)
-            return;
+    configureDetector(trigger, distance) {
+        const Detector = trigger === STYLE_TRIGGER.PROXIMITY
+            ? ProximityWindows : MaximizedWindows;
 
-        const wasEnabled = this.enabled;
-        if (wasEnabled)
-            this.disable();
+        if (this.#detector?.constructor !== Detector) {
+            const wasEnabled = this.enabled;
+            if (wasEnabled)
+                this.disable();
 
-        this.behaviourDetector = behaviourDetector;
-        if (wasEnabled)
-            this.enable();
+            this.#detector = new Detector(distance);
+            if (wasEnabled)
+                this.enable();
+        }
+
+        if (Detector === ProximityWindows)
+            this.#detector.distance = distance;
     }
 }

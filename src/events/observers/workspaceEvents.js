@@ -41,6 +41,10 @@ export default class WorkspaceEvents {
         return this._transitionGroup !== null;
     }
 
+    get transition() {
+        return this.getTransition(this._transitionGroup);
+    }
+
     getTransition(monitorGroup) {
         if (!Array.isArray(monitorGroup?._workspaceGroups) ||
             typeof monitorGroup.getSnapPoints !== 'function')

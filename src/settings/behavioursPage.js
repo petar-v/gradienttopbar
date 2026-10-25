@@ -2,18 +2,16 @@ import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
-import GLib from 'gi://GLib';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {
     getConfig,
-    getSettingRange,
     bindSetting,
-    setProximityDistance,
     setStyleTrigger,
     setProximityTransition,
     STYLE_TRIGGER as STYLE_TRIGGER_KEY,
+    MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
     OVERVIEW_TRANSITION,
@@ -22,16 +20,14 @@ import {
     detachSettingsListeners,
     getMaximizedBehavior,
     getStyleTrigger,
-    getProximityDistance,
     getProximityTransition
 } from '../config.js';
 
 import { createResetButton } from './components/resetButton.js';
+import { createProximityDistanceEditor } from './components/proximityDistanceEditor.js';
 import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
 
 import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
-
-const PROXIMITY_DISTANCE_SAVE_DELAY_MS = 300;
 
 class Behavior extends Adw.PreferencesPage {
     _init(window, settings) {
@@ -51,40 +47,8 @@ class Behavior extends Adw.PreferencesPage {
         panelGroup.add(styleSettingsRow);
         this.add(panelGroup);
 
-        let proximityDistanceTimeoutId = null;
         let updatingSettings = false;
-
-        const commitProximityDistance = () => {
-            if (proximityDistanceTimeoutId) {
-                GLib.Source.remove(proximityDistanceTimeoutId);
-                proximityDistanceTimeoutId = null;
-            }
-
-            const value = Math.round(proximityDistanceRow.value);
-            if (value !== getProximityDistance(this._settings))
-                setProximityDistance(this._settings, value);
-        };
-
-        const scheduleProximityDistanceSave = () => {
-            if (proximityDistanceTimeoutId) {
-                GLib.Source.remove(proximityDistanceTimeoutId);
-                proximityDistanceTimeoutId = null;
-            }
-
-            const value = Math.round(proximityDistanceRow.value);
-            if (value === getProximityDistance(this._settings))
-                return;
-
-            proximityDistanceTimeoutId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
-                PROXIMITY_DISTANCE_SAVE_DELAY_MS,
-                () => {
-                    proximityDistanceTimeoutId = null;
-                    setProximityDistance(this._settings, value);
-                    return GLib.SOURCE_REMOVE;
-                }
-            );
-        };
+        const distanceEditor = createProximityDistanceEditor(settings);
 
         const behaviorGroup = new Adw.PreferencesGroup({
             title: gettext('Window interaction'),
@@ -94,13 +58,7 @@ class Behavior extends Adw.PreferencesPage {
                 gettext('Restore the default window trigger and proximity distance.'),
                 settings,
                 [STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE],
-                () => {
-                    if (proximityDistanceTimeoutId) {
-                        GLib.Source.remove(proximityDistanceTimeoutId);
-                        proximityDistanceTimeoutId = null;
-                    }
-                    onSettingsChanged(settings);
-                }
+                () => onSettingsChanged(settings)
             )
         });
 
@@ -116,20 +74,6 @@ class Behavior extends Adw.PreferencesPage {
             expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
 
-        const [minDistance, maxDistance] = getSettingRange(settings, PROXIMITY_DISTANCE);
-        const proximityDistanceRow = new Adw.SpinRow({
-            title: gettext('Proximity distance'),
-            subtitle: gettext('Distance from the panel in pixels'),
-            adjustment: new Gtk.Adjustment({
-                lower: minDistance,
-                upper: maxDistance,
-                step_increment: 1,
-                page_increment: 5,
-                value: getProximityDistance(this._settings)
-            }),
-            digits: 0
-        });
-
         const proximityTransitionRow = new Adw.SwitchRow({
             title: gettext('Blend as windows approach'),
             subtitle: gettext('Gradually blend into the selected appearance as windows approach the panel.'),
@@ -143,7 +87,7 @@ class Behavior extends Adw.PreferencesPage {
             behaviorGroup.set_sensitive(enabled);
             disabledGroup.set_visible(!enabled);
             const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
-            proximityDistanceRow.set_sensitive(usesProximity);
+            distanceEditor.widget.set_sensitive(usesProximity);
             proximityTransitionRow.set_sensitive(enabled && usesProximity);
         };
 
@@ -152,17 +96,13 @@ class Behavior extends Adw.PreferencesPage {
             if (!updatingSettings)
                 setStyleTrigger(this._settings, triggerRow.selectedItem.value);
         });
-        proximityDistanceRow.connect('notify::value', () => {
-            if (!updatingSettings)
-                scheduleProximityDistanceSave();
-        });
         proximityTransitionRow.connect('notify::active', () => {
             if (!updatingSettings)
                 setProximityTransition(this._settings, proximityTransitionRow.active);
         });
 
         behaviorGroup.add(triggerRow);
-        behaviorGroup.add(proximityDistanceRow);
+        behaviorGroup.add(distanceEditor.widget);
         const disabledGroup = new Adw.PreferencesGroup({
             description: gettext('Outside overview, the main gradient is always shown. Choose “Use original theme” or “Use alternate gradient” under Window interaction in Gradients to enable these settings.')
         });
@@ -192,21 +132,18 @@ class Behavior extends Adw.PreferencesPage {
             const config = getConfig(s);
             updatingSettings = true;
             selectRowValue(triggerRow, config.styleTrigger);
-            if (!key || key === 'proximity-distance') {
-                if (proximityDistanceTimeoutId) {
-                    GLib.Source.remove(proximityDistanceTimeoutId);
-                    proximityDistanceTimeoutId = null;
-                }
-                proximityDistanceRow.set_value(config.proximityDistance);
-            }
+            if (!key || key === PROXIMITY_DISTANCE)
+                distanceEditor.refresh();
             proximityTransitionRow.set_active(config.proximityTransition);
             updatingSettings = false;
             updateProximityControls();
         };
         onSettingsChanged(settings);
-        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
+        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged, [
+            MAXIMIZED_BEHAVIOR_KEY, STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE, PROXIMITY_TRANSITION
+        ]);
         window.connect('close-request', () => {
-            commitProximityDistance();
+            distanceEditor.commit();
             detachSettingsListeners(settings, settingsHandlerIds);
         });
     }

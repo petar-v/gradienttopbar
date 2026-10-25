@@ -205,7 +205,11 @@ class Gradients extends Adw.PreferencesPage {
             overviewGradientGroup.set_visible(config.overviewBehavior === OVERVIEW_BEHAVIOR.APPLY_STYLE);
         };
         onSettingsChanged(settings);
-        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
+        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged, [
+            COLORS, GRADIENT_DIRECTION_KEY,
+            MAXIMIZED_BEHAVIOR_KEY, MAXIMIZED_COLORS, MAXIMIZED_GRADIENT_DIRECTION,
+            OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION
+        ]);
         window.connect('close-request', () => {
             detachSettingsListeners(settings, settingsHandlerIds);
         });
