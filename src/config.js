@@ -145,7 +145,9 @@ export const saveGradientColors = (settings, key, colors) => {
 
 export const getTopBarStyleSettings = settings => settings.get_boolean(TOP_BAR_STYLE_SETTINGS);
 
-export const getShadowColor = settings => settings.get_string(SHADOW_COLOR);
+export const getShadowColor = settings =>
+    normalizeColor(settings.get_string(SHADOW_COLOR)) ??
+    normalizeColor(settings.get_default_value(SHADOW_COLOR).deep_unpack());
 
 export const getSettingRange = (settings, key) =>
     settings.settings_schema.get_key(key).get_range().deep_unpack()[1].deep_unpack();

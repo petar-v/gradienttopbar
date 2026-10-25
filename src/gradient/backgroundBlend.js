@@ -59,26 +59,30 @@ const getOpacities = (progress, actor) => {
     return opacities;
 };
 
-const refreshComposition = (actor, style) => {
-    if (!style.layers)
-        return;
-    const [source, target] = actor.get_children();
-    const [sourceStyle, targetStyle] = style.layers;
-    refreshComposition(source, sourceStyle);
-    refreshComposition(target, targetStyle);
-    const { sourceOpacity, destinationOpacity } = getOpacities(style.progress, target);
+const applyBlendOpacity = (source, target, progress) => {
+    const { sourceOpacity, destinationOpacity } = getOpacities(progress, target);
     source.opacity = Math.round(sourceOpacity * 255);
     target.opacity = Math.round(destinationOpacity * 255);
+};
+
+// Captured progress stays fixed, but theme changes can alter its opacity correction.
+const refreshComposition = (actor, style) => {
+    if (!style.source)
+        return;
+    const [source, target] = actor.get_children();
+    refreshComposition(source, style.source);
+    refreshComposition(target, style.target);
+    applyBlendOpacity(source, target, style.progress);
 };
 
 const areSameStyle = (first, second) => {
     if (first === second)
         return true;
-    if (first.layers || second.layers) {
-        if (!first.layers || !second.layers || first.layers.length !== second.layers.length)
+    if (first.source || second.source) {
+        if (!first.source || !second.source)
             return false;
         return first.progress === second.progress &&
-            first.layers.every((layer, index) => areSameStyle(layer, second.layers[index]));
+            areSameStyle(first.source, second.source) && areSameStyle(first.target, second.target);
     }
     return first.gradientClass === second.gradientClass &&
         !!first.inOverview === !!second.inOverview;
@@ -142,9 +146,7 @@ export default class BackgroundBlend {
     }
 
     _renderProgress(progress) {
-        const opacities = getOpacities(progress, this._target);
-        this._source.opacity = Math.round(opacities.sourceOpacity * 255);
-        this._target.opacity = Math.round(opacities.destinationOpacity * 255);
+        applyBlendOpacity(this._source, this._target, progress);
         this.progress = progress;
     }
 
@@ -191,6 +193,7 @@ export default class BackgroundBlend {
         }
     }
 
+    // Refresh nested captures only when appearance changes, not on every animation frame.
     refreshAppearance() {
         if (!this._source)
             return;
@@ -199,10 +202,12 @@ export default class BackgroundBlend {
         this._renderProgress(this.progress);
     }
 
+    /** @returns {import('./panelBackground.js').BackgroundComposition} */
     getStyle() {
         return {
-            progress: this.progress,
-            layers: [this.sourceStyle, this.targetStyle]
+            source: this.sourceStyle,
+            target: this.targetStyle,
+            progress: this.progress
         };
     }
 

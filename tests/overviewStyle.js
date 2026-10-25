@@ -444,6 +444,33 @@ expectStyle('panel-maximized-gradient');
 assert.equal(children.size, 0, 'Overview exit cannot restore an interrupted workspace gesture');
 renderer.destroy();
 
+// Initial overview rendering and repeated notifications share the same transition path.
+renderer = new Gradient();
+renderer.configure({ ...settings, maximizedBehavior: 'apply-style' }, {
+    window: { effectStrength: 0.4 }, overview: { progress: 0.25, hidden: false, target: true }
+});
+const initialOverviewLayers = [...children];
+assert.equal(initialOverviewLayers[0].get_children()[1].opacity, 102,
+    'Starting in overview captures the supplied desktop strength');
+update(null, true, false, 0.4);
+const overviewSettling = [...timelines][0];
+overviewSettling.advance(0.5);
+update(null, true, false, 0.4);
+assert(timelines.has(overviewSettling), 'Repeated overview targets retain the settling timeline');
+assert.deepEqual([...children], initialOverviewLayers, 'Repeated targets retain the overview actors');
+assert.equal(initialOverviewLayers[1].opacity, 159, 'Repeated targets preserve visual progress');
+update(null, false, false, 0.4);
+assert(!timelines.has(overviewSettling), 'Reversing the overview target replaces the settling timeline');
+const overviewExit = [...timelines][0];
+renderer.updateWindow({ effectStrength: 0.75 });
+update(null, false, false, 0.75);
+assert(timelines.has(overviewExit), 'Repeated exit targets retain the settling timeline');
+overviewExit.advance(1);
+assert.equal([...children][1].opacity, 191, 'Settling restores the latest window strength');
+update(null, false, true, 0.75);
+assert.equal([...children][1].opacity, 191, 'The hidden notification preserves the restored appearance');
+renderer.destroy();
+
 // Drive timed transitions deterministically, with no wall-clock waits.
 animationsEnabled = true;
 renderer = new Gradient();
@@ -495,20 +522,27 @@ renderer.configure(settings);
 const mainStyle = { gradientClass: 'panel-gradient' };
 const alternateStyle = { gradientClass: 'panel-maximized-gradient' };
 const overviewStyle = { gradientClass: 'panel-overview-gradient', inOverview: true };
-const capturedStyle = { progress: 0.4, layers: [mainStyle, alternateStyle] };
+const capturedStyle = { source: mainStyle, target: alternateStyle, progress: 0.4 };
 const blend = new BackgroundBlend(capturedStyle, overviewStyle);
 blend.setProgress(0.4);
-assert.deepEqual(blend.getStyle(), { progress: 0.4, layers: [capturedStyle, overviewStyle] },
+assert.deepEqual(blend.getStyle(), { source: capturedStyle, target: overviewStyle, progress: 0.4 },
     'Snapshots contain endpoint descriptions and progress, without derived opacities');
 const blendActors = [...children];
-blend.updateStyles({ layers: [
-    { inOverview: false, gradientClass: 'panel-gradient' },
-    { inOverview: false, gradientClass: 'panel-maximized-gradient' }
-], progress: 0.4 }, { inOverview: true, gradientClass: 'panel-overview-gradient' });
+blend.updateStyles({
+    progress: 0.4,
+    target: { inOverview: false, gradientClass: 'panel-maximized-gradient' },
+    source: { inOverview: false, gradientClass: 'panel-gradient' }
+}, { inOverview: true, gradientClass: 'panel-overview-gradient' });
 assert([...children].every((actor, index) => actor === blendActors[index]),
     'Equivalent nested styles retain actors regardless of property order or omitted false flags');
+blend.updateStyles({ ...capturedStyle, progress: 0 }, overviewStyle);
+assert.deepEqual([...children][0].get_children().map(actor => actor.opacity), [255, 0],
+    'A zero-progress composition still creates both endpoints and displays only its source');
+blend.updateStyles(capturedStyle, overviewStyle);
+assert.equal([...children][0].get_children()[1].opacity, 102, 'Restoring captured progress restores the nested blend');
+const restoredSource = [...children][0];
 blend.updateStyles(capturedStyle, { gradientClass: null });
-assert.equal([...children][0], blendActors[0], 'Replacing the target retains the source');
+assert.equal([...children][0], restoredSource, 'Replacing the target retains the source');
 assert.notEqual([...children][1], blendActors[1]);
 assert(!styleHandlers.has(blendActors[1]), 'Replacing a target releases its style listener');
 const retainedTarget = [...children][1];

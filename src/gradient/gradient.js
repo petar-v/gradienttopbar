@@ -44,19 +44,22 @@ const getOverviewStyle = config => ({
 export default class Gradient {
     constructor() {
         this._desktopProgress = 0;
-        this._overviewTarget = null;
-        this._strength = 0;
         this._windowState = { effectStrength: 0 };
         this._overviewState = { progress: null, hidden: true, target: false };
     }
 
+    get overviewActive() {
+        return !this._overviewState.hidden || this._overviewState.target;
+    }
+
     configure(config, state) {
         const previous = this._config;
+        const strength = this._windowState.effectStrength;
         const styles = getWindowBlendStyles(config);
         const desktopChanged = previous && (
             this._desktopStyles[1].gradientClass !== styles[1].gradientClass ||
-            getWindowBlendProgress(previous, this._strength) !==
-                getWindowBlendProgress(config, state?.window.effectStrength ?? this._strength)
+            getWindowBlendProgress(previous, strength) !==
+                getWindowBlendProgress(config, state?.window.effectStrength ?? strength)
         );
         applyGradientStyle(config);
         this._config = config;
@@ -64,7 +67,6 @@ export default class Gradient {
         if (state) {
             this._windowState = state.window;
             this._overviewState = state.overview;
-            this._strength = state.window.effectStrength;
         }
         if (this._blendKind === 'desktop') {
             this._blend.updateStyles(...this._desktopStyles);
@@ -73,13 +75,15 @@ export default class Gradient {
             this._blend.updateStyles(source, getOverviewStyle(config));
             this.setStyle(getOverviewStyle(config));
         }
-        this.updateOverview(this._overviewState, this._strength, true);
+        if (this.overviewActive)
+            this.renderOverview();
+        else
+            this.updateWindow(this._windowState);
     }
 
     updateWindow(state) {
         this._windowState = state;
-        this._strength = state.effectStrength;
-        if (this._overviewVisible)
+        if (this.overviewActive)
             return;
 
         if (state.workspaceTransition === 'progress') {
@@ -92,17 +96,15 @@ export default class Gradient {
     }
 
     restoreDesktop(animate = false) {
-        this.renderDesktop(getWindowBlendProgress(this._config, this._strength), animate);
+        this.renderDesktop(getWindowBlendProgress(this._config, this._windowState.effectStrength), animate);
     }
 
     getDesktopStyle() {
-        const progress = getWindowBlendProgress(this._config, this._strength);
+        const progress = getWindowBlendProgress(this._config, this._windowState.effectStrength);
         if (progress === 0 || progress === 1)
             return this._desktopStyles[progress];
-        return {
-            progress,
-            layers: this._desktopStyles
-        };
+        const [source, target] = this._desktopStyles;
+        return { source, target, progress };
     }
 
     setStyle(style) {
@@ -147,29 +149,22 @@ export default class Gradient {
         }
     }
 
-    updateOverview({ progress, hidden, target }, strength, reconfigure = false) {
-        this._overviewState = { progress, hidden, target };
-        this._strength = strength;
+    updateOverview(state, strength) {
+        this._overviewState = state;
         // Overview cancels workspace gestures; its exit must use the current desktop state.
-        if (!hidden || target || this._overviewVisible)
-            this._windowState = { effectStrength: strength };
-        this._overviewVisible = !hidden || target;
+        this._windowState = { effectStrength: strength };
         if (!this._config)
             return;
-
-        if (this._overviewTarget === null && (!hidden || target))
+        if (this.overviewActive)
+            this.renderOverview();
+        else
             this.restoreDesktop();
+    }
 
-        const targetChanged = target !== this._overviewTarget;
-        this._overviewTarget = target;
-
-        if (hidden && !target) {
-            if (reconfigure)
-                this.updateWindow(this._windowState);
-            else
-                this.restoreDesktop();
-            return;
-        }
+    renderOverview() {
+        const { progress, target } = this._overviewState;
+        if (!this._baseStyle)
+            this.restoreDesktop();
 
         if (this._config.overviewTransition && progress !== null) {
             // Refresh the desktop endpoint on exit; it may have changed while overview was open.
@@ -186,9 +181,6 @@ export default class Gradient {
             this._blend.setProgress(progress);
             return;
         }
-
-        if (!targetChanged && !reconfigure)
-            return;
 
         if (this._blendKind === 'overview') {
             this._blend.animateTo(target ? 1 : 0, () => {

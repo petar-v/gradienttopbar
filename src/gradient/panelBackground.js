@@ -9,12 +9,30 @@ import {
 
 const GRADIENT_CLASSES = [GRADIENT_CLASS, MAXIMIZED_GRADIENT_CLASS, OVERVIEW_GRADIENT_CLASS];
 
-// A composed style preserves a partial blend without taking a screenshot.
+/**
+ * A CSS background; a null gradientClass selects the original Shell theme.
+ * @typedef {{gradientClass: string|null, inOverview?: boolean}} BackgroundStyle
+ */
+
+/**
+ * A captured mix with target drawn over source, at progress from 0 to 1.
+ * Endpoints can be compositions, preserving an interrupted desktop blend inside overview.
+ * Opacities are derived from progress and the current theme; they are never stored here.
+ * @typedef {{source: PanelBackground, target: PanelBackground, progress: number}} BackgroundComposition
+ */
+
+/** @typedef {BackgroundStyle|BackgroundComposition} PanelBackground */
+
+/**
+ * Build the actor tree in paint order; BackgroundBlend owns opacity and animation.
+ * @param {PanelBackground} style
+ * @returns {St.Widget}
+ */
 export const createPanelBackground = style => {
-    if (style.layers) {
+    if (style.source) {
         const group = new St.Widget({ reactive: false });
-        for (const layer of style.layers)
-            group.add_child(createPanelBackground(layer));
+        group.add_child(createPanelBackground(style.source));
+        group.add_child(createPanelBackground(style.target));
         return group;
     }
 

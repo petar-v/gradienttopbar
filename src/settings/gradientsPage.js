@@ -117,22 +117,20 @@ class Gradients extends Adw.PreferencesPage {
                 [MAXIMIZED_BEHAVIOR_KEY, MAXIMIZED_COLORS, MAXIMIZED_GRADIENT_DIRECTION]
             )
         });
-        const behaviorValues = [
-            MAXIMIZED_BEHAVIOR.KEEP_GRADIENT,
-            MAXIMIZED_BEHAVIOR.KEEP_THEME,
-            MAXIMIZED_BEHAVIOR.APPLY_STYLE
-        ];
+        const behaviorModel = new Gio.ListStore({ item_type: ChoiceOption });
+        [
+            new ChoiceOption(gettext('Keep main gradient'), MAXIMIZED_BEHAVIOR.KEEP_GRADIENT),
+            new ChoiceOption(gettext('Use original theme'), MAXIMIZED_BEHAVIOR.KEEP_THEME),
+            new ChoiceOption(gettext('Use alternate gradient'), MAXIMIZED_BEHAVIOR.APPLY_STYLE)
+        ].forEach(option => behaviorModel.append(option));
         const behaviorRow = new Adw.ComboRow({
             title: gettext('When triggered'),
-            model: Gtk.StringList.new([
-                gettext('Keep main gradient'),
-                gettext('Use original theme'),
-                gettext('Use alternate gradient')
-            ])
+            model: behaviorModel,
+            expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
         behaviorRow.connect('notify::selected', () => {
-            if (!updatingSettings)
-                setMaximizedBehavior(settings, behaviorValues[behaviorRow.selected]);
+            if (!updatingSettings && behaviorRow.selectedItem)
+                setMaximizedBehavior(settings, behaviorRow.selectedItem.value);
         });
         interactionGroup.add(behaviorRow);
         this.add(interactionGroup);
@@ -160,22 +158,20 @@ class Gradients extends Adw.PreferencesPage {
                 [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
             )
         });
-        const overviewBehaviorValues = [
-            OVERVIEW_BEHAVIOR.KEEP_GRADIENT,
-            OVERVIEW_BEHAVIOR.KEEP_THEME,
-            OVERVIEW_BEHAVIOR.APPLY_STYLE
-        ];
+        const overviewBehaviorModel = new Gio.ListStore({ item_type: ChoiceOption });
+        [
+            new ChoiceOption(gettext('Keep main gradient'), OVERVIEW_BEHAVIOR.KEEP_GRADIENT),
+            new ChoiceOption(gettext('Use original theme'), OVERVIEW_BEHAVIOR.KEEP_THEME),
+            new ChoiceOption(gettext('Use custom gradient'), OVERVIEW_BEHAVIOR.APPLY_STYLE)
+        ].forEach(option => overviewBehaviorModel.append(option));
         const overviewBehaviorRow = new Adw.ComboRow({
             title: gettext('When overview is open'),
-            model: Gtk.StringList.new([
-                gettext('Keep main gradient'),
-                gettext('Use original theme'),
-                gettext('Use custom gradient')
-            ])
+            model: overviewBehaviorModel,
+            expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
         overviewBehaviorRow.connect('notify::selected', () => {
-            if (!updatingSettings)
-                setOverviewBehavior(settings, overviewBehaviorValues[overviewBehaviorRow.selected]);
+            if (!updatingSettings && overviewBehaviorRow.selectedItem)
+                setOverviewBehavior(settings, overviewBehaviorRow.selectedItem.value);
         });
         overviewGroup.add(overviewBehaviorRow);
         this.add(overviewGroup);
@@ -195,8 +191,8 @@ class Gradients extends Adw.PreferencesPage {
             const config = getConfig(s);
 
             updatingSettings = true;
-            behaviorRow.set_selected(behaviorValues.indexOf(config.maximizedBehavior));
-            overviewBehaviorRow.set_selected(overviewBehaviorValues.indexOf(config.overviewBehavior));
+            selectRowValue(behaviorRow, config.maximizedBehavior);
+            selectRowValue(overviewBehaviorRow, config.overviewBehavior);
             refreshMainGradient(config);
             refreshMaximizedGradient(config);
             refreshOverviewGradient(config);
