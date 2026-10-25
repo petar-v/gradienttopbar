@@ -24,10 +24,6 @@ const GLib = {
         return nextId;
     }
 };
-class WindowEvents {
-    setStateChangeCallback() {}
-    disable() {}
-}
 const exports = {
     Extension: class {},
     applyGradientStyle() {},
@@ -47,9 +43,8 @@ const exports = {
 const source = new SourceTextModule(await readFile(new URL('../src/extension.js', import.meta.url), 'utf8'));
 await source.link(specifier => {
     const values = specifier === 'gi://GLib' ? { default: GLib }
-        : specifier.endsWith('/windowEvents.js') ? { default: WindowEvents }
-            : specifier.endsWith('/topBarMenu.js') ? { default: TopBarMenu }
-                : { ...exports, default: class { destroy() {} } };
+        : specifier.endsWith('/topBarMenu.js') ? { default: TopBarMenu }
+            : { ...exports, default: class { destroy() {} } };
     return new SyntheticModule(Object.keys(values), function () {
         for (const [key, value] of Object.entries(values))
             this.setExport(key, value);

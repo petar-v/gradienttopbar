@@ -46,14 +46,21 @@ class Widget {
     destroy() { this.children?.forEach(child => child.destroy()); children.delete(this); allocations.delete(this); }
 }
 let strength = 0;
+let windowEvents;
 class WindowEvents {
+    constructor() { windowEvents = this; }
     setStateChangeCallback(callback) { this.callback = callback; }
     setBehaviourDetector() {}
     enable() { this.enabled = true; }
     disable() { this.enabled = false; }
-    detachWorkspaceTransitionEvents() {}
     updateState() { this.callback({ effectStrength: strength }); }
     getEffectStrength() { return strength; }
+    getCurrentState() { return { effectStrength: strength }; }
+}
+class WorkspaceEvents {
+    enable() {}
+    disable() {}
+    detachTransition() {}
 }
 let css;
 const theme = { load_stylesheet() {}, unload_stylesheet() {} };
@@ -80,9 +87,10 @@ const stubs = {
         attachSettingsListeners: () => [], detachSettingsListeners() {}
     },
     'topBarMenu.js': { default: class {} },
-    'events/windowEvents.js': { default: WindowEvents },
-    'events/behaviours/maximizedWindows.js': { default: class {} },
-    'events/behaviours/proximityWindows.js': { default: class {} }
+    'events/observers/windowsEvents/windowEvents.js': { default: WindowEvents },
+    'events/observers/workspaceEvents.js': { default: WorkspaceEvents },
+    'events/observers/windowsEvents/windowsDetectors/maximizedWindows.js': { default: class {} },
+    'events/observers/windowsEvents/windowsDetectors/proximityWindows.js': { default: class {} }
 };
 const modules = new Map();
 const src = new URL('../src/', import.meta.url);
@@ -126,7 +134,7 @@ extension.enable();
 expectStyle('panel-gradient');
 showOverview(true);
 expectStyle('panel-overview-gradient');
-assert.equal(extension.windowEvents.enabled, false, 'Overview must work without window tracking');
+assert.equal(windowEvents.enabled, false, 'Overview must work without window tracking');
 assert.match(css, /panel-overview-gradient/);
 assert.match(css, /background-gradient-start: rgba\(0,255,0,0.4\)/);
 assert.match(css, /#panel\.panel-overview-gradient \.panel-button/);
@@ -139,8 +147,8 @@ for (const behavior of ['keep-gradient', 'keep-theme', 'apply-style']) {
         extension.configure(settings);
         const expected = { 'keep-gradient': 'panel-gradient', 'keep-theme': null, 'apply-style': 'panel-overview-gradient' }[behavior];
         expectStyle(expected);
-        extension.windowEvents.callback({ effectStrength: 1, workspaceTransition: 'progress', startEffectStrength: 0, endEffectStrength: 1, transitionProgress: 0.5 });
-        extension.windowEvents.callback({ effectStrength: 1, workspaceTransition: 'complete' });
+        windowEvents.callback({ effectStrength: 1, workspaceTransition: 'progress', startEffectStrength: 0, endEffectStrength: 1, transitionProgress: 0.5 });
+        windowEvents.callback({ effectStrength: 1, workspaceTransition: 'complete' });
         expectStyle(expected);
         assert.equal(children.size, 0, 'Window transitions cannot cover overview');
         showOverview(false);
@@ -182,15 +190,22 @@ console.log('Overview precedence, transitions, cleanup and reconfiguration passe
 overview.visibleTarget = false;
 settings.maximizedBehavior = 'keep-gradient';
 settings.overviewTransition = true;
-extension.enable();
 let gestureProgress = 0.4;
-Object.defineProperty(extension.overviewEvents, 'progress', { get: () => gestureProgress });
+let onProgress;
+const adjustment = {
+    get value() { return gestureProgress; },
+    connect(_signal, callback) { onProgress = callback; return 1; },
+    disconnect() { onProgress = null; }
+};
+Math.clamp ??= (value, min, max) => Math.max(min, Math.min(max, value));
+overview._overview = { controls: { _stateAdjustment: adjustment } };
+extension.enable();
 showOverview(true);
 assert.equal(children.size, 2, 'Extension forwards gesture progress');
 extension.configure(settings);
 assert.equal(children.size, 2, 'Reconfiguration replaces layers without leaking actors');
 gestureProgress = 0.2;
-extension.updateOverview();
+onProgress();
 extension.disable();
 assert.equal(children.size, 0, 'Disable cleans up an active overview gesture');
 assert.equal(handlers.size, 0);

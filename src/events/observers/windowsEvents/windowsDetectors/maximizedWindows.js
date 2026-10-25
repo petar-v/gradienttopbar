@@ -5,7 +5,6 @@ const { VERTICAL, BOTH } = Meta.MaximizeFlags;
 // Detects windows that occupy the full monitor or are vertically maximized.
 // This behaviour deliberately avoids layout and position-change dependencies.
 export default class MaximizedWindows {
-    // TODO: Handle tiled windows and monitor-sized windows that were not snapped.
     matches(window) {
         if (window.is_monitor_sized() || window.is_screen_sized())
             return true;
@@ -18,9 +17,9 @@ export default class MaximizedWindows {
     }
 
     // Maximization changes window size; moving an unmaximized window is irrelevant.
-    attachWindowEvents(eventManager, window, updateState) {
-        eventManager.attachWindowEventOnce('size-changed', window, updateState);
-        eventManager.attachWindowEventOnce('workspace-changed', window, updateState);
+    attachWindowEvents(signals, window, updateState) {
+        signals.connect(window, 'size-changed', updateState);
+        signals.connect(window, 'workspace-changed', updateState);
     }
 
     // Maximized detection requires no behaviour-specific global events.
