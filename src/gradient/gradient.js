@@ -1,8 +1,20 @@
 import BackgroundBlend from './backgroundBlend.js';
 import { setGradientClass } from './panelBackground.js';
 import { applyGradientStyle, unloadGradientStylesheet } from './stylesheet.js';
-import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
+import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
 import { GRADIENT_CLASS, MAXIMIZED_GRADIENT_CLASS, OVERVIEW_GRADIENT_CLASS } from './stylesheet.js';
+import { APPEARANCE_STATE, getAppearance } from './appearance.js';
+
+const getAppearanceStyle = (config, state) => {
+    const appearance = getAppearance(config, state);
+    return {
+        gradientClass: appearance ? {
+            main: GRADIENT_CLASS,
+            alternate: MAXIMIZED_GRADIENT_CLASS,
+            overview: OVERVIEW_GRADIENT_CLASS
+        }[appearance.name] : null
+    };
+};
 
 const getWindowBlendProgress = (config, strength) => {
     if (config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT)
@@ -14,8 +26,8 @@ const getWindowBlendProgress = (config, strength) => {
 };
 
 const getWindowBlendStyles = config => [
-    { gradientClass: GRADIENT_CLASS },
-    { gradientClass: config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_THEME ? null : MAXIMIZED_GRADIENT_CLASS }
+    getAppearanceStyle(config, APPEARANCE_STATE.NORMAL),
+    getAppearanceStyle(config, APPEARANCE_STATE.TRIGGERED)
 ];
 
 const getWorkspaceBlendProgress = (config, startStrength, endStrength, progress) => {
@@ -24,14 +36,10 @@ const getWorkspaceBlendProgress = (config, startStrength, endStrength, progress)
     return start + (end - start) * progress;
 };
 
-const getOverviewStyle = config => {
-    let gradientClass = GRADIENT_CLASS;
-    if (config.overviewBehavior === OVERVIEW_BEHAVIOR.KEEP_THEME)
-        gradientClass = null;
-    else if (config.overviewBehavior === OVERVIEW_BEHAVIOR.APPLY_STYLE)
-        gradientClass = OVERVIEW_GRADIENT_CLASS;
-    return { gradientClass, inOverview: true };
-};
+const getOverviewStyle = config => ({
+    ...getAppearanceStyle(config, APPEARANCE_STATE.OVERVIEW),
+    inOverview: true
+});
 
 export default class Gradient {
     constructor(extensionPath) {
