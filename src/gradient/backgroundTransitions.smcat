@@ -1,0 +1,40 @@
+# Presentation states owned by BackgroundTransitions, not Shell visibility states.
+# settled has no blend actors; its style is null before the first configure.
+# A desktop-blend can remain stationary at an intermediate proximity progress.
+# An overview-blend can remain at progress 1 while overview is open.
+# Overview visibility and the latest desired desktop progress are separate inputs.
+# configure installs styles and inputs together before following these transitions.
+# beginDesktopBlend and beginOverviewBlend pass through settle to release old layers;
+# those synchronous intermediate settled states are omitted from the arrows below.
+
+initial,
+settled,
+"desktop-blend",
+"overview-blend",
+final;
+
+initial => settled: construct;
+settled => settled: "desktop update [same endpoint] / commit style";
+settled => "desktop-blend": "desktop update [new progress] / beginDesktopBlend";
+"desktop-blend" => "desktop-blend": "desktop update / set progress or animate";
+"desktop-blend" => settled: "desktop completion [endpoint] / settle";
+settled => "overview-blend": "overview gesture / beginOverviewBlend";
+"desktop-blend" => "overview-blend": "overview gesture / capture appearance then beginOverviewBlend";
+"overview-blend" => "overview-blend": "overview gesture / set progress";
+"overview-blend" => "overview-blend": "gesture leaves progress 1 / refreshOverviewExit";
+"overview-blend" => "overview-blend": "desktop update / remember input only";
+settled => settled: "desktop update [overview active] / remember input only";
+settled => settled: "overview target [no gesture blend] / settle overview";
+"desktop-blend" => settled: "overview target [no gesture blend] / settle overview";
+"overview-blend" => settled: "timed completion / settle overview or base style";
+"overview-blend" => "desktop-blend": "overview hidden / restore latest desktop";
+settled => "desktop-blend": "desktop restore [progress differs] / beginDesktopBlend";
+settled => settled: "desktop restore [same endpoint] / commit style";
+
+# Configuration refreshes active endpoints without discarding captured entry mixes
+# unless the desktop appearance selection or desired progress changed.
+# Replacement stops the old animation; completion only commits its own presentation.
+# destroy commits the original theme and releases any blend before disposal.
+settled => final: destroy;
+"desktop-blend" => final: destroy;
+"overview-blend" => final: destroy;

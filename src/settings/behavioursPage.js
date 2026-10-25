@@ -10,15 +10,15 @@ import {
     bindSetting,
     setStyleTrigger,
     setProximityTransition,
-    STYLE_TRIGGER as STYLE_TRIGGER_KEY,
-    MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
+    STYLE_TRIGGER_KEY,
+    WINDOW_BEHAVIOR_KEY,
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
     OVERVIEW_TRANSITION,
     TOP_BAR_STYLE_SETTINGS,
     attachSettingsListeners,
     detachSettingsListeners,
-    getMaximizedBehavior,
+    getWindowBehavior,
     getStyleTrigger,
     getProximityTransition
 } from '../config.js';
@@ -27,7 +27,7 @@ import { createResetButton } from './components/resetButton.js';
 import { createProximityDistanceEditor } from './components/proximityDistanceEditor.js';
 import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
 
-import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
+import { APPEARANCE_BEHAVIOR, STYLE_TRIGGER } from '../gradient/appearance.js';
 
 class Behavior extends Adw.PreferencesPage {
     _init(window, settings) {
@@ -83,7 +83,7 @@ class Behavior extends Adw.PreferencesPage {
         // Set initial value
         selectRowValue(triggerRow, getStyleTrigger(this._settings));
         const updateProximityControls = () => {
-            const enabled = getMaximizedBehavior(this._settings) !== MAXIMIZED_BEHAVIOR.KEEP_GRADIENT;
+            const enabled = getWindowBehavior(this._settings) !== APPEARANCE_BEHAVIOR.KEEP_GRADIENT;
             behaviorGroup.set_sensitive(enabled);
             disabledGroup.set_visible(!enabled);
             const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
@@ -140,7 +140,7 @@ class Behavior extends Adw.PreferencesPage {
         };
         onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged, [
-            MAXIMIZED_BEHAVIOR_KEY, STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE, PROXIMITY_TRANSITION
+            WINDOW_BEHAVIOR_KEY, STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE, PROXIMITY_TRANSITION
         ]);
         window.connect('close-request', () => {
             distanceEditor.commit();
