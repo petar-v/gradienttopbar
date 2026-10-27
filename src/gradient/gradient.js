@@ -1,23 +1,15 @@
-import BackgroundBlend from './backgroundBlend.js';
-import { setGradientClass } from './panelBackground.js';
+import BackgroundTransitions from './backgroundTransitions.js';
 import { applyGradientStyle, unloadGradientStylesheet } from './stylesheet.js';
-import { MAXIMIZED_BEHAVIOR, STYLE_TRIGGER } from '../constants.js';
-import { GRADIENT_CLASS, MAXIMIZED_GRADIENT_CLASS, OVERVIEW_GRADIENT_CLASS } from './stylesheet.js';
-import { APPEARANCE_STATE, getAppearance } from './appearance.js';
+import { GRADIENT_CLASSES } from './stylesheet.js';
+import { APPEARANCE_BEHAVIOR, APPEARANCE_STATE, STYLE_TRIGGER, getAppearanceName } from './appearance.js';
 
 const getAppearanceStyle = (config, state) => {
-    const appearance = getAppearance(config, state);
-    return {
-        gradientClass: appearance ? {
-            main: GRADIENT_CLASS,
-            alternate: MAXIMIZED_GRADIENT_CLASS,
-            overview: OVERVIEW_GRADIENT_CLASS
-        }[appearance.name] : null
-    };
+    const name = getAppearanceName(config, state);
+    return { gradientClass: name === null ? null : GRADIENT_CLASSES[name] };
 };
 
 const getWindowBlendProgress = (config, strength) => {
-    if (config.maximizedBehavior === MAXIMIZED_BEHAVIOR.KEEP_GRADIENT)
+    if (config.windowBehavior === APPEARANCE_BEHAVIOR.KEEP_GRADIENT)
         return 0;
 
     const progressive = config.styleTrigger === STYLE_TRIGGER.PROXIMITY &&
@@ -30,7 +22,7 @@ const getWindowBlendStyles = config => [
     getAppearanceStyle(config, APPEARANCE_STATE.TRIGGERED)
 ];
 
-const getWorkspaceBlendProgress = (config, startStrength, endStrength, progress) => {
+const getWorkspaceBlendProgress = (config, { startStrength, endStrength, progress }) => {
     const start = getWindowBlendProgress(config, startStrength);
     const end = getWindowBlendProgress(config, endStrength);
     return start + (end - start) * progress;
@@ -42,131 +34,58 @@ const getOverviewStyle = config => ({
 });
 
 export default class Gradient {
-    constructor(extensionPath) {
-        this._extensionPath = extensionPath;
+    constructor() {
+        this._transitions = new BackgroundTransitions();
     }
 
-    configure(config) {
-        this.clearBlend();
+    configure(config, state) {
+        applyGradientStyle(config);
         this._config = config;
-        this._desktopStyles = getWindowBlendStyles(config);
-        this._desktopProgress = 0;
-        this._overviewTarget = null;
-        this._strength = 0;
-        applyGradientStyle(config, this._extensionPath);
+        this._transitions.configure({
+            desktop: getWindowBlendStyles(config),
+            overview: getOverviewStyle(config)
+        }, {
+            desktop: {
+                progress: state.workspaceTransition
+                    ? getWorkspaceBlendProgress(config, state.workspaceTransition)
+                    : getWindowBlendProgress(config, state.window.effectStrength),
+                animate: state.workspaceTransition === null
+            },
+            overview: state.overview,
+            followGesture: config.overviewTransition
+        });
     }
 
-    updateWindow(state) {
-        this._strength = state.effectStrength;
-        if (this._overviewVisible)
-            return;
-
-        if (state.workspaceTransition === 'progress') {
-            this.renderDesktop(getWorkspaceBlendProgress(
-                this._config, state.startEffectStrength, state.endEffectStrength, state.transitionProgress
-            ));
-        } else {
-            this.renderDesktop(getWindowBlendProgress(this._config, state.effectStrength),
-                state.workspaceTransition !== 'complete');
-        }
-    }
-
-    restoreDesktop(animate = false) {
-        this.renderDesktop(getWindowBlendProgress(this._config, this._strength), animate);
-    }
-
-    setStyle(style) {
-        setGradientClass(style.gradientClass);
-        this._baseStyle = style;
-    }
-
-    clearBlend() {
-        if (this._blendKind === 'desktop')
-            this._desktopProgress = this._blend.progress;
-        this._blend?.destroy();
-        this._blend = null;
-        this._blendKind = null;
-    }
-
-    renderDesktop(progress, animate = false) {
-        const [source, target] = this._desktopStyles;
-        if (!this._blend && progress === this._desktopProgress && (progress === 0 || progress === 1)) {
-            this.setStyle(progress === 0 ? source : target);
-            return;
-        }
-
-        if (this._blendKind !== 'desktop') {
-            this.setStyle(source);
-            this.clearBlend();
-            this._blend = new BackgroundBlend(source, target);
-            this._blendKind = 'desktop';
-            this._blend.setProgress(this._desktopProgress);
-        }
-        const complete = () => {
-            this._desktopProgress = progress;
-            if (progress === 0 || progress === 1) {
-                this.setStyle(progress === 0 ? source : target);
-                this.clearBlend();
-            }
-        };
-        if (animate && progress !== this._blend.progress) {
-            this._blend.animateTo(progress, complete);
-        } else {
-            this._blend.setProgress(progress);
-            complete();
-        }
-    }
-
-    updateOverview({ progress, hidden, target }, strength) {
-        this._strength = strength;
-        this._overviewVisible = !hidden || target;
+    updateWindow({ effectStrength }) {
         if (!this._config)
             return;
+        this._transitions.updateDesktop(
+            getWindowBlendProgress(this._config, effectStrength), { animate: true }
+        );
+    }
 
-        if (this._overviewTarget === null)
-            this.restoreDesktop();
-
-        const targetChanged = target !== this._overviewTarget;
-        this._overviewTarget = target;
-
-        if (hidden && !target) {
-            this.restoreDesktop();
+    updateWorkspaceProgress(transition) {
+        if (!this._config)
             return;
-        }
+        this._transitions.updateDesktop(getWorkspaceBlendProgress(this._config, transition));
+    }
 
-        if (this._config.overviewTransition && progress !== null) {
-            // Refresh the desktop endpoint on exit; it may have changed while overview was open.
-            if (this._blendKind === 'overview' && this._blend.progress === 1 && progress < 1)
-                this.restoreDesktop();
-            if (this._blendKind !== 'overview') {
-                const source = this._blend?.getStyle() ?? this._baseStyle;
-                const destination = getOverviewStyle(this._config);
-                this.setStyle(destination);
-                this.clearBlend();
-                this._blend = new BackgroundBlend(source, destination);
-                this._blendKind = 'overview';
-            }
-            this._blend.setProgress(progress);
+    completeWorkspace({ effectStrength }) {
+        if (!this._config)
             return;
-        }
+        this._transitions.updateDesktop(getWindowBlendProgress(this._config, effectStrength));
+    }
 
-        if (!targetChanged)
-            return;
-
-        if (target) {
-            this.setStyle(getOverviewStyle(this._config));
-            this.clearBlend();
-        } else {
-            this.restoreDesktop(true);
-        }
+    updateOverview({ progress, hidden, target, effectStrength }) {
+        this._transitions.updateOverview({
+            progress, hidden, target,
+            desktopProgress: this._config ? getWindowBlendProgress(this._config, effectStrength) : 0
+        });
     }
 
     destroy() {
-        setGradientClass(null);
-        this.clearBlend();
-        unloadGradientStylesheet(this._extensionPath);
+        this._transitions.destroy();
+        unloadGradientStylesheet();
         this._config = null;
-        this._baseStyle = null;
-        this._desktopStyles = null;
     }
 }

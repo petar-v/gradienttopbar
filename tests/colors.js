@@ -1,5 +1,6 @@
 // Run with: node tests/colors.js
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { normalizeColor } from '../src/colors.js';
 
 for (const [input, expected] of [
@@ -13,8 +14,10 @@ for (const [input, expected] of [
     ['RGBA(100%, 0%, 50%, 25%)', 'rgba(255,0,128,0.25)'],
     ['rgba(1e2, .5, +255, 1e-2)', 'rgba(100,1,255,0.01)']
 ]) {
-    assert.equal(normalizeColor(input), expected, input);
-    assert.equal(normalizeColor(expected), expected, 'Normalization must be stable');
+    test(`normalizes ${input}`, () => {
+        assert.equal(normalizeColor(input), expected, input);
+        assert.equal(normalizeColor(expected), expected, 'Normalization must be stable');
+    });
 }
 
 for (const input of [
@@ -24,7 +27,8 @@ for (const input of [
     'rgba(0,0,0,1.01)', 'rgba(0,0,0,-.1)', 'rgba(0,0,0,101%)',
     'rgb(NaN,0,0)', 'rgb(1e999,0,0)', 'rgb(0x10,0,0)',
     'rgb(1 2 3)', 'rgb(1,2,3); color: red', 'rgb(1,2,3)junk'
-])
-    assert.equal(normalizeColor(input), null, String(input));
-
-console.log('Color normalization, ranges, alpha and malformed-input checks passed');
+]) {
+    test(`rejects ${String(input)}`, () => {
+        assert.equal(normalizeColor(input), null, String(input));
+    });
+}

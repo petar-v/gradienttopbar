@@ -10,6 +10,15 @@ import {
     SHADOW_COLOR,
     SHADOW_OFFSET_X,
     SHADOW_OFFSET_Y,
+    COLORS,
+    GRADIENT_DIRECTION_KEY,
+    WINDOW_BEHAVIOR_KEY,
+    ALTERNATE_COLORS_KEY,
+    ALTERNATE_GRADIENT_DIRECTION_KEY,
+    OVERVIEW_BEHAVIOR_KEY,
+    OVERVIEW_COLORS,
+    OVERVIEW_GRADIENT_DIRECTION,
+    STYLE_TRIGGER_KEY,
     attachSettingsListeners,
     detachSettingsListeners
 } from '../config.js';
@@ -65,7 +74,12 @@ class ContentShadows extends Adw.PreferencesPage {
         const settingsHandlerIds = attachSettingsListeners(settings, () => {
             shadowEditor.refresh();
             shadowPreview.refresh();
-        });
+        }, [
+            CONTENT_SHADOWS, SHADOW_COLOR, SHADOW_BLUR, SHADOW_OFFSET_X, SHADOW_OFFSET_Y,
+            COLORS, GRADIENT_DIRECTION_KEY,
+            WINDOW_BEHAVIOR_KEY, ALTERNATE_COLORS_KEY, ALTERNATE_GRADIENT_DIRECTION_KEY,
+            OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION, STYLE_TRIGGER_KEY
+        ]);
         window.connect('close-request', () => {
             detachSettingsListeners(settings, settingsHandlerIds);
         });

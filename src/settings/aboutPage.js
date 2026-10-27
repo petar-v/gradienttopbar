@@ -71,6 +71,14 @@ class About extends Adw.PreferencesPage {
 
         this.add(projectHeaderGroup);
 
+        const showSettingsError = (heading, error) => {
+            const dialog = new Adw.AlertDialog({ heading, body: error.message });
+            dialog.add_response('close', gettext('Close'));
+            dialog.set_default_response('close');
+            dialog.set_close_response('close');
+            dialog.present(this.get_root());
+        };
+
         const settingsGroup = new Adw.PreferencesGroup();
         const settingsRow = new Adw.ActionRow({
             title: gettext('Settings')
@@ -82,6 +90,7 @@ class About extends Adw.PreferencesPage {
         restoreButton.connect('clicked', () =>
             loadFileDialog({
                 onFileSelected: loadSettingsFromFile,
+                onFileError: error => showSettingsError(gettext('Could not import settings'), error),
                 transientFor: this.get_root()
             })
         );
@@ -92,6 +101,7 @@ class About extends Adw.PreferencesPage {
         exportButton.connect('clicked', () =>
             saveFileDialog({
                 onSelected: exportSettingsToFile,
+                onError: error => showSettingsError(gettext('Could not export settings'), error),
                 transientFor: this.get_root()
             })
         );

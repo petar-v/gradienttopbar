@@ -1,10 +1,8 @@
 import Gtk from 'gi://Gtk';
-import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 
 import { getConfig } from '../../config.js';
-import { STYLE_TRIGGER } from '../../constants.js';
-import { APPEARANCE_STATE, getAppearance } from '../../gradient/appearance.js';
+import { APPEARANCE_STATE, STYLE_TRIGGER, getAppearance } from '../../gradient/appearance.js';
 import { createGradientPreview } from './gradientEditor.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -18,10 +16,11 @@ export const createShadowPreview = settings => {
     let styleIndex = 0;
     const styleLabel = new Gtk.Label({ xalign: 0, css_classes: ['dim-label'] });
     const styleSwitch = new Gtk.Button({
-        icon_name: Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).has_icon('horizontal-arrows-none-symbolic')
-            ? 'horizontal-arrows-none-symbolic' : 'view-refresh-symbolic',
+        icon_name: 'view-refresh-symbolic',
         tooltip_text: gettext('Preview triggered appearance'),
-        css_classes: ['osd', 'circular'],
+        css_classes: ['circular', 'osd'],
+        width_request: 40,
+        height_request: 40,
         valign: Gtk.Align.CENTER
     });
     const getGradient = () => getAppearance(getConfig(settings), states[styleIndex]);
@@ -77,8 +76,10 @@ export const createShadowPreview = settings => {
         const { shadowOffsetX, shadowOffsetY, shadowBlur, shadowColor } = config;
         styles[APPEARANCE_STATE.TRIGGERED] = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
             ? gettext('Window Nearby') : gettext('Window Maximized');
+
         const style = styles[states[styleIndex]];
         sampleText.set_label(sampleTexts[textIndex] ?? style);
+
         const originalTheme = getGradient() === null;
         const shadow = config.contentShadows && !originalTheme
             ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}` : 'none';
@@ -86,6 +87,7 @@ export const createShadowPreview = settings => {
         label { font-size: 24px; font-weight: bold; color: white; text-shadow: ${shadow}; }
         image { color: white; -gtk-icon-shadow: ${shadow}; }`);
         styleLabel.set_label(`${gettext('Preview')} · ${style}`);
+
         const nextStyle = styles[states[(styleIndex + 1) % states.length]];
         const nextLabel = gettext('Next preview style: %s').replace('%s', nextStyle);
         styleSwitch.set_tooltip_text(nextLabel);

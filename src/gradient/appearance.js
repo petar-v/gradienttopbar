@@ -1,4 +1,21 @@
-import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR } from '../constants.js';
+/** @typedef {'main'|'alternate'|'overview'} AppearanceName */
+/** @typedef {Readonly<{colors: Readonly<{start: string, end: string}>, direction: string}>} GradientDefinition */
+
+export const GRADIENT_DIRECTION = {
+    VERTICAL: 'vertical',
+    HORIZONTAL: 'horizontal'
+};
+
+export const STYLE_TRIGGER = {
+    MAXIMIZED: 'maximized',
+    PROXIMITY: 'proximity'
+};
+
+export const APPEARANCE_BEHAVIOR = {
+    KEEP_GRADIENT: 'keep-gradient',
+    KEEP_THEME: 'keep-theme',
+    APPLY_STYLE: 'apply-style'
+};
 
 export const APPEARANCE_STATE = {
     NORMAL: 'normal',
@@ -6,22 +23,32 @@ export const APPEARANCE_STATE = {
     OVERVIEW: 'overview'
 };
 
-export const getAppearance = (config, state) => {
-    let behavior = null;
-    if (state === APPEARANCE_STATE.OVERVIEW)
-        behavior = config.overviewBehavior;
+/**
+ * @param {ReturnType<import('../config.js').getConfig>} config
+ * @param {string} state
+ * @returns {AppearanceName|null}
+ */
+export const getAppearanceName = (config, state) => {
+    const overview = state === APPEARANCE_STATE.OVERVIEW;
+    if (!overview && state !== APPEARANCE_STATE.TRIGGERED)
+        return 'main';
 
-    else if (state === APPEARANCE_STATE.TRIGGERED)
-        behavior = config.maximizedBehavior;
-
-    if (behavior === MAXIMIZED_BEHAVIOR.KEEP_THEME)
+    const behavior = overview ? config.overviewBehavior : config.windowBehavior;
+    if (behavior === APPEARANCE_BEHAVIOR.KEEP_THEME)
         return null;
 
-    if (state === APPEARANCE_STATE.OVERVIEW && behavior === OVERVIEW_BEHAVIOR.APPLY_STYLE)
-        return { name: 'overview', colors: config.overviewColors, direction: config.overviewGradientDirection };
+    if (behavior === APPEARANCE_BEHAVIOR.APPLY_STYLE)
+        return overview ? 'overview' : 'alternate';
 
-    if (state === APPEARANCE_STATE.TRIGGERED && behavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE)
-        return { name: 'alternate', colors: config.maximizedColors, direction: config.maximizedGradientDirection };
+    return 'main';
+};
 
-    return { name: 'main', colors: config.colors, direction: config.gradientDirection };
+/**
+ * @param {ReturnType<import('../config.js').getConfig>} config
+ * @param {string} state
+ * @returns {GradientDefinition|null}
+ */
+export const getAppearance = (config, state) => {
+    const name = getAppearanceName(config, state);
+    return name === null ? null : config.gradients[name];
 };

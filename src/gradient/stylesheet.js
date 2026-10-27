@@ -1,33 +1,54 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 
-export const GRADIENT_CLASS = 'panel-gradient';
-export const MAXIMIZED_GRADIENT_CLASS = 'panel-maximized-gradient';
-export const OVERVIEW_GRADIENT_CLASS = 'panel-overview-gradient';
+/** @type {Record<import('./appearance.js').AppearanceName, string>} */
+export const GRADIENT_CLASSES = {
+    main: 'panel-gradient',
+    alternate: 'panel-maximized-gradient',
+    overview: 'panel-overview-gradient'
+};
 export const BLENDING_CLASS = 'panel-background-blending';
 export const RESTORING_CLASS = 'panel-background-restoring';
 export const TRANSITION_DURATION_MS = 200;
 
+
+// TODO: use the util functions to generate the css or maybe we keep this readable idk
+/**
+ * @param {string} className
+ * @param {import('./appearance.js').GradientDefinition} gradient
+ */
+const gradientRule = (className, { colors, direction }) => `
+          .${className} {
+            background-color: transparent;
+            background-gradient-direction: ${direction};
+            background-gradient-start: ${colors.start};
+            background-gradient-end: ${colors.end};
+          }`;
+
+const panelSelectors = (...descendants) => descendants.flatMap(descendant =>
+    Object.values(GRADIENT_CLASSES).map(className => `#panel.${className} ${descendant}`)
+).join(',\n');
+
 const generateCss = config => {
-    const { gradientDirection, colors, maximizedGradientDirection, maximizedColors } = config;
+    const { main, alternate, overview } = config.gradients;
     const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
     const contentShadows = config.contentShadows ? `
-          #panel.${GRADIENT_CLASS} .panel-button,
-          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button,
-          #panel.${OVERVIEW_GRADIENT_CLASS} .panel-button,
-          #panel.${GRADIENT_CLASS} .panel-button StLabel,
-          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StLabel,
-          #panel.${OVERVIEW_GRADIENT_CLASS} .panel-button StLabel {
+          #panel.${GRADIENT_CLASSES.main} .panel-button,
+          #panel.${GRADIENT_CLASSES.alternate} .panel-button,
+          #panel.${GRADIENT_CLASSES.overview} .panel-button,
+          #panel.${GRADIENT_CLASSES.main} .panel-button StLabel,
+          #panel.${GRADIENT_CLASSES.alternate} .panel-button StLabel,
+          #panel.${GRADIENT_CLASSES.overview} .panel-button StLabel {
             text-shadow: ${shadow};
           }
-          #panel.${GRADIENT_CLASS} .panel-button StIcon,
-          #panel.${MAXIMIZED_GRADIENT_CLASS} .panel-button StIcon,
-          #panel.${OVERVIEW_GRADIENT_CLASS} .panel-button StIcon {
+          #panel.${GRADIENT_CLASSES.main} .panel-button StIcon,
+          #panel.${GRADIENT_CLASSES.alternate} .panel-button StIcon,
+          #panel.${GRADIENT_CLASSES.overview} .panel-button StIcon {
             icon-shadow: ${shadow};
           }
-          #panel.${GRADIENT_CLASS} .workspace-dot,
-          #panel.${MAXIMIZED_GRADIENT_CLASS} .workspace-dot,
-          #panel.${OVERVIEW_GRADIENT_CLASS} .workspace-dot {
+          #panel.${GRADIENT_CLASSES.main} .workspace-dot,
+          #panel.${GRADIENT_CLASSES.alternate} .workspace-dot,
+          #panel.${GRADIENT_CLASSES.overview} .workspace-dot {
             box-shadow: ${shadow};
           }` : '';
     return `#panel {
@@ -44,31 +65,34 @@ const generateCss = config => {
           #panel.${RESTORING_CLASS} {
             transition-duration: 0ms;
           }
-          .${GRADIENT_CLASS} {
+          .${GRADIENT_CLASSES.main} {
             background-color: transparent;
-            background-gradient-direction: ${gradientDirection};
-            background-gradient-start: ${colors.start};
-            background-gradient-end: ${colors.end};
+            background-gradient-direction: ${main.direction};
+            background-gradient-start: ${main.colors.start};
+            background-gradient-end: ${main.colors.end};
           }
-          .${MAXIMIZED_GRADIENT_CLASS} {
+          .${GRADIENT_CLASSES.alternate} {
             background-color: transparent;
-            background-gradient-direction: ${maximizedGradientDirection};
-            background-gradient-start: ${maximizedColors.start};
-            background-gradient-end: ${maximizedColors.end};
+            background-gradient-direction: ${alternate.direction};
+            background-gradient-start: ${alternate.colors.start};
+            background-gradient-end: ${alternate.colors.end};
           }
-          .${OVERVIEW_GRADIENT_CLASS} {
+          .${GRADIENT_CLASSES.overview} {
             background-color: transparent;
-            background-gradient-direction: ${config.overviewGradientDirection};
-            background-gradient-start: ${config.overviewColors.start};
-            background-gradient-end: ${config.overviewColors.end};
+            background-gradient-direction: ${overview.direction};
+            background-gradient-start: ${overview.colors.start};
+            background-gradient-end: ${overview.colors.end};
           }${contentShadows}`;
 };
 
 /*
  * Locate the generated stylesheet so loading, replacement and unloading use the same file.
  */
-const getUserStylesheet = extensionPath =>
-    Gio.File.new_for_path(`${extensionPath}/user-stylesheet.css`);
+// FIXME: this is a hack to get the path to the user-stylesheet.css file
+const getUserStylesheet = () => Gio.File.new_for_uri(import.meta.url)
+    .get_parent()
+    .get_parent()
+    .get_child('user-stylesheet.css');
 
 /*
  * Replace the generated CSS file so the theme can load the latest settings.
@@ -83,26 +107,35 @@ const saveUserCss = (file, stylesheet) => {
 /*
  * Regenerate and reload the stylesheet after settings change, avoiding inline panel styles that clash with other extensions.
  */
-export const applyGradientStyle = (config, extensionPath) => {
+let loadedStylesheet = null;
+
+export const applyGradientStyle = config => {
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-    const userStylesheet = getUserStylesheet(extensionPath);
+    const css = generateCss(config);
+    if (loadedStylesheet?.theme === theme && loadedStylesheet.css === css)
+        return false;
+    const userStylesheet = getUserStylesheet();
 
     // generate a stylesheet based on the user preferences. note: this is somewhat of a hack.
     // I couldn't figure out how to dynamically alter classes. I could have used Main.panel.set_style
     // but I found this interferes with other extensions and becomes a mess to maintain.
     // unload the previous version
-    theme.unload_stylesheet(userStylesheet);
     // save the current version
-    saveUserCss(userStylesheet, generateCss(config));
+    saveUserCss(userStylesheet, css);
+    loadedStylesheet = null;
+    theme.unload_stylesheet(userStylesheet);
     // load again
     theme.load_stylesheet(userStylesheet);
+    loadedStylesheet = { theme, css };
+    return true;
 };
 
 /*
  * Remove the generated stylesheet from the theme when the extension is disabled.
  */
-export const unloadGradientStylesheet = extensionPath => {
+export const unloadGradientStylesheet = () => {
+    loadedStylesheet = null;
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-    theme.unload_stylesheet(getUserStylesheet(extensionPath));
+    theme.unload_stylesheet(getUserStylesheet());
 };
 

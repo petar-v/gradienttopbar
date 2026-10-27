@@ -13,10 +13,10 @@ export const loadFileDialog = ({
     });
     dialog.set_accept_label(gettext('Import'));
 
-    dialog.open(transientFor, null, (self, res) => {
+    dialog.open(transientFor, null, async (self, res) => {
         try {
             const file = self.open_finish(res);
-            onFileSelected(file);
+            await onFileSelected(file);
         } catch (error) {
             if (
                 error instanceof Gtk.DialogError &&

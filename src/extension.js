@@ -37,9 +37,8 @@ export default class GradientTopBar extends Extension {
 
     configure(settings) {
         const config = getConfig(settings);
-        this.gradient.configure(config);
-
-        this.events.configure(config, settings);
+        const state = this.events.configure(config);
+        this.gradient.configure(config, state);
     }
 
     enable() {
@@ -48,11 +47,13 @@ export default class GradientTopBar extends Extension {
             this._settings, TOP_BAR_STYLE_SETTINGS, () => this.updateTopBarMenu()
         );
         this.updateTopBarMenu();
-        this.gradient = new Gradient(this.path);
-        this.events = new EventManager(
-            state => this.gradient.updateWindow(state),
-            (state, strength) => this.gradient.updateOverview(state, strength)
-        );
+        this.gradient = new Gradient();
+        this.events = new EventManager({
+            onWindowChanged: state => this.gradient.updateWindow(state),
+            onWorkspaceProgress: transition => this.gradient.updateWorkspaceProgress(transition),
+            onWorkspaceCompleted: state => this.gradient.completeWorkspace(state),
+            onOverviewChanged: state => this.gradient.updateOverview(state)
+        });
 
         this._settingsHandlerIds = attachSettingsListeners(
             this._settings,

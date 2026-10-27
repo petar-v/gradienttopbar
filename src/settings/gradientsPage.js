@@ -7,19 +7,17 @@ import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/pr
 
 import {
     getConfig,
-    bindSetting,
     setGradientDirection,
     saveGradientColors,
-    setMaximizedBehavior,
+    setWindowBehavior,
     setOverviewBehavior,
     COLORS,
-    GRADIENT_DIRECTION as GRADIENT_DIRECTION_KEY,
-    MAXIMIZED_BEHAVIOR as MAXIMIZED_BEHAVIOR_KEY,
-    MAXIMIZED_COLORS,
-    MAXIMIZED_GRADIENT_DIRECTION,
-    OVERVIEW_BEHAVIOR as OVERVIEW_BEHAVIOR_KEY,
+    GRADIENT_DIRECTION_KEY,
+    WINDOW_BEHAVIOR_KEY,
+    ALTERNATE_COLORS_KEY,
+    ALTERNATE_GRADIENT_DIRECTION_KEY,
+    OVERVIEW_BEHAVIOR_KEY,
     OVERVIEW_COLORS,
-    OVERVIEW_TRANSITION,
     OVERVIEW_GRADIENT_DIRECTION,
     attachSettingsListeners,
     detachSettingsListeners
@@ -27,7 +25,7 @@ import {
 import { createGradientEditor } from './components/gradientEditor.js';
 import { createResetButton } from './components/resetButton.js';
 import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
-import { MAXIMIZED_BEHAVIOR, OVERVIEW_BEHAVIOR, GRADIENT_DIRECTION } from '../constants.js';
+import { APPEARANCE_BEHAVIOR, GRADIENT_DIRECTION } from '../gradient/appearance.js';
 
 class Gradients extends Adw.PreferencesPage {
     _init(window, settings) {
@@ -61,8 +59,9 @@ class Gradients extends Adw.PreferencesPage {
 
         const createGradientSection = (group, {
             directionTitle, directionSubtitle, startTitle, endTitle,
-            colorsKey, directionKey, getGradient
+            colorsKey, directionKey, gradientName
         }) => {
+            const getGradient = () => getConfig(settings).gradients[gradientName];
             const directionRow = new Adw.ComboRow({
                 title: directionTitle,
                 subtitle: directionSubtitle ?? '',
@@ -76,12 +75,11 @@ class Gradients extends Adw.PreferencesPage {
             const editor = createGradientEditor(
                 startTitle,
                 endTitle,
-                () => getGradient(getConfig(settings)),
-                (endpoint, color) => {
-                    const { colors } = getGradient(getConfig(settings));
-                    colors[endpoint] = color;
-                    saveGradientColors(settings, colorsKey, colors);
-                }
+                getGradient,
+                (endpoint, color) => saveGradientColors(settings, colorsKey, {
+                    ...getGradient().colors,
+                    [endpoint]: color
+                })
             );
             // PreferencesGroup renders non-row widgets after its row list, regardless of add order.
             group.add(new Adw.PreferencesRow({
@@ -92,7 +90,7 @@ class Gradients extends Adw.PreferencesPage {
             group.add(directionRow);
 
             return config => {
-                selectRowValue(directionRow, getGradient(config).direction);
+                selectRowValue(directionRow, config.gradients[gradientName].direction);
                 editor.refresh();
             };
         };
@@ -104,7 +102,7 @@ class Gradients extends Adw.PreferencesPage {
             endTitle: gettext('Gradient End Colour'),
             colorsKey: COLORS,
             directionKey: GRADIENT_DIRECTION_KEY,
-            getGradient: config => ({ colors: config.colors, direction: config.gradientDirection })
+            gradientName: 'main'
         });
         this.add(gradientGroup);
 
@@ -116,40 +114,38 @@ class Gradients extends Adw.PreferencesPage {
                 gettext('Reset window interaction?'),
                 gettext('Restore the default triggered behaviour and alternate gradient colours and direction.'),
                 settings,
-                [MAXIMIZED_BEHAVIOR_KEY, MAXIMIZED_COLORS, MAXIMIZED_GRADIENT_DIRECTION]
+                [WINDOW_BEHAVIOR_KEY, ALTERNATE_COLORS_KEY, ALTERNATE_GRADIENT_DIRECTION_KEY]
             )
         });
-        const behaviorValues = [
-            MAXIMIZED_BEHAVIOR.KEEP_GRADIENT,
-            MAXIMIZED_BEHAVIOR.KEEP_THEME,
-            MAXIMIZED_BEHAVIOR.APPLY_STYLE
-        ];
+        const behaviorModel = new Gio.ListStore({ item_type: ChoiceOption });
+        [
+            new ChoiceOption(gettext('Keep main gradient'), APPEARANCE_BEHAVIOR.KEEP_GRADIENT),
+            new ChoiceOption(gettext('Use original theme'), APPEARANCE_BEHAVIOR.KEEP_THEME),
+            new ChoiceOption(gettext('Use alternate gradient'), APPEARANCE_BEHAVIOR.APPLY_STYLE)
+        ].forEach(option => behaviorModel.append(option));
         const behaviorRow = new Adw.ComboRow({
             title: gettext('When triggered'),
-            model: Gtk.StringList.new([
-                gettext('Keep main gradient'),
-                gettext('Use original theme'),
-                gettext('Use alternate gradient')
-            ])
+            model: behaviorModel,
+            expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
         behaviorRow.connect('notify::selected', () => {
-            if (!updatingSettings)
-                setMaximizedBehavior(settings, behaviorValues[behaviorRow.selected]);
+            if (!updatingSettings && behaviorRow.selectedItem)
+                setWindowBehavior(settings, behaviorRow.selectedItem.value);
         });
         interactionGroup.add(behaviorRow);
         this.add(interactionGroup);
 
-        const maximizedGradientGroup = new Adw.PreferencesGroup();
-        const refreshMaximizedGradient = createGradientSection(maximizedGradientGroup, {
+        const alternateGradientGroup = new Adw.PreferencesGroup();
+        const refreshAlternateGradient = createGradientSection(alternateGradientGroup, {
             directionTitle: gettext('Alternate Gradient Direction'),
             directionSubtitle: gettext('The orientation when the style trigger is active.'),
             startTitle: gettext('Alternate Gradient Start Colour'),
             endTitle: gettext('Alternate Gradient End Colour'),
-            colorsKey: MAXIMIZED_COLORS,
-            directionKey: MAXIMIZED_GRADIENT_DIRECTION,
-            getGradient: config => ({ colors: config.maximizedColors, direction: config.maximizedGradientDirection })
+            colorsKey: ALTERNATE_COLORS_KEY,
+            directionKey: ALTERNATE_GRADIENT_DIRECTION_KEY,
+            gradientName: 'alternate'
         });
-        this.add(maximizedGradientGroup);
+        this.add(alternateGradientGroup);
 
         const overviewGroup = new Adw.PreferencesGroup({
             title: gettext('Overview'),
@@ -157,35 +153,27 @@ class Gradients extends Adw.PreferencesPage {
             header_suffix: createResetButton(
                 window,
                 gettext('Reset overview appearance?'),
-                gettext('Restore the main gradient in overview, turn off gesture blending and reset the custom gradient colours and direction.'),
+                gettext('Restore the main gradient in overview and reset the custom gradient colours and direction.'),
                 settings,
-                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_TRANSITION, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
+                [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
             )
         });
-        const overviewBehaviorValues = [
-            OVERVIEW_BEHAVIOR.KEEP_GRADIENT,
-            OVERVIEW_BEHAVIOR.KEEP_THEME,
-            OVERVIEW_BEHAVIOR.APPLY_STYLE
-        ];
+        const overviewBehaviorModel = new Gio.ListStore({ item_type: ChoiceOption });
+        [
+            new ChoiceOption(gettext('Keep main gradient'), APPEARANCE_BEHAVIOR.KEEP_GRADIENT),
+            new ChoiceOption(gettext('Use original theme'), APPEARANCE_BEHAVIOR.KEEP_THEME),
+            new ChoiceOption(gettext('Use custom gradient'), APPEARANCE_BEHAVIOR.APPLY_STYLE)
+        ].forEach(option => overviewBehaviorModel.append(option));
         const overviewBehaviorRow = new Adw.ComboRow({
             title: gettext('When overview is open'),
-            model: Gtk.StringList.new([
-                gettext('Keep main gradient'),
-                gettext('Use original theme'),
-                gettext('Use custom gradient')
-            ])
+            model: overviewBehaviorModel,
+            expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
         overviewBehaviorRow.connect('notify::selected', () => {
-            if (!updatingSettings)
-                setOverviewBehavior(settings, overviewBehaviorValues[overviewBehaviorRow.selected]);
+            if (!updatingSettings && overviewBehaviorRow.selectedItem)
+                setOverviewBehavior(settings, overviewBehaviorRow.selectedItem.value);
         });
         overviewGroup.add(overviewBehaviorRow);
-        const overviewTransitionRow = new Adw.SwitchRow({
-            title: gettext('Blend with overview gestures'),
-            subtitle: gettext('Fade backgrounds with gesture progress, including the original theme.')
-        });
-        bindSetting(settings, OVERVIEW_TRANSITION, overviewTransitionRow, 'active');
-        overviewGroup.add(overviewTransitionRow);
         this.add(overviewGroup);
 
         const overviewGradientGroup = new Adw.PreferencesGroup();
@@ -195,7 +183,7 @@ class Gradients extends Adw.PreferencesPage {
             endTitle: gettext('Overview Gradient End Colour'),
             colorsKey: OVERVIEW_COLORS,
             directionKey: OVERVIEW_GRADIENT_DIRECTION,
-            getGradient: config => ({ colors: config.overviewColors, direction: config.overviewGradientDirection })
+            gradientName: 'overview'
         });
         this.add(overviewGradientGroup);
 
@@ -203,17 +191,21 @@ class Gradients extends Adw.PreferencesPage {
             const config = getConfig(s);
 
             updatingSettings = true;
-            behaviorRow.set_selected(behaviorValues.indexOf(config.maximizedBehavior));
-            overviewBehaviorRow.set_selected(overviewBehaviorValues.indexOf(config.overviewBehavior));
+            selectRowValue(behaviorRow, config.windowBehavior);
+            selectRowValue(overviewBehaviorRow, config.overviewBehavior);
             refreshMainGradient(config);
-            refreshMaximizedGradient(config);
+            refreshAlternateGradient(config);
             refreshOverviewGradient(config);
             updatingSettings = false;
-            maximizedGradientGroup.set_visible(config.maximizedBehavior === MAXIMIZED_BEHAVIOR.APPLY_STYLE);
-            overviewGradientGroup.set_visible(config.overviewBehavior === OVERVIEW_BEHAVIOR.APPLY_STYLE);
+            alternateGradientGroup.set_visible(config.windowBehavior === APPEARANCE_BEHAVIOR.APPLY_STYLE);
+            overviewGradientGroup.set_visible(config.overviewBehavior === APPEARANCE_BEHAVIOR.APPLY_STYLE);
         };
         onSettingsChanged(settings);
-        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged);
+        const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged, [
+            COLORS, GRADIENT_DIRECTION_KEY,
+            WINDOW_BEHAVIOR_KEY, ALTERNATE_COLORS_KEY, ALTERNATE_GRADIENT_DIRECTION_KEY,
+            OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION
+        ]);
         window.connect('close-request', () => {
             detachSettingsListeners(settings, settingsHandlerIds);
         });
