@@ -9,6 +9,7 @@ import {
 
 import { BLENDING_CLASS, RESTORING_CLASS } from './stylesheet.js';
 import { TRANSITION_DURATION_MS } from './transitionTimings.js';
+import { connectSignal, disconnectSignal, connectObject, disconnectObject } from '../diagnostics.js';
 
 /** Owns background endpoints and their animation; callers commit the final panel style. */
 export default class BackgroundBlend {
@@ -35,7 +36,7 @@ export default class BackgroundBlend {
             allocateBackground(this.#sourceBackground);
             allocateBackground(this.#targetBackground);
         };
-        panel.connectObject('notify::allocation', this.#allocateBackgrounds, this.#sourceBackground);
+        connectObject(panel, 'notify::allocation', this.#allocateBackgrounds, this.#sourceBackground, 'Rendering');
         watchBackgroundStyleChanges(this.#sourceBackground, () => this.refreshAppearance());
         watchBackgroundStyleChanges(this.#targetBackground, () => this.refreshAppearance());
         panel.add_style_class_name(BLENDING_CLASS);
@@ -85,16 +86,16 @@ export default class BackgroundBlend {
         this.#timelineDuration = duration;
         timeline.set_progress_mode(Clutter.AnimationMode.EASE_OUT_QUAD);
         this.#timelineSignals = [
-            timeline.connect('new-frame', () => {
+            connectSignal(timeline, 'new-frame', () => {
                 const { start: from, target } = this.#animation;
                 this.#renderProgress(from + (target - from) * timeline.get_progress());
-            }),
-            timeline.connect('completed', () => {
+            }, 'Rendering'),
+            connectSignal(timeline, 'completed', () => {
                 const { target, complete: onComplete } = this.#animation;
                 this.#animation = null;
                 this.#renderProgress(target);
                 onComplete();
-            })
+            }, 'Rendering')
         ];
     }
 
@@ -124,12 +125,12 @@ export default class BackgroundBlend {
             return;
 
         const previous = this.#sourceBackground;
-        panel.disconnectObject(previous);
+        disconnectObject(panel, previous);
         this.#sourceStyle = style;
         this.#sourceBackground = createPanelBackground(style);
         panel.insert_child_at_index(this.#sourceBackground, 0);
         previous.destroy();
-        panel.connectObject('notify::allocation', this.#allocateBackgrounds, this.#sourceBackground);
+        connectObject(panel, 'notify::allocation', this.#allocateBackgrounds, this.#sourceBackground, 'Rendering');
         watchBackgroundStyleChanges(this.#sourceBackground, () => this.refreshAppearance());
     }
 
@@ -167,7 +168,7 @@ export default class BackgroundBlend {
         this.stopAnimation();
         if (this.#timeline) {
             for (const id of this.#timelineSignals)
-                this.#timeline.disconnect(id);
+                disconnectSignal(this.#timeline, id);
             this.#timeline = null;
         }
         if (!this.#sourceBackground)
@@ -176,7 +177,7 @@ export default class BackgroundBlend {
         const target = this.#targetBackground;
         this.#sourceBackground = null;
         this.#targetBackground = null;
-        panel.disconnectObject(source);
+        disconnectObject(panel, source);
 
         // Commit native styling before dropping the layers to avoid a transparent-theme flash.
         panel.add_style_class_name(RESTORING_CLASS);

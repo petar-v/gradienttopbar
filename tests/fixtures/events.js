@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createModuleLoader } from './modules.js';
 
-export const createEventsFixture = async t => {
+export const createEventsFixture = async (t, extraStubs = {}) => {
     const targets = new Set();
     const reads = { scans: 0, geometry: 0 };
     const pending = new Map();
@@ -109,7 +109,8 @@ export const createEventsFixture = async t => {
         'resource:///org/gnome/shell/misc/extensionUtils.js': { ExtensionState },
         'resource:///org/gnome/shell/ui/workspace.js': { Workspace: OverviewWorkspace },
         'resource:///org/gnome/shell/ui/workspacesView.js': { WorkspacesView: OverviewWorkspaceView },
-        'gi://Meta': { default: { WindowType: { DESKTOP: 1 }, MaximizeFlags: { VERTICAL: 2, BOTH: 3 }, LaterType: { BEFORE_REDRAW: 4 } } }
+        'gi://Meta': { default: { WindowType: { DESKTOP: 1 }, MaximizeFlags: { VERTICAL: 2, BOTH: 3 }, LaterType: { BEFORE_REDRAW: 4 } } },
+        ...extraStubs
     };
 
     const shell = { display, window_manager: windowManager, get_workspace_manager: () => workspaceManager, compositor: { get_laters: () => laters } };

@@ -3,12 +3,14 @@ import St from 'gi://St';
 import { gettext } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { connectSignal, disconnectSignal } from './diagnostics.js';
 
 export default class TopBarMenu {
     #panel;
     #menu;
     #manager;
     #gesture;
+    #gestureSignals;
 
     constructor(openPreferences) {
         this.#panel = Main.panel;
@@ -25,14 +27,13 @@ export default class TopBarMenu {
             required_button: Clutter.BUTTON_SECONDARY,
             recognize_on_press: true
         });
-        this.#gesture.connect('may-recognize', () => {
+        this.#gestureSignals = [connectSignal(this.#gesture, 'may-recognize', () => {
             const event = this.#gesture.get_point_event(0);
             return this.#isContextMenuAllowed(global.stage.get_event_actor(event));
-        });
-        this.#gesture.connect('recognize', () => {
+        }, 'Panel menu'), connectSignal(this.#gesture, 'recognize', () => {
             const { x, y } = this.#gesture.get_coords_abs();
             this.#openAtPosition(x, y);
-        });
+        }, 'Panel menu')];
         // Claim right-click before the panel's native window-drag gesture.
         this.#panel.add_action_full('top-bar-style-settings', Clutter.EventPhase.CAPTURE, this.#gesture);
     }
@@ -52,6 +53,7 @@ export default class TopBarMenu {
     }
 
     destroy() {
+        this.#gestureSignals.forEach(id => disconnectSignal(this.#gesture, id));
         this.#panel.remove_action(this.#gesture);
         this.#menu.destroy();
         this.#manager = null;

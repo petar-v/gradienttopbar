@@ -45,7 +45,7 @@ export default class WorkspaceEvents {
     constructor(workspaceManager, callback) {
         this._workspaceManager = workspaceManager;
         this._callback = callback;
-        this._signals = new SignalConnections();
+        this._signals = new SignalConnections('Workspace');
         this._transitionGroup = null;
         this._swipeTracker = null;
         this.isEnabled = false;

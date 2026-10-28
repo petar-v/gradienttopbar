@@ -3,6 +3,7 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 
 import { calculateBlendOpacities } from './blendMath.js';
+import { connectObject } from '../diagnostics.js';
 import {
     GRADIENT_CLASSES,
     BLENDING_CLASS, RESTORING_CLASS, NATIVE_DURATION_CLASSES, CSS_OVERVIEW_CLASS
@@ -120,6 +121,6 @@ export const isBackgroundStyleEqual = (first, second) => {
 
 export const watchBackgroundStyleChanges = (actor, onChange, owner = actor) => {
     // Groups can be blend targets too; the endpoint owns the whole tree's listeners.
-    actor.connectObject('style-changed', onChange, owner);
+    connectObject(actor, 'style-changed', onChange, owner, 'Rendering');
     actor.get_children().forEach(child => watchBackgroundStyleChanges(child, onChange, owner));
 };
