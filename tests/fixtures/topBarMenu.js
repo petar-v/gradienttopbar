@@ -6,6 +6,7 @@ export const createTopBarMenuFixture = async t => {
         actions = new Set();
         signals = new Map();
         connect(name, callback) { this.signals.set(name, callback); return name; }
+        disconnect(id) { assert(this.signals.delete(id), 'Disconnect only live gesture signals'); }
         add_action(action) { this.actions.add(action); }
         add_action_full(name, phase, action) {
             this.actionName = name;

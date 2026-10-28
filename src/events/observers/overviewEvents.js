@@ -13,7 +13,7 @@ export default class OverviewEvents {
     constructor(callback) {
         this._callback = callback;
         this._isHidden = !overview.visible;
-        this._signals = new SignalConnections();
+        this._signals = new SignalConnections('Overview');
         this._adjustment = null;
     }
 

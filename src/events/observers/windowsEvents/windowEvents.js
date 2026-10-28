@@ -4,6 +4,7 @@ import SignalConnections from '../../signalConnections.js';
 import MaximizedWindows from './windowsDetectors/maximizedWindows.js';
 import ProximityWindows from './windowsDetectors/proximityWindows.js';
 import { STYLE_TRIGGER } from '../../../gradient/appearance.js';
+import { measureWork } from '../../../diagnostics.js';
 
 // Ignore Desktop Icons NG's synthetic windows.
 // FIXME: this causes the overview to close on login.
@@ -35,7 +36,8 @@ export default class WindowEvents {
         this.display = display;
         this.windowManager = windowManager;
         this.workspaceManager = workspaceManager;
-        this._signals = new SignalConnections();
+        this._signals = new SignalConnections('Windows');
+        this.getEffectStrengthForWorkspace = measureWork('Work', 'Window scan', this.getEffectStrengthForWorkspace.bind(this));
         this._updateLaterId = null;
         this.isEnabled = false;
 
@@ -70,11 +72,11 @@ export default class WindowEvents {
             return;
         if (this._updateLaterId)
             return;
-        this._updateLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+        this._updateLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, measureWork('Work', 'Batched geometry refresh', () => {
             this._updateLaterId = null;
             this.updateState(false, null, true);
             return false;
-        });
+        }));
     }
 
     #cancelUpdate() {
