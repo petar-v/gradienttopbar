@@ -9,9 +9,13 @@ export default class ListenerMonitor {
     #generation = 0;
     #started;
 
-    constructor(clock) {
+    constructor(clock, signals = {}) {
         this.#clock = clock;
         this.#started = clock();
+        for (const [group, names] of Object.entries(signals)) {
+            for (const signal of names)
+                this.#row(group, signal, 'signal');
+        }
     }
 
     #row(group, signal, kind) {
