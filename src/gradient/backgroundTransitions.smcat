@@ -3,6 +3,7 @@
 # A desktop-blend can remain stationary at an intermediate proximity progress.
 # An overview-blend can remain at progress 1 while overview is open.
 # Overview visibility and the latest desired desktop progress are separate inputs.
+# A null overview override holds presentation until fully hidden, including on exit.
 # configure installs styles and inputs together before following these transitions.
 # beginDesktopBlend and beginOverviewBlend pass through settle to release old layers;
 # those synchronous intermediate settled states are omitted from the arrows below.
@@ -35,6 +36,11 @@ settled => settled: "desktop restore [same endpoint] / commit style";
 # unless the desktop appearance selection or desired progress changed.
 # Replacement stops the old animation; completion only commits its own presentation.
 # destroy commits the original theme and releases any blend before disposal.
+settled => settled: "overview active [no override] / hold style, remember desktop input";
+"desktop-blend" => "desktop-blend": "overview active [no override] / stop animation at current progress, remember input";
+"overview-blend" => "overview-blend": "configure [no overview override] / stop animation, hold endpoints and progress";
+# During a hold configure keeps endpoints; explicit CSS/theme changes still refresh them.
+# Leaving the hold restores current desktop endpoints or resumes an overview override.
 settled => final: destroy;
 "desktop-blend" => final: destroy;
 "overview-blend" => final: destroy;

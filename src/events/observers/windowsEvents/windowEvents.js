@@ -7,14 +7,23 @@ import { STYLE_TRIGGER } from '../../../gradient/appearance.js';
 
 // Ignore Desktop Icons NG's synthetic windows.
 // FIXME: this causes the overview to close on login.
-const isDesktopIconsNG = window => window.customJS_ding !== undefined;
+const isDesktopIconsWindow = window => window.customJS_ding !== undefined;
 
-const isApplicationWindow = window =>
-    !isDesktopIconsNG(window) &&
+const canWindowAffectPanel = window =>
+    !isDesktopIconsWindow(window) &&
     window.is_on_primary_monitor() &&
     !window.minimized &&
     window.get_window_type() !== Meta.WindowType.DESKTOP &&
     !window.skip_taskbar;
+
+// filter as we go so the detector can stop without checking every window.
+// skip the closing/minimizing window too, since its flags or the window list might not have caught up yet.
+function* getWindowsAffectingPanel(windows, ignoredWindowId) {
+    for (const window of windows) {
+        if (canWindowAffectPanel(window) && window.get_id() !== ignoredWindowId)
+            yield window;
+    }
+}
 
 /**
  * Manages window events and tracks the behaviour detector's effect strength.
@@ -42,28 +51,28 @@ export default class WindowEvents {
         this.stateChangeCallback = callback;
     }
 
-    getCurrentState(excludedWindowId = null) {
+    getCurrentState(ignoredWindowId = null) {
         return {
-            effectStrength: this.getEffectStrength(excludedWindowId),
+            effectStrength: this.#getEffectStrength(ignoredWindowId),
             currentWorkspace: this.workspaceManager.get_active_workspace()
         };
     }
 
-    updateState(force = false, excludedWindowId = null) {
+    updateState(force = false, ignoredWindowId = null, geometryChanged = false) {
         this.#cancelUpdate();
         if (this.enabled)
-            this.stateChangeCallback(this.getCurrentState(excludedWindowId), force);
+            this.stateChangeCallback(this.getCurrentState(ignoredWindowId), force, geometryChanged);
     }
 
     #scheduleUpdate(window) {
-        if (!this.enabled || !isApplicationWindow(window) ||
+        if (!this.enabled || !canWindowAffectPanel(window) ||
             !window.located_on_workspace(this.workspaceManager.get_active_workspace()))
             return;
         if (this._updateLaterId)
             return;
         this._updateLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._updateLaterId = null;
-            this.updateState();
+            this.updateState(false, null, true);
             return false;
         });
     }
@@ -79,13 +88,13 @@ export default class WindowEvents {
      * Enables window event tracking
      * Sets up event listeners without publishing an intermediate configuration
      */
-    enable() {
+    #enable() {
         if (this.enabled)
             return;
 
         this.enabled = true;
         const attachWindowEvents = window => {
-            if (!isDesktopIconsNG(window)) {
+            if (!isDesktopIconsWindow(window)) {
                 this.#detector.attachWindowEvents(this._signals, window, {
                     geometryChanged: () => this.#scheduleUpdate(window),
                     workspaceChanged: () => this.updateState()
@@ -96,6 +105,8 @@ export default class WindowEvents {
             attachWindowEvents(window);
             this.updateState();
         });
+        // these signals can fire before the window list or minimized flag catches up.
+        // ignore the window for this scan so it doesn't keep the panel triggered.
         this._signals.connect(this.windowManager, 'destroy', (_, actor) => {
             const window = actor.get_meta_window();
             this._signals.disconnect(window);
@@ -128,26 +139,19 @@ export default class WindowEvents {
      *
      * @returns {number} The effect strength from zero to one
      */
-    getEffectStrength(excludedWindowId = null) {
+    #getEffectStrength(ignoredWindowId = null) {
         if (!this.enabled)
             return 0;
         return this.getEffectStrengthForWorkspace(
-            this.workspaceManager.get_active_workspace(), excludedWindowId
+            this.workspaceManager.get_active_workspace(), ignoredWindowId
         );
     }
 
-    getEffectStrengthForWorkspace(workspace, excludedWindowId = null) {
+    getEffectStrengthForWorkspace(workspace, ignoredWindowId = null) {
         if (!this.enabled || !workspace)
             return 0;
 
-        return this.#detector.getEffectStrength(this.#eligibleWindows(workspace.list_windows(), excludedWindowId));
-    }
-
-    *#eligibleWindows(windows, excludedWindowId) {
-        for (const window of windows) {
-            if (isApplicationWindow(window) && window.get_id() !== excludedWindowId)
-                yield window;
-        }
+        return this.#detector.getEffectStrength(getWindowsAffectingPanel(workspace.list_windows(), ignoredWindowId));
     }
 
     configure({ enabled, trigger, distance, progressive }) {
@@ -168,6 +172,6 @@ export default class WindowEvents {
             this.#detector.distance = distance;
             this.#detector.progressive = progressive;
         }
-        this.enable();
+        this.#enable();
     }
 }

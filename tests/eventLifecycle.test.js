@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createEventsFixture } from './fixtures/events.js';
+import { createRendererFixture } from './fixtures/renderer.js';
 
 for (const [windowBehavior, overviewBehavior, overviewTransition, windowSignals, overviewSignals, progressSignals] of [
     ['keep-gradient', 'do-nothing', false, 0, 0, 0],
@@ -32,7 +33,7 @@ test('main-only startup inside overview attaches no observers or window scans', 
     f.overview.visibleTarget = true;
     const events = f.createEvents();
     const snapshot = events.configure({ ...f.config, windowBehavior: 'keep-gradient', overviewBehavior: 'do-nothing' });
-    assert.equal(snapshot.overview.hidden, false, 'Passive snapshots still read current visibility');
+    assert.equal(snapshot.overview.isHidden, false, 'Passive snapshots still read current visibility');
     assert.equal(snapshot.window.effectStrength, 0);
     assert.equal(f.reads.scans, 0);
     assert([...f.targets].every(target => target.handlers.size === 0));
@@ -117,7 +118,7 @@ test('switching to main-only retains overview lifecycle until hidden and then de
     f.overview.visible = false;
     f.overview.visibleTarget = false;
     f.overview.emit('hidden');
-    assert.equal(f.overviewStates.at(-1).hidden, true);
+    assert.equal(f.overviewStates.at(-1).isHidden, true);
     assert.equal(f.overviewStates.at(-1).effectStrength, 0);
     assert([...f.targets].every(target => target.handlers.size === 0));
     f.reads.scans = 0;
@@ -135,13 +136,13 @@ test('missing overview adjustment retains lifecycle fallback and current visibil
     const events = f.createEvents();
     const snapshot = events.configure(f.config);
     assert.equal(snapshot.overview.progress, null);
-    assert.equal(snapshot.overview.hidden, false);
+    assert.equal(snapshot.overview.isHidden, false);
     assert.equal(f.overview.handlers.size, 4);
     assert.equal(f.adjustment.handlers.size, 0);
     f.overview.visible = false;
     f.overview.visibleTarget = false;
     f.overview.emit('hidden');
-    assert.equal(f.overviewStates.at(-1).hidden, true);
+    assert.equal(f.overviewStates.at(-1).isHidden, true);
 });
 
 test('non-callable overview adjustment falls back to lifecycle observation', async t => {
@@ -176,4 +177,147 @@ test('hundreds of mode switches release vanished windows, pending refreshes and 
     events.destroy();
     events.destroy();
     assert([...f.targets].every(target => target.handlers.size === 0));
+});
+
+for (const scene of ['partial proximity', 'interrupted fade', 'workspace swipe']) {
+    test(`real event coordination holds ${scene} until main-only overview exit`, async t => {
+        const f = await createEventsFixture(t);
+        const r = await createRendererFixture(t);
+        r.state.animationsEnabled = true;
+        const renderer = r.createRenderer();
+        const events = f.createEvents({
+            onWindowProgress: state => renderer.followWindow(state),
+            onWindowChanged: (state, isWorkspaceChanged) => renderer.updateWindow(state, isWorkspaceChanged),
+            onWorkspaceProgress: state => renderer.updateWorkspaceProgress(state),
+            onWorkspaceCompleted: state => renderer.completeWorkspace(state),
+            onOverviewChanged: state => renderer.updateOverview(state)
+        });
+        const config = { ...r.settings, ...f.config, overviewBehavior: 'do-nothing' };
+        if (scene === 'interrupted fade')
+            f.first.y = 100;
+        renderer.configure(config, events.configure(config));
+        for (const timeline of [...r.timelines])
+            timeline.advance(1);
+        if (scene === 'interrupted fade') {
+            const created = new f.Window(3, 32);
+            created.workspace = f.workspaceA;
+            f.state.windows.push(created);
+            f.shell.display.emit('window-created', created);
+            [...r.timelines][0].advance(0.4);
+        } else if (scene === 'workspace swipe') {
+            const group = f.startSwipe(f.workspaceA, f.workspaceB, 0.4);
+            f.state.activeWorkspace = f.workspaceB;
+            f.workspaceManager.emit('workspace-switched');
+            assert.equal(group.handlers.size, 2);
+        }
+        const layers = [...r.children];
+        const opacities = layers.map(actor => actor.opacity);
+        assert.equal(layers.length, 2);
+        f.overview.visible = true;
+        f.overview.visibleTarget = true;
+        f.overview.emit('showing');
+        assert.equal(r.timelines.size, 0, 'Overview pauses the existing motion');
+        const mainOnly = { ...config, windowBehavior: 'keep-gradient' };
+        renderer.configure(mainOnly, events.configure(mainOnly));
+        assert.deepEqual([...r.children], layers, 'Settings changes retain the held appearance');
+        assert.deepEqual(layers.map(actor => actor.opacity), opacities);
+        assert.equal(f.overview.handlers.size, 4);
+        f.overview.visible = false;
+        f.overview.visibleTarget = false;
+        f.overview.emit('hidden');
+        r.expectStyle('panel-gradient');
+        assert.equal(r.children.size, 0);
+        assert.equal(r.timelines.size, 0);
+        assert([...f.targets].every(target => target.handlers.size === 0));
+    });
+}
+
+test('real event coordination stops and resumes overview progress subscriptions during a gesture', async t => {
+    const f = await createEventsFixture(t);
+    const r = await createRendererFixture(t);
+    r.state.animationsEnabled = true;
+    const renderer = r.createRenderer();
+    const events = f.createEvents({
+        onWindowProgress: state => renderer.followWindow(state),
+        onWindowChanged: (state, isWorkspaceChanged) => renderer.updateWindow(state, isWorkspaceChanged),
+        onWorkspaceProgress: state => renderer.updateWorkspaceProgress(state),
+        onWorkspaceCompleted: state => renderer.completeWorkspace(state),
+        onOverviewChanged: state => renderer.updateOverview(state)
+    });
+    const config = { ...r.settings, ...f.config };
+    renderer.configure(config, events.configure(config));
+    for (const timeline of [...r.timelines])
+        timeline.advance(1);
+    f.overview.visible = true;
+    f.overview.visibleTarget = true;
+    f.overview.emit('showing');
+    f.adjustment.value = 0.4;
+    f.adjustment.emit('notify::value');
+    assert.equal([...r.children][1].opacity, 102);
+    const timed = { ...config, overviewTransition: false };
+    renderer.configure(timed, events.configure(timed));
+    assert.equal(f.adjustment.handlers.size, 0);
+    assert.equal(r.timelines.size, 1, 'Existing timed settling remains intact');
+    f.adjustment.value = 0.8;
+    f.adjustment.emit('notify::value');
+    assert.equal([...r.children][1].opacity, 102);
+    const hold = { ...config, overviewBehavior: 'do-nothing' };
+    renderer.configure(hold, events.configure(hold));
+    assert.equal(r.timelines.size, 0);
+    renderer.configure(config, events.configure(config));
+    assert.equal(f.adjustment.handlers.size, 1);
+    assert.equal([...r.children][1].opacity, 204, 'Resuming reads current gesture progress');
+    events.destroy();
+    renderer.destroy();
+    assert.equal(f.pending.size, 0);
+    assert.equal(r.children.size, 0);
+    assert.equal(r.timelines.size, 0);
+});
+
+test('unchanged progressive geometry takes over a structural fade once', async t => {
+    const f = await createEventsFixture(t);
+    const r = await createRendererFixture(t);
+    const renderer = r.createRenderer();
+    const events = f.createEvents({
+        onWindowProgress: state => renderer.followWindow(state),
+        onWindowChanged: (state, isWorkspaceChanged) => renderer.updateWindow(state, isWorkspaceChanged)
+    });
+    const config = { ...r.settings, ...f.config };
+    renderer.configure(config, events.configure(config));
+    r.state.animationsEnabled = true;
+    const created = new f.Window(3, 42);
+    created.workspace = f.workspaceA;
+    f.state.windows.push(created);
+    f.shell.display.emit('window-created', created);
+    [...r.timelines][0].advance(0.4);
+    assert.equal([...r.children][1].opacity, 153);
+    created.emit('position-changed');
+    f.flush();
+    assert.equal(r.timelines.size, 0, 'Horizontal movement still takes over the structural fade');
+    assert.equal([...r.children][1].opacity, 191);
+    const count = f.windowStates.length;
+    created.emit('size-changed');
+    f.flush();
+    assert.equal(f.windowStates.length, count, 'Subsequent identical geometry is deduplicated');
+});
+
+test('unchanged geometry takes over a queued workspace fallback fade', async t => {
+    const f = await createEventsFixture(t);
+    const r = await createRendererFixture(t);
+    const renderer = r.createRenderer();
+    const events = f.createEvents({
+        onWindowProgress: state => renderer.followWindow(state),
+        onWindowChanged: (state, isWorkspaceChanged) => renderer.updateWindow(state, isWorkspaceChanged)
+    });
+    const config = { ...r.settings, ...f.config };
+    renderer.configure(config, events.configure(config));
+    r.state.animationsEnabled = true;
+    f.first.emit('position-changed');
+    f.state.activeWorkspace = f.workspaceB;
+    f.flush();
+    assert.equal(r.timelines.size, 1, 'Queued geometry preserves the workspace fallback fade');
+    f.second.emit('position-changed');
+    f.flush();
+    assert.equal(r.timelines.size, 0, 'The next geometry input takes over on the new workspace');
+    r.expectStyle('panel-maximized-gradient');
 });

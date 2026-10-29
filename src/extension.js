@@ -49,7 +49,8 @@ export default class GradientTopBar extends Extension {
         this.updateTopBarMenu();
         this.gradient = new Gradient();
         this.events = new EventManager({
-            onWindowChanged: state => this.gradient.updateWindow(state),
+            onWindowChanged: (state, isWorkspaceChanged) => this.gradient.updateWindow(state, isWorkspaceChanged),
+            onWindowProgress: state => this.gradient.followWindow(state),
             onWorkspaceProgress: transition => this.gradient.updateWorkspaceProgress(transition),
             onWorkspaceCompleted: state => this.gradient.completeWorkspace(state),
             onOverviewChanged: state => this.gradient.updateOverview(state)

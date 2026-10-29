@@ -1,5 +1,6 @@
-import BackgroundBlend, { commitPanelBackground } from './backgroundBlend.js';
-import { setGradientClass } from './panelBackground.js';
+import BackgroundBlend from './backgroundBlend.js';
+import { isBackgroundStyleEqual, setGradientClass } from './panelBackground.js';
+import { OVERVIEW_ENTER_DURATION_MS, OVERVIEW_EXIT_DURATION_MS } from './transitionTimings.js';
 
 /**
  * Owns the presentation state described in backgroundTransitions.smcat.
@@ -8,55 +9,66 @@ import { setGradientClass } from './panelBackground.js';
 export default class BackgroundTransitions {
     #presentation = { kind: 'settled', style: null };
     #rememberedDesktopProgress = 0;
-    #desktop = { progress: 0, animate: false };
-    #overview = { progress: null, hidden: true, target: false };
+    #desktop = { progress: 0, isAnimationRequested: false };
+    #overview = { progress: null, isHidden: true, isTargetVisible: false };
     #appearances = null;
-    #followGesture = false;
+    #isFollowingGesture = false;
 
     /**
      * Install resolved {desktop: [normal, triggered], overview} styles and inputs
      * together, so reconfiguration never renders an intermediate snapshot.
+     * A null overview style holds the current presentation instead of overriding it.
      */
-    configure(appearances, { desktop, overview, followGesture }) {
-        const desktopChanged = this.#appearances && (
+    configure(appearances, { desktop, overview, isFollowingGesture, isStylesheetChanged }) {
+        // Compare before storing the new inputs so cosmetic edits keep the captured entry blend.
+        const isDesktopEndpointChanged = this.#appearances !== null && (
             this.#appearances.desktop[1].gradientClass !== appearances.desktop[1].gradientClass ||
             this.#desktop.progress !== desktop.progress
         );
         this.#appearances = appearances;
         this.#desktop = desktop;
-        this.#followGesture = followGesture;
+        this.#isFollowingGesture = isFollowingGesture;
         if (overview)
             this.#overview = overview;
 
-        const presentation = this.#presentation;
-        if (presentation.kind === 'desktop-blend') {
-            presentation.blend.updateStyles(...appearances.desktop);
-        } else if (presentation.kind === 'overview-blend') {
-            const source = desktopChanged
-                ? this.#resolveDesktopAppearance() : presentation.blend.sourceStyle;
-            presentation.blend.updateStyles(source, appearances.overview);
-            setGradientClass(appearances.overview.gradientClass);
-            presentation.baseStyle = appearances.overview;
-        }
+        if (appearances.overview)
+            this.#refreshOverviewBlend(isDesktopEndpointChanged);
         this.#render();
+        // Reloaded CSS can change alpha while endpoint classes stay identical.
+        if (isStylesheetChanged)
+            this.#presentation.blend?.refreshAppearance();
     }
 
-    updateDesktop(progress, { animate = false } = {}) {
-        this.#desktop = { progress, animate };
-        if (this.#appearances && !this.#overviewActive)
-            this.#renderDesktop(progress, animate);
+    #refreshOverviewBlend(isDesktopEndpointChanged) {
+        const presentation = this.#presentation;
+        if (presentation.kind !== 'overview-blend')
+            return;
+
+        // keep the mix unless the desired desktop endpoint has changed.
+        const source = isDesktopEndpointChanged
+            ? this.#resolveDesktopAppearance() : presentation.blend.sourceStyle;
+        const target = this.#appearances.overview;
+        presentation.blend.updateStyles(source, target);
+        setGradientClass(target.gradientClass);
+        presentation.baseStyle = target;
     }
 
-    updateOverview({ progress, hidden, target, desktopProgress }) {
-        this.#overview = { progress, hidden, target };
+    updateDesktop(progress, { isAnimationRequested = false, duration } = {}) {
+        this.#desktop = { progress, isAnimationRequested, duration };
+        if (this.#appearances && !this.#isOverviewActive)
+            this.#renderDesktop(progress, isAnimationRequested, duration);
+    }
+
+    updateOverview({ progress, isHidden, isTargetVisible, desktopProgress }) {
+        this.#overview = { progress, isHidden, isTargetVisible };
         // Overview cancels workspace gestures and exits to the latest desktop input.
-        this.#desktop = { progress: desktopProgress, animate: false };
+        this.#desktop = { progress: desktopProgress, isAnimationRequested: false };
         if (this.#appearances)
             this.#render();
     }
 
-    get #overviewActive() {
-        return !this.#overview.hidden || this.#overview.target;
+    get #isOverviewActive() {
+        return !this.#overview.isHidden || this.#overview.isTargetVisible;
     }
 
     get #baseStyle() {
@@ -65,10 +77,10 @@ export default class BackgroundTransitions {
     }
 
     #render() {
-        if (this.#overviewActive)
+        if (this.#isOverviewActive)
             this.#renderOverview();
         else
-            this.#renderDesktop(this.#desktop.progress, this.#desktop.animate);
+            this.#renderDesktop(this.#desktop.progress, this.#desktop.isAnimationRequested, this.#desktop.duration);
     }
 
     #resolveDesktopAppearance() {
@@ -88,7 +100,9 @@ export default class BackgroundTransitions {
         const previous = this.#presentation;
         if (previous.kind === 'desktop-blend')
             this.#rememberedDesktopProgress = previous.blend.progress;
-        commitPanelBackground(style, previous.blend);
+        // apply the underlying style before removing the covering layers.
+        setGradientClass(style.gradientClass);
+        previous.blend?.destroy();
         this.#presentation = { kind: 'settled', style };
     }
 
@@ -100,15 +114,23 @@ export default class BackgroundTransitions {
         blend.setProgress(this.#rememberedDesktopProgress);
     }
 
-    #renderDesktop(progress, animate = false) {
+    #renderDesktop(progress, isAnimationRequested = false, duration) {
+        if (isBackgroundStyleEqual(...this.#appearances.desktop)) {
+            this.#settle(this.#appearances.desktop[0]);
+            this.#rememberedDesktopProgress = 0;
+            return;
+        }
         if (this.#presentation.kind === 'settled' &&
             progress === this.#rememberedDesktopProgress && (progress === 0 || progress === 1)) {
             this.#settle(this.#appearances.desktop[progress]);
             return;
         }
 
+        // defer desktop endpoint refresh until rendering; overview may still need the held mix.
         if (this.#presentation.kind !== 'desktop-blend')
             this.#beginDesktopBlend();
+        else
+            this.#presentation.blend.updateStyles(...this.#appearances.desktop);
 
         const presentation = this.#presentation;
         const complete = () => {
@@ -117,8 +139,8 @@ export default class BackgroundTransitions {
             if (progress === 0 || progress === 1)
                 this.#settle(this.#appearances.desktop[progress]);
         };
-        if (animate && progress !== presentation.blend.progress) {
-            presentation.blend.animateTo(progress, complete);
+        if (isAnimationRequested && progress !== presentation.blend.progress) {
+            presentation.blend.animateTo(progress, complete, duration);
         } else {
             presentation.blend.setProgress(progress);
             complete();
@@ -126,6 +148,7 @@ export default class BackgroundTransitions {
     }
 
     #beginOverviewBlend() {
+        // capture before settling, which destroys the currently displayed blend.
         const source = this.#captureAppearance();
         const target = this.#appearances.overview;
         this.#settle(target);
@@ -142,11 +165,23 @@ export default class BackgroundTransitions {
     }
 
     #renderOverview() {
-        const { progress, target } = this.#overview;
+        const { progress, isTargetVisible } = this.#overview;
         if (!this.#baseStyle)
             this.#renderDesktop(this.#desktop.progress);
 
-        if (this.#followGesture && progress !== null) {
+        if (!this.#appearances.overview) {
+            this.#presentation.blend?.stopAnimation();
+            return;
+        }
+
+        if (isBackgroundStyleEqual(...this.#appearances.desktop) &&
+            isBackgroundStyleEqual(this.#appearances.desktop[0], this.#appearances.overview)) {
+            this.#settle(this.#appearances.overview);
+            this.#rememberedDesktopProgress = 0;
+            return;
+        }
+
+        if (this.#isFollowingGesture && progress !== null) {
             if (this.#presentation.kind === 'overview-blend' &&
                 this.#presentation.blend.progress === 1 && progress < 1)
                 this.#refreshOverviewExit();
@@ -158,17 +193,17 @@ export default class BackgroundTransitions {
 
         if (this.#presentation.kind === 'overview-blend') {
             const presentation = this.#presentation;
-            presentation.blend.animateTo(target ? 1 : 0, () => {
+            presentation.blend.animateTo(isTargetVisible ? 1 : 0, () => {
                 if (this.#presentation !== presentation)
                     return;
-                this.#settle(target ? this.#appearances.overview : presentation.baseStyle);
-                if (!target)
+                this.#settle(isTargetVisible ? this.#appearances.overview : presentation.baseStyle);
+                if (!isTargetVisible)
                     this.#renderDesktop(this.#desktop.progress);
-            });
-        } else if (target) {
+            }, isTargetVisible ? OVERVIEW_ENTER_DURATION_MS : OVERVIEW_EXIT_DURATION_MS);
+        } else if (isTargetVisible) {
             this.#settle(this.#appearances.overview);
         } else {
-            this.#renderDesktop(this.#desktop.progress, true);
+            this.#renderDesktop(this.#desktop.progress, true, OVERVIEW_EXIT_DURATION_MS);
         }
     }
 

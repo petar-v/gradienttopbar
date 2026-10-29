@@ -1,5 +1,6 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
+import { TRANSITION_DURATION_MS, OVERVIEW_ENTER_DURATION_MS, OVERVIEW_EXIT_DURATION_MS } from './transitionTimings.js';
 
 /** @type {Record<import('./appearance.js').AppearanceName, string>} */
 export const GRADIENT_CLASSES = {
@@ -9,7 +10,6 @@ export const GRADIENT_CLASSES = {
 };
 export const BLENDING_CLASS = 'panel-background-blending';
 export const RESTORING_CLASS = 'panel-background-restoring';
-export const TRANSITION_DURATION_MS = 200;
 
 
 // TODO: use the util functions to generate the css or maybe we keep this readable idk
@@ -17,6 +17,7 @@ export const TRANSITION_DURATION_MS = 200;
  * @param {string} className
  * @param {import('./appearance.js').GradientDefinition} gradient
  */
+// eslint-disable-next-line no-unused-vars -- Retained CSS generation helper.
 const gradientRule = (className, { colors, direction }) => `
           .${className} {
             background-color: transparent;
@@ -25,6 +26,7 @@ const gradientRule = (className, { colors, direction }) => `
             background-gradient-end: ${colors.end};
           }`;
 
+// eslint-disable-next-line no-unused-vars -- Retained CSS generation helper.
 const panelSelectors = (...descendants) => descendants.flatMap(descendant =>
     Object.values(GRADIENT_CLASSES).map(className => `#panel.${className} ${descendant}`)
 ).join(',\n');
@@ -52,7 +54,10 @@ const generateCss = config => {
             box-shadow: ${shadow};
           }` : '';
     return `#panel {
-            transition-duration: ${TRANSITION_DURATION_MS}ms;
+            transition-duration: ${config.overviewTransition ? TRANSITION_DURATION_MS : OVERVIEW_EXIT_DURATION_MS}ms;
+          }
+          #panel:overview {
+            transition-duration: ${config.overviewTransition ? TRANSITION_DURATION_MS : OVERVIEW_ENTER_DURATION_MS}ms;
           }
           #panel.${BLENDING_CLASS} {
             background-color: transparent;
@@ -97,7 +102,7 @@ const getUserStylesheet = () => Gio.File.new_for_uri(import.meta.url)
 /*
  * Replace the generated CSS file so the theme can load the latest settings.
  */
-const saveUserCss = (file, stylesheet) => {
+const writeStylesheetCss = (file, stylesheet) => {
     const outStream = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
     const outDataStream = Gio.DataOutputStream.new(outStream);
     outDataStream.put_string(stylesheet, null);
@@ -109,7 +114,7 @@ const saveUserCss = (file, stylesheet) => {
  */
 let loadedStylesheet = null;
 
-export const applyGradientStyle = config => {
+export const applyGradientStylesheet = config => {
     const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
     const css = generateCss(config);
     if (loadedStylesheet?.theme === theme && loadedStylesheet.css === css)
@@ -121,7 +126,7 @@ export const applyGradientStyle = config => {
     // but I found this interferes with other extensions and becomes a mess to maintain.
     // unload the previous version
     // save the current version
-    saveUserCss(userStylesheet, css);
+    writeStylesheetCss(userStylesheet, css);
     loadedStylesheet = null;
     theme.unload_stylesheet(userStylesheet);
     // load again

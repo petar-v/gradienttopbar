@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import { createModuleLoader } from './modules.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
+import * as defaultTransitionTimings from '../../src/gradient/transitionTimings.js';
 
-export const createRendererFixture = async t => {
+export const createRendererFixture = async (t, transitionTimings = null) => {
     const state = { animationsEnabled: false, nativeAlpha: 153, strength: 0, css: '', writes: 0, loads: 0 };
+    state.timelineDurationReads = 0;
+    state.timelineDurationWrites = 0;
+    state.timelineStops = 0;
     const handlers = new Map();
     let nextId = 0;
     const overview = {
@@ -24,11 +28,28 @@ export const createRendererFixture = async t => {
     };
     const timelines = new Set();
     class Timeline {
-        constructor() { this.handlers = new Map(); }
-        set_progress_mode() {}
-        connect(signal, callback) { this.handlers.set(signal, callback); }
+        constructor({ duration, ...properties }) {
+            Object.assign(this, properties);
+            this._duration = duration;
+            this.handlers = new Map();
+            this.progress = 0;
+            state.timelineCreations = (state.timelineCreations ?? 0) + 1;
+        }
+        get duration() { state.timelineDurationReads++; return this._duration; }
+        set duration(value) { state.timelineDurationWrites++; this._duration = value; }
+        set_progress_mode(mode) { this.mode = mode; }
+        connect(signal, callback) {
+            this.handlers.set(signal, callback);
+            state.timelineConnections = (state.timelineConnections ?? 0) + 1;
+            return signal;
+        }
+        disconnect(id) { assert(this.handlers.delete(id), 'Disconnect an existing timeline handler'); }
         start() { timelines.add(this); }
-        stop() { timelines.delete(this); }
+        stop() {
+            state.timelineStops++;
+            timelines.delete(this);
+            this.progress = 0;
+        }
         get_progress() { return this.progress; }
         advance(progress) {
             assert(timelines.has(this), 'Only live animations can advance');
@@ -37,6 +58,8 @@ export const createRendererFixture = async t => {
             if (progress === 1) {
                 timelines.delete(this);
                 this.handlers.get('completed')();
+                // Clutter rewinds a non-repeating timeline after completion handlers run.
+                this.progress = 0;
             }
         }
     }
@@ -70,7 +93,10 @@ export const createRendererFixture = async t => {
         add_child(actor) { (this.children ??= []).push(actor); }
         get_style_class_name() { return this.style_class; }
         get_children() { return this.children ?? []; }
-        allocate(box) { this.box = { ...box }; }
+        allocate(box) {
+            this.allocationCalls = (this.allocationCalls ?? 0) + 1;
+            this.box = { ...box };
+        }
         get_theme_node() {
             this.themeReads = (this.themeReads ?? 0) + 1;
             // Model only background alpha; actual CSS parsing/rendering belongs to Shell.
@@ -82,8 +108,8 @@ export const createRendererFixture = async t => {
                 return { alpha: Number(color.slice(color.lastIndexOf(',') + 1, -1)) * 255 };
             };
             return {
-                get_background_image: () => null,
-                get_border_image: () => null,
+                get_background_image: () => this.backgroundImage ?? null,
+                get_border_image: () => this.borderImage ?? null,
                 get_background_gradient: () => rule
                     ? [1, alpha('background-gradient-start'), alpha('background-gradient-end')]
                     : [0, null, null],
@@ -113,7 +139,7 @@ export const createRendererFixture = async t => {
     class WorkspaceEvents {
         enable() {}
         disable() {}
-        detachTransition() {}
+        stopObservingWorkspaceSwipe() {}
     }
     const stylesheetPath = fileURLToPath(new URL('../../src/user-stylesheet.css', import.meta.url));
     const mockFile = path => ({
@@ -127,6 +153,7 @@ export const createRendererFixture = async t => {
         unload_stylesheet(file) { assert.equal(file.path, stylesheetPath); }
     };
     const stubs = {
+        'gradient/transitionTimings.js': transitionTimings && { ...defaultTransitionTimings, ...transitionTimings },
         'resource:///org/gnome/shell/ui/main.js': { overview, panel },
         'resource:///org/gnome/shell/extensions/extension.js': { Extension: class {} },
         'gi://GLib': { default: { Source: { remove() {} } } },
@@ -165,7 +192,7 @@ export const createRendererFixture = async t => {
         get_boolean: () => false,
         connect: () => 1,
         disconnect() {},
-        windowBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false,
+        windowBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false, proximityDistance: 40,
         overviewBehavior: 'apply-style',
         // Rendering receives normalized config; overviewSettings.js exercises real settings normalization.
         gradients: {
@@ -211,7 +238,7 @@ export const createRendererFixture = async t => {
     const module = await load('extension.js');
     const { default: Gradient } = (await load('gradient/gradient.js')).namespace;
     const { createPanelBackground } = (await load('gradient/panelBackground.js')).namespace;
-    const { default: BackgroundBlend, calculateBackgroundBlend } = (await load('gradient/backgroundBlend.js')).namespace;
+    const { default: BackgroundBlend } = (await load('gradient/backgroundBlend.js')).namespace;
     const track = resource => {
         resources.push(() => resource.destroy());
         return resource;
@@ -222,7 +249,6 @@ export const createRendererFixture = async t => {
         showOverview,
         setOverviewProgress,
         expectStyle: expected => assert.deepEqual([...classes], expected ? [expected] : []),
-        calculateBackgroundBlend,
         createRenderer: () => track(new Gradient()),
         createBlend: (source, target) => track(new BackgroundBlend(source, target)),
         createPanelBackground: style => track(createPanelBackground(style)),

@@ -12,7 +12,7 @@ const getOverviewProgressAdjustment = shellOverview => {
 export default class OverviewEvents {
     constructor(callback) {
         this._callback = callback;
-        this.hidden = !overview.visible;
+        this.isHidden = !overview.visible;
         this._signals = new SignalConnections();
         this._adjustment = null;
         this.isObserving = false;
@@ -20,7 +20,7 @@ export default class OverviewEvents {
 
     configure({ shouldObserve, followProgress }) {
         if (!this.isObserving)
-            this.hidden = !overview.visible;
+            this.isHidden = !overview.visible;
 
         if (!shouldObserve) {
             this.destroy();
@@ -61,7 +61,7 @@ export default class OverviewEvents {
         this.isObserving = true;
         ['showing', 'hiding', 'shown', 'hidden'].forEach(signal =>
             this._signals.connect(overview, signal, () => {
-                this.hidden = signal === 'hidden';
+                this.isHidden = signal === 'hidden';
                 this._lastProgress = this.progress;
                 this._callback(signal);
             }));
@@ -72,7 +72,7 @@ export default class OverviewEvents {
         return this._adjustment ? Math.clamp(this._adjustment.value, 0, 1) : null;
     }
 
-    get target() {
+    get isTargetVisible() {
         return overview.visibleTarget;
     }
 

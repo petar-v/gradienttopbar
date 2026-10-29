@@ -5,7 +5,7 @@ import { createModuleLoader } from './fixtures/modules.js';
 
 test('configuration reconciles observers before rendering the same final snapshot', async t => {
     const { extension } = await createExtensionFixture(t);
-    const snapshot = { window: { effectStrength: 0.6 }, overview: { progress: 0.4, hidden: false, target: true } };
+    const snapshot = { window: { effectStrength: 0.6 }, overview: { progress: 0.4, isHidden: false, isTargetVisible: true } };
     const reconciled = [];
     extension.events = {
         configure: config => {

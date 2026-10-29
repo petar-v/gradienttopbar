@@ -11,6 +11,9 @@ export const STYLE_TRIGGER = {
     PROXIMITY: 'proximity'
 };
 
+export const isProgressiveProximity = config =>
+    config.styleTrigger === STYLE_TRIGGER.PROXIMITY && config.proximityTransition && config.proximityDistance > 0;
+
 export const APPEARANCE_BEHAVIOR = {
     DO_NOTHING: 'do-nothing',
     KEEP_GRADIENT: 'keep-gradient',
@@ -30,16 +33,16 @@ export const APPEARANCE_STATE = {
  * @returns {AppearanceName|null}
  */
 export const getAppearanceName = (config, state) => {
-    const overview = state === APPEARANCE_STATE.OVERVIEW;
-    if (!overview && state !== APPEARANCE_STATE.TRIGGERED)
+    const isOverview = state === APPEARANCE_STATE.OVERVIEW;
+    if (!isOverview && state !== APPEARANCE_STATE.TRIGGERED)
         return 'main';
 
-    const behavior = overview ? config.overviewBehavior : config.windowBehavior;
+    const behavior = isOverview ? config.overviewBehavior : config.windowBehavior;
     if (behavior === APPEARANCE_BEHAVIOR.KEEP_THEME)
         return null;
 
     if (behavior === APPEARANCE_BEHAVIOR.APPLY_STYLE)
-        return overview ? 'overview' : 'alternate';
+        return isOverview ? 'overview' : 'alternate';
 
     return 'main';
 };
@@ -52,4 +55,26 @@ export const getAppearanceName = (config, state) => {
 export const getAppearance = (config, state) => {
     const name = getAppearanceName(config, state);
     return name === null ? null : config.gradients[name];
+};
+
+const areAppearancesEqual = (first, second) => first === second || (
+    first !== null && second !== null &&
+    first.direction === second.direction &&
+    first.colors.start === second.colors.start && first.colors.end === second.colors.end
+);
+
+// steady-state requirements, an existing held overview may still need its final hidden signal.
+export const getObservationNeeds = config => {
+    const main = getAppearance(config, APPEARANCE_STATE.NORMAL);
+    const triggered = getAppearance(config, APPEARANCE_STATE.TRIGGERED);
+    const overview = getAppearance(config, APPEARANCE_STATE.OVERVIEW);
+    const windows = !areAppearancesEqual(main, triggered);
+    const overviewOverrides = config.overviewBehavior !== APPEARANCE_BEHAVIOR.DO_NOTHING && (
+        !areAppearancesEqual(main, overview) || !areAppearancesEqual(triggered, overview)
+    );
+    return {
+        windows,
+        overview: windows || overviewOverrides,
+        overviewProgress: overviewOverrides && config.overviewTransition
+    };
 };

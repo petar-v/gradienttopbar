@@ -126,9 +126,18 @@ export const createEventsFixture = async t => {
         controller, overview, adjustment, screenShield, layoutManager, windowStates, overviewStates,
         EventManager, WindowEvents, SignalTarget, Window, startSwipe,
         reads, pending, flush, targets,
-        config: { styleTrigger: 'proximity', windowBehavior: 'apply-style', proximityDistance: 40, proximityTransition: true, overviewBehavior: 'apply-style', overviewTransition: true },
+        config: {
+            styleTrigger: 'proximity', windowBehavior: 'apply-style', proximityDistance: 40, proximityTransition: true,
+            overviewBehavior: 'apply-style', overviewTransition: true,
+            gradients: {
+                main: { colors: { start: 'rgba(0,0,0,1)', end: 'rgba(0,0,0,0)' }, direction: 'vertical' },
+                alternate: { colors: { start: 'rgba(255,0,0,1)', end: 'rgba(0,0,255,1)' }, direction: 'horizontal' },
+                overview: { colors: { start: 'rgba(0,255,0,0.4)', end: 'rgba(255,255,255,1)' }, direction: 'horizontal' }
+            }
+        },
         createEvents: (callbacks = {}) => track(new EventManager({
-            onWindowChanged: snapshot => { windowStates.push(snapshot); callbacks.onWindowChanged?.(snapshot); },
+            onWindowChanged: (snapshot, isWorkspaceChanged) => { windowStates.push(snapshot); callbacks.onWindowChanged?.(snapshot, isWorkspaceChanged); },
+            onWindowProgress: snapshot => { windowStates.push(snapshot); callbacks.onWindowProgress?.(snapshot); },
             onWorkspaceProgress: snapshot => { windowStates.push({ ...snapshot, type: 'progress' }); callbacks.onWorkspaceProgress?.(snapshot); },
             onWorkspaceCompleted: snapshot => { windowStates.push({ ...snapshot, type: 'complete' }); callbacks.onWorkspaceCompleted?.(snapshot); },
             onOverviewChanged: snapshot => { overviewStates.push(snapshot); callbacks.onOverviewChanged?.(snapshot); }

@@ -1,7 +1,7 @@
 import { wm } from 'resource:///org/gnome/shell/ui/main.js';
 import SignalConnections from '../signalConnections.js';
 
-const getWorkspaceTransition = (workspaces, snapPoints, progress) => {
+const calculateWorkspaceBlend = (workspaces, snapPoints, progress) => {
     if (workspaces.length === 0 || workspaces.length !== snapPoints.length)
         return null;
 
@@ -28,6 +28,19 @@ const getWorkspaceTransition = (workspaces, snapPoints, progress) => {
     };
 };
 
+// Shell's swipe data is private, so fall back to normal workspace changes if it's missing.
+const calculateWorkspaceBlendFromSwipe = monitorGroup => {
+    if (!Array.isArray(monitorGroup?._workspaceGroups) ||
+        typeof monitorGroup.getSnapPoints !== 'function')
+        return null;
+
+    return calculateWorkspaceBlend(
+        monitorGroup._workspaceGroups.map(group => group.workspace),
+        monitorGroup.getSnapPoints(),
+        monitorGroup.progress
+    );
+};
+
 export default class WorkspaceEvents {
     constructor(workspaceManager, callback) {
         this._workspaceManager = workspaceManager;
@@ -42,43 +55,32 @@ export default class WorkspaceEvents {
     }
 
     get transition() {
-        return this.getTransition(this._transitionGroup);
+        return calculateWorkspaceBlendFromSwipe(this._transitionGroup);
     }
 
-    getTransition(monitorGroup) {
-        if (!Array.isArray(monitorGroup?._workspaceGroups) ||
-            typeof monitorGroup.getSnapPoints !== 'function')
-            return null;
-
-        return getWorkspaceTransition(
-            monitorGroup._workspaceGroups.map(group => group.workspace),
-            monitorGroup.getSnapPoints(),
-            monitorGroup.progress
-        );
-    }
-
-    updateTransition() {
-        const transition = this.getTransition(this._transitionGroup);
+    #emitWorkspaceProgress() {
+        const transition = calculateWorkspaceBlendFromSwipe(this._transitionGroup);
         if (transition)
             this._callback({ type: 'progress', ...transition });
     }
 
-    startTransition() {
+    #observeWorkspaceSwipe(emitInitialProgress = true) {
         const group = wm?._workspaceAnimation?._switchData?.baseMonitorGroup;
-        if (!group || group === this._transitionGroup || !this.getTransition(group))
+        if (!group || group === this._transitionGroup || !calculateWorkspaceBlendFromSwipe(group))
             return;
 
-        this.detachTransition();
+        this.stopObservingWorkspaceSwipe();
         this._transitionGroup = group;
-        this._signals.connect(group, 'notify::progress', () => this.updateTransition());
+        this._signals.connect(group, 'notify::progress', () => this.#emitWorkspaceProgress());
         this._signals.connect(group, 'destroy', () => {
-            this.detachTransition();
+            this.stopObservingWorkspaceSwipe();
             this._callback({ type: 'complete' });
         });
-        this.updateTransition();
+        if (emitInitialProgress)
+            this.#emitWorkspaceProgress();
     }
 
-    detachTransition() {
+    stopObservingWorkspaceSwipe() {
         if (this._transitionGroup)
             this._signals.disconnect(this._transitionGroup);
         this._transitionGroup = null;
@@ -94,11 +96,13 @@ export default class WorkspaceEvents {
         });
         const swipeTracker = wm?._workspaceAnimation?._swipeTracker;
         if (swipeTracker)
-            this._signals.connect(swipeTracker, 'begin', () => this.startTransition());
+            this._signals.connect(swipeTracker, 'begin', () => this.#observeWorkspaceSwipe());
+        // Configuration returns the adopted gesture in its final snapshot.
+        this.#observeWorkspaceSwipe(false);
     }
 
     disable() {
-        this.detachTransition();
+        this.stopObservingWorkspaceSwipe();
         this._signals.disconnectAll();
         this.enabled = false;
     }

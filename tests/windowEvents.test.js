@@ -2,6 +2,51 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createEventsFixture } from './fixtures/events.js';
 
+test('only progressive geometry publishes window progress', async t => {
+    const f = await createEventsFixture(t);
+    const causes = [];
+    const events = f.createEvents({
+        onWindowChanged: (_state, isWorkspaceChanged) => causes.push({ type: 'change', isWorkspaceChanged }),
+        onWindowProgress: () => causes.push({ type: 'progress' })
+    });
+    events.configure(f.config);
+    f.first.y = 42;
+    f.first.emit('position-changed');
+    f.flush();
+    assert.deepEqual(causes, [{ type: 'progress' }]);
+    for (const action of ['minimize', 'unminimize']) {
+        f.shell.window_manager.emit(action, { get_meta_window: () => f.first });
+        assert.deepEqual(causes.at(-1), { type: 'change', isWorkspaceChanged: false });
+    }
+    f.screenShield.emit('unlock-screen');
+    assert.deepEqual(causes.at(-1), { type: 'change', isWorkspaceChanged: false }, 'Forced repair uses a discrete change');
+    f.state.activeWorkspace = f.workspaceB;
+    f.workspaceManager.emit('workspace-switched');
+    assert.deepEqual(causes.at(-1), { type: 'change', isWorkspaceChanged: true });
+});
+
+for (const [styleTrigger, proximityTransition, proximityDistance] of [
+    ['proximity', false, 40], ['proximity', true, 0], ['maximized', true, 40]
+]) {
+    test(`${styleTrigger}/${proximityTransition}/${proximityDistance} geometry publishes a discrete change`, async t => {
+        const f = await createEventsFixture(t);
+        const changes = [];
+        const progress = [];
+        f.first.y = 100;
+        const events = f.createEvents({
+            onWindowChanged: state => changes.push(state.effectStrength),
+            onWindowProgress: state => progress.push(state.effectStrength)
+        });
+        events.configure({ ...f.config, styleTrigger, proximityTransition, proximityDistance });
+        f.first.y = 32;
+        f.first.get_maximize_flags = () => 3;
+        f.first.emit('size-changed');
+        f.flush();
+        assert.deepEqual(changes, [1]);
+        assert.deepEqual(progress, []);
+    });
+}
+
 test('geometry bursts schedule one fresh scan before redraw', async t => {
     const f = await createEventsFixture(t);
     const events = f.createEvents();
@@ -181,3 +226,24 @@ test('same-workspace swipe endpoints share a fresh calculation', async t => {
     assert.equal(f.windowStates.at(-1).startStrength, 0.5);
     assert.equal(f.windowStates.at(-1).endStrength, 0.5);
 });
+
+for (const [trigger, progressive, remainingStrength] of [['proximity', true, 0.25], ['proximity', false, 1], ['maximized', false, 0]]) {
+    test(`${trigger}/${progressive} skips eligibility after a sufficient match`, async t => {
+        const f = await createEventsFixture(t);
+        f.first.y = 32;
+        f.first.get_maximize_flags = () => 3;
+        f.second.workspace = f.workspaceA;
+        f.second.y = 62;
+        let eligibilityReads = 0;
+        f.second.is_on_primary_monitor = () => {
+            eligibilityReads++;
+            return true;
+        };
+        const observer = f.createObserver(f.shell.display, f.shell.window_manager, f.workspaceManager);
+        observer.configure({ enabled: true, trigger, distance: 40, progressive });
+        assert.equal(observer.getCurrentState().effectStrength, 1);
+        assert.equal(eligibilityReads, 0, 'No native eligibility calls after a sufficient first match');
+        assert.equal(observer.getCurrentState(f.first.id).effectStrength, remainingStrength);
+        assert.equal(eligibilityReads, 1, 'Excluding the first match still checks the next window');
+    });
+}
