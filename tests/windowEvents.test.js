@@ -227,8 +227,8 @@ test('same-workspace swipe endpoints share a fresh calculation', async t => {
     assert.equal(f.windowStates.at(-1).endStrength, 0.5);
 });
 
-for (const [trigger, progressive, remainingStrength] of [['proximity', true, 0.25], ['proximity', false, 1], ['maximized', false, 0]]) {
-    test(`${trigger}/${progressive} skips eligibility after a sufficient match`, async t => {
+for (const [trigger, isProgressive, remainingStrength] of [['proximity', true, 0.25], ['proximity', false, 1], ['maximized', false, 0]]) {
+    test(`${trigger}/${isProgressive} skips eligibility after a sufficient match`, async t => {
         const f = await createEventsFixture(t);
         f.first.y = 32;
         f.first.get_maximize_flags = () => 3;
@@ -240,7 +240,7 @@ for (const [trigger, progressive, remainingStrength] of [['proximity', true, 0.2
             return true;
         };
         const observer = f.createObserver(f.shell.display, f.shell.window_manager, f.workspaceManager);
-        observer.configure({ enabled: true, trigger, distance: 40, progressive });
+        observer.configure({ isEnabled: true, trigger, distance: 40, isProgressive });
         assert.equal(observer.getCurrentState().effectStrength, 1);
         assert.equal(eligibilityReads, 0, 'No native eligibility calls after a sufficient first match');
         assert.equal(observer.getCurrentState(f.first.id).effectStrength, remainingStrength);

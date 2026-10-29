@@ -10,9 +10,9 @@ for (const workspaceGestureBlending of [false, true]) {
             const f = await createEventsFixture(t);
             const config = { ...f.config, windowBehavior, workspaceGestureBlending };
             const needs = getObservationNeeds(config);
-            assert.equal(needs.workspaceProgress, windowBehavior !== 'keep-gradient' && workspaceGestureBlending);
+            assert.equal(needs.isWorkspaceProgressNeeded, windowBehavior !== 'keep-gradient' && workspaceGestureBlending);
             const same = { ...config, gradients: { ...config.gradients, alternate: config.gradients.main } };
-            assert.equal(getObservationNeeds(same).workspaceProgress, windowBehavior === 'keep-theme' && workspaceGestureBlending);
+            assert.equal(getObservationNeeds(same).isWorkspaceProgressNeeded, windowBehavior === 'keep-theme' && workspaceGestureBlending);
         });
     }
 }
@@ -116,7 +116,7 @@ for (const overviewTransition of [false, true]) {
 test('overview ownership prevents new or adopted desktop swipes until hidden', async t => {
     const f = await createEventsFixture(t);
     const events = f.createEvents();
-    const config = { ...f.config, overviewBehavior: 'do-nothing' };
+    const config = { ...f.config, overviewBehavior: 'apply-style' };
     events.configure(config);
     const group = f.startSwipe(f.workspaceA, f.workspaceB, 0.4);
     f.overview.visible = true;
@@ -166,7 +166,7 @@ test('workspace blending off keeps the existing 150 ms discrete workspace fade',
     r.expectStyle('panel-maximized-gradient');
 });
 
-test('toggling workspace blending preserves a do-nothing overview hold until hidden', async t => {
+test('toggling workspace blending updates Do nothing desktop state while overview is visible', async t => {
     const f = await createEventsFixture(t);
     const r = await createRendererFixture(t);
     const renderer = r.createRenderer();
@@ -183,17 +183,17 @@ test('toggling workspace blending preserves a do-nothing overview hold until hid
     f.overview.visible = true;
     f.overview.visibleTarget = true;
     f.overview.emit('showing');
-    const heldLayers = [...r.children];
-    const heldOpacity = heldLayers.map(actor => actor.opacity);
-    assert.equal(heldLayers.length, 2);
+    assert.equal(r.children.size, 2);
     for (const workspaceGestureBlending of [false, true, false]) {
         const next = { ...config, workspaceGestureBlending };
         renderer.configure(next, events.configure(next));
-        assert.deepEqual([...r.children], heldLayers);
-        assert.deepEqual(heldLayers.map(actor => actor.opacity), heldOpacity);
+        assert.equal([...r.children][1].opacity, 128, 'Reconfiguration adopts the current desktop strength');
+        assert.equal(f.overview.handlers.size, 0);
         assert.equal(r.timelines.size, 0);
     }
     f.state.activeWorkspace = f.workspaceB;
+    f.workspaceManager.emit('workspace-switched');
+    r.expectStyle('panel-maximized-gradient');
     f.overview.visible = false;
     f.overview.visibleTarget = false;
     f.overview.emit('hidden');

@@ -12,6 +12,7 @@ const timings = {
     WORKSPACE_SWITCH_DURATION_MS: 231
 };
 const desktop = { progress: null, isHidden: true, isTargetVisible: false };
+const getNativeDuration = fixture => Number([...fixture.classes].find(name => name.startsWith('panel-native-duration-'))?.slice('panel-native-duration-'.length));
 
 test('non-blended overview CSS uses independent entry and exit durations', async t => {
     const f = await createRendererFixture(t, timings);
@@ -20,8 +21,14 @@ test('non-blended overview CSS uses independent entry and exit durations', async
     });
     assert.match(f.state.css, /#panel\s*\{\s*transition-duration: 212ms;/);
     assert.match(f.state.css, /#panel:overview\s*\{\s*transition-duration: 211ms;/);
-    assert.match(f.state.css, /#panel\.panel-background-blending\s*\{[^}]*transition-duration: 0ms;/);
-    assert.match(f.state.css, /#panel\.panel-background-restoring\s*\{\s*transition-duration: 0ms;/);
+    assert.match(f.state.css, /#panel\.panel-css-overview\s*\{\s*transition-duration: 212ms;/);
+    assert.match(f.state.css, /#panel\.panel-css-overview:overview\s*\{\s*transition-duration: 211ms;/);
+    assert(f.state.css.indexOf('#panel.panel-native-duration-231') < f.state.css.indexOf('#panel.panel-css-overview'),
+        'CSS-owned exit duration overrides any stale desktop cause class');
+    assert(f.state.css.indexOf('#panel.panel-css-overview:overview') < f.state.css.indexOf('#panel.panel-background-restoring:overview'),
+        'The zero-duration guard wins while the overview pseudo is active');
+    assert.match(f.state.css, /#panel\.panel-background-blending:overview\s*\{[^}]*transition-duration: 0ms;/);
+    assert.match(f.state.css, /#panel\.panel-background-restoring:overview\s*\{\s*transition-duration: 0ms;/);
 });
 
 test('window entry, restoration and workspace fallback use their own durations', async t => {
@@ -32,19 +39,18 @@ test('window entry, restoration and workspace fallback use their own durations',
     });
     f.state.animationsEnabled = true;
     renderer.updateWindow({ effectStrength: 1 });
-    const timeline = [...f.timelines][0];
-    assert.equal(timeline.duration, 181);
-    timeline.advance(0.5);
+    assert.equal(getNativeDuration(f), 181);
     renderer.updateWindow({ effectStrength: 0 });
-    assert.equal([...f.timelines][0], timeline, 'Reversal retains the controller');
-    assert.equal(timeline.duration, 182, 'Reversal changes the controller duration');
-    timeline.advance(1);
+    assert.equal(getNativeDuration(f), 182);
     renderer.updateWindow({ effectStrength: 1 }, true);
-    assert.equal([...f.timelines][0].duration, 231);
+    assert.equal(getNativeDuration(f), 231);
+    assert.equal(f.state.widgetCreations, 0, 'Native endpoint transitions never allocate custom resources');
+    assert.equal(f.state.timelineCreations ?? 0, 0);
 });
 
 test('overview settling changes duration when its destination reverses', async t => {
     const f = await createRendererFixture(t, timings);
+    f.settings.windowBehavior = 'apply-style';
     const renderer = f.createRenderer();
     const snapshot = {
         window: { effectStrength: 0 }, workspaceTransition: null,
@@ -101,7 +107,8 @@ test('extension forwards workspace timing to the renderer', async t => {
     f.state.animationsEnabled = true;
     f.windowEvents.callback({ effectStrength: 0, currentWorkspace: { index: () => 0 } }, true);
     f.windowEvents.callback({ effectStrength: 1, currentWorkspace: { index: () => 1 } }, true);
-    assert.equal([...f.timelines][0].duration, 231);
+    assert.equal(getNativeDuration(f), 231);
+    assert.equal(f.timelines.size, 0);
 });
 
 test('a zero fade duration commits immediately without starting a timeline', async t => {
@@ -166,7 +173,7 @@ test('workspace progress after a completed partial fade does not stop an idle ti
 test('progressive mode is derived during configuration and refreshed when settings change', async t => {
     const f = await createRendererFixture(t, timings);
     const renderer = f.createRenderer();
-    for (const [trigger, blending, progressive] of [
+    for (const [trigger, blending, isProgressive] of [
         ['proximity', true, true], ['proximity', false, false],
         ['proximity', true, true], ['maximized', true, false]
     ]) {
@@ -183,13 +190,16 @@ test('progressive mode is derived during configuration and refreshed when settin
         f.state.animationsEnabled = true;
         renderer.updateWindow({ effectStrength: 0.4 });
         const timeline = [...f.timelines][0];
-        assert.equal(timeline.duration, 181);
-        if (progressive) {
+        if (isProgressive) {
+            assert.equal(timeline.duration, 181);
             timeline.advance(1);
             assert.equal([...f.children][1].opacity, 102);
+        } else {
+            assert.equal(getNativeDuration(f), 181);
+            assert.equal(f.timelines.size, 0);
         }
         renderer.updateWorkspaceProgress({ startStrength: 0.2, endStrength: 0.8, progress: 0.5 });
-        if (progressive)
+        if (isProgressive)
             assert.equal([...f.children][1].opacity, 128);
         else
             f.expectStyle('panel-maximized-gradient');
@@ -236,7 +246,8 @@ for (const [styleTrigger, proximityTransition, proximityDistance] of [
         }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: desktop });
         f.state.animationsEnabled = true;
         renderer.updateWindow({ effectStrength: 1 });
-        assert.equal([...f.timelines][0].duration, 181);
+        assert.equal(getNativeDuration(f), 181);
+        assert.equal(f.timelines.size, 0);
     });
 }
 

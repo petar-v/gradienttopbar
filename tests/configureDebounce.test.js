@@ -4,17 +4,12 @@ import { createExtensionFixture } from './fixtures/extension.js';
 import { createModuleLoader } from './fixtures/modules.js';
 
 test('configuration reconciles observers before rendering the same final snapshot', async t => {
-    const { extension } = await createExtensionFixture(t);
+    const { extension, settings, state } = await createExtensionFixture(t);
     const snapshot = { window: { effectStrength: 0.6 }, overview: { progress: 0.4, isHidden: false, isTargetVisible: true } };
-    const reconciled = [];
-    extension.events = {
-        configure: config => {
-            reconciled.push(config);
-            return snapshot;
-        }
-    };
-    extension.gradient = { configure: (config, state) => { reconciled.push(config, state); } };
-    extension.configure({ shadowBlur: 6, proximityDistance: 80, overviewBehavior: 'keep-theme' });
+    state.windowState = snapshot;
+    Object.assign(settings, { shadowBlur: 6, proximityDistance: 80, overviewBehavior: 'keep-theme' });
+    extension.enable();
+    const { reconciled } = state;
     assert.equal(reconciled.length, 3, 'One observer reconciliation and one renderer configuration per batch');
     assert.equal(reconciled[0], reconciled[1], 'Both owners receive the same final normalized config');
     assert.equal(reconciled[2], snapshot, 'The renderer receives the reconciled observer state');
@@ -24,8 +19,6 @@ test('configuration reconciles observers before rendering the same final snapsho
 
 test('menu preferences toggle immediately and menu ownership survives re-enable', async t => {
     const { extension, settings, state } = await createExtensionFixture(t);
-    const applied = [];
-    extension.configure = s => applied.push(s.value);
     extension.enable();
     assert.equal(state.menusCreated, 0, 'No menu while setting is off');
     settings.showMenu = true;
@@ -52,25 +45,24 @@ test('menu preferences toggle immediately and menu ownership survives re-enable'
 
 test('bursts configure only the latest value and disable cancels pending updates', async t => {
     const { extension, settings, pending, state, GLib } = await createExtensionFixture(t);
-    const applied = [];
-    extension.configure = s => applied.push(s.value);
+    const applied = state.configurations;
     extension.enable();
-    assert.deepEqual(applied, [0], 'Enable configures immediately');
+    assert.deepEqual(applied.map(config => config.value), [0], 'Enable configures immediately');
     for (let i = 1; i <= 1000; i++) {
         settings.value = i;
         state.onChange(settings);
     }
     assert.equal(pending.size, 1, 'A burst leaves one pending update');
-    assert.deepEqual(applied, [0], 'No configuration during burst');
+    assert.deepEqual(applied.map(config => config.value), [0], 'No configuration during burst');
     const callback = [...pending.values()][0];
     pending.clear();
     assert.equal(callback(), GLib.SOURCE_REMOVE);
-    assert.deepEqual(applied, [0, 1000], 'Apply latest values once');
+    assert.deepEqual(applied.map(config => config.value), [0, 1000], 'Apply latest values once');
     state.onChange(settings);
     extension.disable();
     assert.equal(pending.size, 0, 'Disable cancels pending writes');
     extension.enable();
-    assert.deepEqual(applied, [0, 1000, 1000], 'Re-enable configures immediately');
+    assert.deepEqual(applied.map(config => config.value), [0, 1000, 1000], 'Re-enable configures immediately');
     extension.disable();
 });
 

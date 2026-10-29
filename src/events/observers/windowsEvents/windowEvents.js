@@ -9,7 +9,7 @@ import { STYLE_TRIGGER } from '../../../gradient/appearance.js';
 // FIXME: this causes the overview to close on login.
 const isDesktopIconsWindow = window => window.customJS_ding !== undefined;
 
-const canWindowAffectPanel = window =>
+const isWindowAffectingPanel = window =>
     !isDesktopIconsWindow(window) &&
     window.is_on_primary_monitor() &&
     !window.minimized &&
@@ -20,7 +20,7 @@ const canWindowAffectPanel = window =>
 // skip the closing/minimizing window too, since its flags or the window list might not have caught up yet.
 function* getWindowsAffectingPanel(windows, ignoredWindowId) {
     for (const window of windows) {
-        if (canWindowAffectPanel(window) && window.get_id() !== ignoredWindowId)
+        if (isWindowAffectingPanel(window) && window.get_id() !== ignoredWindowId)
             yield window;
     }
 }
@@ -37,7 +37,7 @@ export default class WindowEvents {
         this.workspaceManager = workspaceManager;
         this._signals = new SignalConnections();
         this._updateLaterId = null;
-        this.enabled = false;
+        this.isEnabled = false;
 
         this.stateChangeCallback = () => {};
     }
@@ -58,14 +58,14 @@ export default class WindowEvents {
         };
     }
 
-    updateState(force = false, ignoredWindowId = null, geometryChanged = false) {
+    updateState(isForced = false, ignoredWindowId = null, isGeometryChanged = false) {
         this.#cancelUpdate();
-        if (this.enabled)
-            this.stateChangeCallback(this.getCurrentState(ignoredWindowId), force, geometryChanged);
+        if (this.isEnabled)
+            this.stateChangeCallback(this.getCurrentState(ignoredWindowId), isForced, isGeometryChanged);
     }
 
     #scheduleUpdate(window) {
-        if (!this.enabled || !canWindowAffectPanel(window) ||
+        if (!this.isEnabled || !isWindowAffectingPanel(window) ||
             !window.located_on_workspace(this.workspaceManager.get_active_workspace()))
             return;
         if (this._updateLaterId)
@@ -89,10 +89,10 @@ export default class WindowEvents {
      * Sets up event listeners without publishing an intermediate configuration
      */
     #enable() {
-        if (this.enabled)
+        if (this.isEnabled)
             return;
 
-        this.enabled = true;
+        this.isEnabled = true;
         const attachWindowEvents = window => {
             if (!isDesktopIconsWindow(window)) {
                 this.#detector.attachWindowEvents(this._signals, window, {
@@ -131,7 +131,7 @@ export default class WindowEvents {
     disable() {
         this.#cancelUpdate();
         this._signals.disconnectAll();
-        this.enabled = false;
+        this.isEnabled = false;
     }
 
     /**
@@ -140,7 +140,7 @@ export default class WindowEvents {
      * @returns {number} The effect strength from zero to one
      */
     #getEffectStrength(ignoredWindowId = null) {
-        if (!this.enabled)
+        if (!this.isEnabled)
             return 0;
         return this.getEffectStrengthForWorkspace(
             this.workspaceManager.get_active_workspace(), ignoredWindowId
@@ -148,15 +148,15 @@ export default class WindowEvents {
     }
 
     getEffectStrengthForWorkspace(workspace, ignoredWindowId = null) {
-        if (!this.enabled || !workspace)
+        if (!this.isEnabled || !workspace)
             return 0;
 
         return this.#detector.getEffectStrength(getWindowsAffectingPanel(workspace.list_windows(), ignoredWindowId));
     }
 
-    configure({ enabled, trigger, distance, progressive }) {
+    configure({ isEnabled, trigger, distance, isProgressive }) {
         this.#cancelUpdate();
-        if (!enabled) {
+        if (!isEnabled) {
             this.disable();
             return;
         }
@@ -170,7 +170,7 @@ export default class WindowEvents {
 
         if (Detector === ProximityWindows) {
             this.#detector.distance = distance;
-            this.#detector.progressive = progressive;
+            this.#detector.isProgressive = isProgressive;
         }
         this.#enable();
     }

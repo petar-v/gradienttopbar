@@ -5,20 +5,25 @@ import { fileURLToPath, URL } from 'node:url';
 import * as defaultTransitionTimings from '../../src/gradient/transitionTimings.js';
 
 export const createRendererFixture = async (t, transitionTimings = null) => {
-    const state = { animationsEnabled: false, nativeAlpha: 153, strength: 0, css: '', writes: 0, loads: 0 };
+    const state = { styleCommits: [], classUpdates: 0, widgetCreations: 0, animationsEnabled: false, nativeAlpha: 153, strength: 0, css: '', writes: 0, loads: 0 };
     state.timelineDurationReads = 0;
     state.timelineDurationWrites = 0;
     state.timelineStops = 0;
     const handlers = new Map();
+    const settingsHandlers = new Map();
+    const pendingSettingsUpdates = new Map();
     let nextId = 0;
     const overview = {
         visibleTarget: false,
         connect(signal, callback) { handlers.set(++nextId, { signal, callback }); return nextId; },
         disconnect(id) { handlers.delete(id); }
     };
+    const setOverviewState = ({ isHidden, isTargetVisible }) => {
+        overview.visible = !isHidden;
+        overview.visibleTarget = isTargetVisible;
+    };
     const showOverview = visible => {
-        overview.visible = visible;
-        overview.visibleTarget = visible;
+        setOverviewState({ isHidden: !visible, isTargetVisible: visible });
         for (const event of visible ? ['showing', 'shown'] : ['hiding', 'hidden']) {
             for (const { signal, callback } of handlers.values()) {
                 if (signal === event)
@@ -78,14 +83,19 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
             ordered.forEach(child => children.add(child));
         },
         get_style_class_name: () => [...classes].join(' '),
-        get_style_pseudo_class: () => '',
+        set_style_class_name: names => {
+            state.classUpdates++;
+            classes.clear();
+            names.split(/\s+/).filter(Boolean).forEach(name => classes.add(name));
+        },
+        get_style_pseudo_class: () => overview.visibleTarget ? 'overview' : '',
         get_style: () => '',
-        ensure_style() {},
+        ensure_style() { state.styleCommits.push([...classes]); },
         connectObject(signal, callback, owner) { allocations.set(owner, { signal, callback }); },
         disconnectObject(owner) { allocations.delete(owner); }
     };
     class Widget {
-        constructor(properties) { Object.assign(this, properties); }
+        constructor(properties) { state.widgetCreations++; Object.assign(this, properties); }
         connectObject(signal, callback, owner) {
             assert.equal(signal, 'style-changed');
             styleHandlers.set(this, { callback, owner });
@@ -130,10 +140,10 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
     class WindowEvents {
         constructor() { windowEvents = this; }
         setStateChangeCallback(callback) { this.callback = callback; }
-        configure({ enabled }) { this.enabled = enabled; }
-        disable() { this.enabled = false; }
+        configure({ isEnabled }) { this.isEnabled = isEnabled; }
+        disable() { this.isEnabled = false; }
         updateState() { this.callback({ effectStrength: state.strength }); }
-        getEffectStrength() { return this.enabled ? state.strength : 0; }
+        getEffectStrength() { return this.isEnabled ? state.strength : 0; }
         getCurrentState() { return { effectStrength: this.getEffectStrength() }; }
     }
     class WorkspaceEvents {
@@ -156,7 +166,17 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
         'gradient/transitionTimings.js': transitionTimings && { ...defaultTransitionTimings, ...transitionTimings },
         'resource:///org/gnome/shell/ui/main.js': { overview, panel },
         'resource:///org/gnome/shell/extensions/extension.js': { Extension: class {} },
-        'gi://GLib': { default: { Source: { remove() {} } } },
+        'gi://GLib': {
+            default: {
+                PRIORITY_DEFAULT: 0,
+                SOURCE_REMOVE: false,
+                Source: { remove: id => pendingSettingsUpdates.delete(id) },
+                timeout_add(_priority, _delay, callback) {
+                    pendingSettingsUpdates.set(++nextId, callback);
+                    return nextId;
+                }
+            }
+        },
         'gi://St': {
             default: {
                 Widget, GradientType: { NONE: 0 },
@@ -181,7 +201,8 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
             isTopBarSettingsMenuEnabled: settings => settings.get_boolean('top-bar-style-settings'),
             attachSettingListener: (settings, key, callback) => settings.connect(`changed::${key}`, callback),
             getConfig: settings => ({ ...settings }),
-            attachSettingsListeners: () => [], detachSettingsListeners() {}
+            attachSettingsListeners: (settings, callback) => [settings.connect('changed', callback)],
+            detachSettingsListeners: (settings, ids) => ids.forEach(id => settings.disconnect(id))
         },
         'topBarMenu.js': { default: class {} },
         'events/observers/windowsEvents/windowEvents.js': { default: WindowEvents },
@@ -190,8 +211,8 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
     const load = createModuleLoader(stubs, { get_workspace_manager: () => ({}) });
     const settings = {
         get_boolean: () => false,
-        connect: () => 1,
-        disconnect() {},
+        connect(signal, callback) { settingsHandlers.set(++nextId, { signal, callback }); return nextId; },
+        disconnect(id) { settingsHandlers.delete(id); },
         windowBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false, proximityDistance: 40,
         overviewBehavior: 'apply-style', workspaceGestureBlending: true,
         // Rendering receives normalized config; overviewSettings.js exercises real settings normalization.
@@ -226,7 +247,7 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
         }
         try {
             // Check production teardown; clearing these collections would hide leaks.
-            for (const [name, collection] of Object.entries({ children, allocations, styleHandlers, handlers, timelines, classes }))
+            for (const [name, collection] of Object.entries({ children, allocations, styleHandlers, handlers, timelines, classes, settingsHandlers, pendingSettingsUpdates }))
                 assert.equal(collection.size, 0, `Fixture leaked ${name}`);
             assert.equal(onProgress, null, 'Fixture leaked overview adjustment handler');
         } catch (error) {
@@ -246,9 +267,24 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
     return {
         state, settings, panel, theme, children, classes, timelines, allocations, styleHandlers, handlers,
         get windowEvents() { return windowEvents; },
-        showOverview,
+        showOverview, setOverviewState,
         setOverviewProgress,
-        expectStyle: expected => assert.deepEqual([...classes], expected ? [expected] : []),
+        hasOverviewProgressHandler: () => onProgress !== null,
+        refreshConfiguration: () => {
+            for (const { signal, callback } of settingsHandlers.values()) {
+                if (signal === 'changed')
+                    callback(settings);
+            }
+            const callbacks = [...pendingSettingsUpdates.values()];
+            pendingSettingsUpdates.clear();
+            callbacks.forEach(callback => callback());
+        },
+        expectStyle: expected => {
+            const shellOverview = classes.has('panel-css-overview') && overview.visibleTarget;
+            const selected = shellOverview ? [settings.overviewBehavior === 'keep-gradient' ? 'panel-gradient' : 'panel-overview-gradient']
+                : [...classes].filter(name => !name.startsWith('panel-native-duration-') && name !== 'panel-css-overview');
+            assert.deepEqual(selected, expected ? [expected] : []);
+        },
         createRenderer: () => track(new Gradient()),
         createBlend: (source, target) => track(new BackgroundBlend(source, target)),
         createPanelBackground: style => track(createPanelBackground(style)),
@@ -256,7 +292,7 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
             const extension = new module.namespace.default();
             extension.getSettings = () => settings;
             resources.push(() => {
-                if (extension.events)
+                if (settingsHandlers.size)
                     extension.disable();
             });
             return extension;

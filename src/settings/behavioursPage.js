@@ -149,7 +149,7 @@ class Behavior extends Adw.PreferencesPage {
             isUpdatingSettings = false;
             updateProximityControls();
             overviewTransitionRow.set_sensitive(config.overviewBehavior !== APPEARANCE_BEHAVIOR.DO_NOTHING);
-            workspaceTransitionRow.set_sensitive(getObservationNeeds(config).windows);
+            workspaceTransitionRow.set_sensitive(getObservationNeeds(config).isWindowObservationNeeded);
         };
         onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged, [

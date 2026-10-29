@@ -23,14 +23,20 @@ const waitForDistanceSave = () => waitUntil(() => false, 400);
 
 test('overview defaults and transition controls remain independent', t => {
     const { settings, page, behaviorPage } = createOverviewFixture(t);
-    assert(getConfig(settings).overviewBehavior === 'keep-gradient', 'Upgrade must keep the main gradient in overview');
+    assert(getConfig(settings).overviewBehavior === 'do-nothing', 'Overview defaults to leaving window interaction unchanged');
     assert(page.title === 'Gradients', 'Gradient settings have their own tab');
     const transitions = find(behaviorPage, widget => widget instanceof Adw.PreferencesGroup && widget.title === 'Transitions');
     const proximityBlend = find(transitions, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend as windows approach');
     const overviewBlend = find(transitions, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend with overview gestures');
     assert(proximityBlend && overviewBlend, 'Both blending controls belong to Transitions');
     assert(!find(page, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend with overview gestures'), 'Overview blending moved out of Gradients');
+    assert(!overviewBlend.is_sensitive(), 'Do nothing disables overview blending');
     overviewBlend.active = true;
+    settings.set_string('overview-behavior', 'apply-style');
+    assert(overviewBlend.is_sensitive() && overviewBlend.active, 'Other modes restore the saved blending choice');
+    settings.set_string('overview-behavior', 'do-nothing');
+    assert(!overviewBlend.is_sensitive() && settings.get_boolean('overview-transition'), 'Holding preserves the saved blending choice');
+    settings.set_string('overview-behavior', 'keep-gradient');
     assert(settings.get_boolean('overview-transition'), 'Overview blending writes its setting');
     settings.set_boolean('overview-transition', false);
     assert(!overviewBlend.active, 'Overview blending refreshes from settings');
@@ -118,6 +124,37 @@ test('workspace blending sensitivity follows only effective desktop appearances 
     assert(row.is_sensitive() && row.active, 'Re-enabling interaction restores the saved active choice');
 });
 
+test('overview choices preserve their values and exclude do nothing from window interaction', t => {
+    const { settings, page } = createOverviewFixture(t);
+    const behavior = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'When overview is open');
+    const windowBehavior = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'When triggered');
+    const values = ['keep-gradient', 'do-nothing', 'apply-style', 'keep-theme'];
+    const labels = ['Keep main gradient', 'Do nothing', 'Use custom gradient', 'Use original theme'];
+    assert(behavior.model.get_n_items() === 4, 'Overview has four choices');
+    assert(windowBehavior.model.get_n_items() === 3, 'Window interaction keeps three choices');
+    for (let index = 0; index < values.length; index++) {
+        assert(behavior.model.get_item(index).name === labels[index], 'Overview choices have the requested order');
+        behavior.selected = index;
+        assert(settings.get_string('overview-behavior') === values[index], 'Selection writes the corresponding value');
+        settings.set_string('overview-behavior', values[(index + 1) % values.length]);
+        settings.set_string('overview-behavior', values[index]);
+        assert(behavior.selected === index, 'Saved values restore the matching choice');
+    }
+});
+
+for (const saved of ['keep-gradient', 'keep-theme', 'apply-style']) {
+    test(`opening preferences preserves saved overview choice ${saved}`, t => {
+        const { settings } = createSettingsFixture(t);
+        settings.set_string('overview-behavior', saved);
+        const window = trackWindow(t, new Adw.PreferencesWindow());
+        const page = new Gradients(window, settings);
+        window.add(page);
+        const behavior = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'When overview is open');
+        assert(settings.get_string('overview-behavior') === saved, 'Opening preferences does not migrate an explicit saved choice');
+        assert(behavior.selectedItem.value === saved, 'The saved value is selected');
+    });
+}
+
 const gradients = [
     ['Gradient Direction', 'Gradient Start Colour', 'colors', 'gradient-direction'],
     ['Alternate Gradient Direction', 'Alternate Gradient Start Colour', 'maximized-colors', 'maximized-gradient-direction'],
@@ -168,7 +205,7 @@ test('overview controls refresh external changes, preserve other gradients and r
     settings.set_strv('overview-colors', ['rgba(255,0,0,0.4)', 'rgba(0,0,255,0.2)']);
     settings.set_string('overview-gradient-direction', 'vertical');
     settings.set_string('overview-behavior', 'keep-theme');
-    assert(behavior.selected === 1 && direction.selected === 0 && !direction.is_visible(), 'External settings refresh controls');
+    assert(behavior.selected === 3 && direction.selected === 0 && !direction.is_visible(), 'External settings refresh controls');
     assert(changed.includes('overview-colors') && changed.includes('overview-gradient-direction') && changed.includes('overview-behavior'), 'All overview settings notify runtime');
     behavior.selected = 2;
     assert(getConfig(settings).gradients.overview.colors.start === 'rgba(255,0,0,0.4)', 'Switching modes preserves saved colours and opacity');
@@ -197,6 +234,7 @@ test('overview reset requires confirmation and resets only its own appearance', 
     dialog = window.get_visible_dialog();
     dialog.emit('response', 'reset');
     dialog.force_close();
+    assert(settings.get_string('overview-behavior') === 'do-nothing', 'Reset restores do nothing');
     for (const [key, value] of before) {
         const expected = key.startsWith('overview-') && key !== 'overview-transition' ? settings.get_default_value(key) : value;
         assert(settings.get_value(key).equal(expected), `Overview reset changed the wrong setting: ${key}`);

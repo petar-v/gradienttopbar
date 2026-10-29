@@ -5,7 +5,7 @@ import Clutter from 'gi://Clutter';
 import { calculateBlendOpacities } from './blendMath.js';
 import {
     GRADIENT_CLASSES,
-    BLENDING_CLASS, RESTORING_CLASS
+    BLENDING_CLASS, RESTORING_CLASS, NATIVE_DURATION_CLASSES, CSS_OVERVIEW_CLASS
 } from './stylesheet.js';
 
 /**
@@ -36,7 +36,7 @@ export const createPanelBackground = style => {
     }
 
     const classes = (panel.get_style_class_name() ?? '').split(/\s+/)
-        .filter(name => ![...Object.values(GRADIENT_CLASSES), BLENDING_CLASS, RESTORING_CLASS].includes(name));
+        .filter(name => ![...Object.values(GRADIENT_CLASSES), ...Object.values(NATIVE_DURATION_CLASSES), BLENDING_CLASS, RESTORING_CLASS, CSS_OVERVIEW_CLASS].includes(name));
     const pseudoClasses = (panel.get_style_pseudo_class() ?? '').split(/\s+/)
         .filter(name => name !== 'overview');
     if (style.gradientClass)

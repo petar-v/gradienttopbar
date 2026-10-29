@@ -6,7 +6,7 @@ test('configuration exposes lifecycle operations and returns one final snapshot'
     const fixture = await createEventsFixture(t);
     const { windowStates, overviewStates, workspaceA, EventManager, config } = fixture;
     assert.deepEqual(Object.getOwnPropertyNames(EventManager.prototype).sort(),
-        ['configure', 'constructor', 'destroy'], 'Only lifecycle operations are public');
+        ['configure', 'constructor', 'destroy', 'setOverviewCleanupNeeded'], 'Only lifecycle operations and the narrow cleanup requirement are public');
     const events = fixture.createEvents();
     assert.equal(typeof events.configure, 'function', 'EventManager configures its observers');
     const initial = events.configure(config);
@@ -250,12 +250,12 @@ test('disabled window observers neither connect nor enumerate windows', async t 
     });
     const observedStrengths = [];
     observer.setStateChangeCallback(state => observedStrengths.push(state.effectStrength));
-    observer.configure({ enabled: false, trigger: 'proximity', distance: 40, progressive: true });
+    observer.configure({ isEnabled: false, trigger: 'proximity', distance: 40, isProgressive: true });
     assert.equal(observer.getCurrentState().effectStrength, 0);
-    observer.configure({ enabled: false, trigger: 'maximized', distance: 40, progressive: true });
+    observer.configure({ isEnabled: false, trigger: 'maximized', distance: 40, isProgressive: true });
     assert.equal(observer.getCurrentState().effectStrength, 0);
     assert.deepEqual(observedStrengths, [], 'Configuration never publishes intermediate state');
-    assert.equal(observer.enabled, false, 'Detector configuration does not enable tracking');
+    assert.equal(observer.isEnabled, false, 'Detector configuration does not enable tracking');
     for (const target of [detectorWindow, detectorDisplay, detectorWindowManager, layoutManager, screenShield])
         assert.equal(target.handlers.size, 0, 'Configuring a disabled observer does not connect signals');
 });
@@ -273,21 +273,21 @@ test('enabled window observers reuse connections and replace detectors cleanly',
     });
     const observedStrengths = [];
     observer.setStateChangeCallback(state => observedStrengths.push(state.effectStrength));
-    observer.configure({ enabled: true, trigger: 'proximity', distance: 40, progressive: true });
+    observer.configure({ isEnabled: true, trigger: 'proximity', distance: 40, isProgressive: true });
     assert.equal(observer.getCurrentState().effectStrength, 0.5);
     const observerTargets = [detectorWindow, detectorDisplay, detectorWindowManager, layoutManager, screenShield];
     const connectionCounts = observerTargets.map(target => target.nextId);
-    observer.configure({ enabled: true, trigger: 'proximity', distance: 40, progressive: true });
-    observer.configure({ enabled: true, trigger: 'proximity', distance: 80, progressive: true });
+    observer.configure({ isEnabled: true, trigger: 'proximity', distance: 40, isProgressive: true });
+    observer.configure({ isEnabled: true, trigger: 'proximity', distance: 80, isProgressive: true });
     assert.deepEqual(observerTargets.map(target => target.nextId), connectionCounts,
         'No-op and distance-only configuration preserve all connections');
     assert.equal(observer.getCurrentState().effectStrength, 0.75, 'Distance updates change detection without reconnecting');
-    observer.configure({ enabled: true, trigger: 'proximity', distance: 80, progressive: false });
+    observer.configure({ isEnabled: true, trigger: 'proximity', distance: 80, isProgressive: false });
     assert.equal(observer.getCurrentState().effectStrength, 1);
     assert.deepEqual(observerTargets.map(target => target.nextId), connectionCounts,
         'Blending settings also preserve detector connections');
-    observer.configure({ enabled: true, trigger: 'maximized', distance: 80, progressive: false });
-    assert.equal(observer.enabled, true, 'Replacing a detector preserves enabled tracking');
+    observer.configure({ isEnabled: true, trigger: 'maximized', distance: 80, isProgressive: false });
+    assert.equal(observer.isEnabled, true, 'Replacing a detector preserves enabled tracking');
     assert.equal(observer.getCurrentState().effectStrength, 0);
     assert.deepEqual(observedStrengths, [], 'Reconciliation returns state without callbacks');
     assert.equal([...detectorWindow.handlers.values()].some(handler => handler.signal === 'position-changed'), false,

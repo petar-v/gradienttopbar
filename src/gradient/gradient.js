@@ -1,8 +1,9 @@
+import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 import BackgroundTransitions from './backgroundTransitions.js';
 import { applyGradientStylesheet, unloadGradientStylesheet } from './stylesheet.js';
-import { GRADIENT_CLASSES } from './stylesheet.js';
+import { GRADIENT_CLASSES, RESTORING_CLASS } from './stylesheet.js';
 import { WINDOW_ENTER_DURATION_MS, WINDOW_EXIT_DURATION_MS, WORKSPACE_SWITCH_DURATION_MS } from './transitionTimings.js';
-import { APPEARANCE_BEHAVIOR, APPEARANCE_STATE, getAppearanceName, getObservationNeeds, isProgressiveProximity } from './appearance.js';
+import { APPEARANCE_BEHAVIOR, APPEARANCE_STATE, getAppearanceName, getObservationNeeds, isProgressiveProximity, isShellOverviewPassive } from './appearance.js';
 
 const getAppearanceStyle = (config, state) => {
     const name = getAppearanceName(config, state);
@@ -11,7 +12,7 @@ const getAppearanceStyle = (config, state) => {
 
 const getWindowBlendStyles = (config, needs) => {
     const main = getAppearanceStyle(config, APPEARANCE_STATE.NORMAL);
-    return [main, needs.windows ? getAppearanceStyle(config, APPEARANCE_STATE.TRIGGERED) : main];
+    return [main, needs.isWindowObservationNeeded ? getAppearanceStyle(config, APPEARANCE_STATE.TRIGGERED) : main];
 };
 
 // map window strength to the configured blend without checking the trigger mode on every frame.
@@ -37,39 +38,56 @@ const getWindowTransitionDuration = (progress, isWorkspaceChanged = false) => {
 const getOverviewStyle = (config, needs) => {
     if (config.overviewBehavior === APPEARANCE_BEHAVIOR.DO_NOTHING)
         return null;
-    if (!needs.overview)
+    if (!needs.isOverviewObservationNeeded)
         return getAppearanceStyle(config, APPEARANCE_STATE.NORMAL);
     return { ...getAppearanceStyle(config, APPEARANCE_STATE.OVERVIEW), isInOverview: true };
 };
 
 export default class Gradient {
-    #transitions = new BackgroundTransitions();
+    #transitions;
     #config;
     #isProgressiveProximity;
     #isWindowEffectEnabled;
+    #onOverviewCleanupChanged;
+
+    constructor(onOverviewCleanupChanged) {
+        this.#onOverviewCleanupChanged = onOverviewCleanupChanged;
+    }
 
     configure(config, state) {
-        const isStylesheetChanged = applyGradientStylesheet(config);
-        this.#config = config;
-        this.#isProgressiveProximity = isProgressiveProximity(config);
-        const needs = getObservationNeeds(config);
-        this.#isWindowEffectEnabled = needs.windows;
-        const progress = state.workspaceTransition
-            ? calculateWorkspaceBlendProgress(state.workspaceTransition, needs.windows, this.#isProgressiveProximity)
-            : calculateWindowBlendProgress(state.window.effectStrength, needs.windows, this.#isProgressiveProximity);
-        this.#transitions.configure({
-            desktop: getWindowBlendStyles(config, needs),
-            overview: getOverviewStyle(config, needs)
-        }, {
-            desktop: {
-                progress,
-                isAnimationRequested: state.workspaceTransition === null,
-                duration: getWindowTransitionDuration(progress)
-            },
-            overview: state.overview,
-            isFollowingGesture: needs.overviewProgress,
-            isStylesheetChanged
-        });
+        panel.add_style_class_name(RESTORING_CLASS);
+        panel.ensure_style();
+        this.#transitions?.captureNativeDestination();
+        try {
+            const isStylesheetChanged = applyGradientStylesheet(config);
+            this.#transitions ??= new BackgroundTransitions(this.#onOverviewCleanupChanged);
+            this.#config = config;
+            this.#isProgressiveProximity = isProgressiveProximity(config);
+            const needs = getObservationNeeds(config);
+            this.#isWindowEffectEnabled = needs.isWindowObservationNeeded;
+            const progress = state.workspaceTransition
+                ? calculateWorkspaceBlendProgress(state.workspaceTransition, needs.isWindowObservationNeeded, this.#isProgressiveProximity)
+                : calculateWindowBlendProgress(state.window.effectStrength, needs.isWindowObservationNeeded, this.#isProgressiveProximity);
+            const desktopStyles = getWindowBlendStyles(config, needs);
+            this.#transitions.configure({
+                desktop: desktopStyles,
+                overview: getOverviewStyle(config, needs)
+            }, {
+                desktop: {
+                    progress,
+                    isAnimationRequested: state.workspaceTransition === null,
+                    duration: getWindowTransitionDuration(progress)
+                },
+                overview: state.overview,
+                isShellOverviewEnabled: isShellOverviewPassive(config),
+                isFollowingGesture: needs.isOverviewProgressNeeded,
+                isStylesheetChanged
+            });
+        } finally {
+            panel.ensure_style();
+            panel.remove_style_class_name(RESTORING_CLASS);
+            panel.ensure_style();
+        }
     }
 
     updateWindow({ effectStrength }, isWorkspaceChanged = false) {
@@ -99,7 +117,7 @@ export default class Gradient {
     }
 
     updateOverview({ progress, isHidden, isTargetVisible, effectStrength }) {
-        this.#transitions.updateOverview({
+        this.#transitions?.updateOverview({
             progress, isHidden, isTargetVisible,
             desktopProgress: this.#config
                 ? calculateWindowBlendProgress(effectStrength, this.#isWindowEffectEnabled, this.#isProgressiveProximity) : 0
@@ -107,7 +125,13 @@ export default class Gradient {
     }
 
     destroy() {
-        this.#transitions.destroy();
+        panel.add_style_class_name(RESTORING_CLASS);
+        panel.ensure_style();
+        this.#transitions?.destroy();
+        panel.ensure_style();
+        panel.remove_style_class_name(RESTORING_CLASS);
+        panel.ensure_style();
+        this.#transitions = null;
         unloadGradientStylesheet();
         this.#config = null;
     }

@@ -1,9 +1,9 @@
 import WindowEvents from './observers/windowsEvents/windowEvents.js';
 import WorkspaceEvents from './observers/workspaceEvents.js';
 import OverviewEvents from './observers/overviewEvents.js';
-import { getObservationNeeds, isProgressiveProximity } from '../gradient/appearance.js';
+import { getObservationNeeds, isProgressiveProximity, isShellOverviewPassive } from '../gradient/appearance.js';
 
-const areWindowStatesEqual = (state1, state2) => {
+const isWindowStateEqual = (state1, state2) => {
     if ([state1, state2].includes(null))
         return false;
     if (state1.effectStrength !== state2.effectStrength)
@@ -21,7 +21,11 @@ export default class EventManager {
     #workspaces;
     #overview;
     #lastWindowState;
-    #lastWindowUpdateWasImmediate;
+    #isLastWindowUpdateImmediate;
+    #isOverviewCleanupNeeded = false;
+    #config;
+    #isProgressive;
+    #isOverviewLifecycleNeeded;
 
     constructor({
         onWindowChanged,
@@ -40,23 +44,24 @@ export default class EventManager {
         const workspaceManager = global.get_workspace_manager();
 
         this.#windows = new WindowEvents(global.display, global.window_manager, workspaceManager);
-        this.#windows.setStateChangeCallback((state, force, geometryChanged) => {
-            if (this.#workspaces.transitioning)
+        this.#windows.setStateChangeCallback((state, isForced, isGeometryChanged) => {
+            if (this.#workspaces.isTransitioning)
                 this.#lastWindowState = state;
             else
-                this.#emitWindowState(state, force, geometryChanged);
+                this.#emitWindowState(state, isForced, isGeometryChanged);
         });
         this.#workspaces = new WorkspaceEvents(workspaceManager, state => this.#handleWorkspaceEvent(state));
         this.#overview = new OverviewEvents(signal => this.#handleOverviewEvent(signal));
     }
 
     configure(config) {
-        this._progressive = isProgressiveProximity(config);
-        this.#lastWindowUpdateWasImmediate = false;
+        this.#config = config;
+        this.#isProgressive = isProgressiveProximity(config);
+        this.#isLastWindowUpdateImmediate = false;
         const needs = getObservationNeeds(config);
-        this.#configureWindowObservers(config, needs.windows);
-        this.#configureOverviewObserver(needs);
-        this.#workspaces.configure({ enabled: needs.windows, followProgress: needs.workspaceProgress });
+        this.#configureWindowObservers(config, needs.isWindowObservationNeeded);
+        this.#configureOverviewObserver(config, needs);
+        this.#workspaces.configure({ isEnabled: needs.isWindowObservationNeeded, isFollowingProgress: needs.isWorkspaceProgressNeeded });
         if (!this.#overview.isHidden || this.#overview.isTargetVisible)
             this.#workspaces.stopObservingWorkspaceSwipe();
 
@@ -70,34 +75,46 @@ export default class EventManager {
         };
     }
 
-    #configureWindowObservers(config, shouldObserveWindows) {
+    // The owner exposes only this lifecycle requirement, never its actors or blend state.
+    setOverviewCleanupNeeded(isOverviewCleanupNeeded) {
+        if (this.#isOverviewCleanupNeeded === isOverviewCleanupNeeded)
+            return;
+        this.#isOverviewCleanupNeeded = isOverviewCleanupNeeded;
+        if (this.#config)
+            this.#configureOverviewObserver(this.#config, getObservationNeeds(this.#config));
+    }
+
+    #configureWindowObservers(config, isWindowObservationNeeded) {
         this.#windows.configure({
-            enabled: shouldObserveWindows,
+            isEnabled: isWindowObservationNeeded,
             trigger: config.styleTrigger,
             distance: config.proximityDistance,
-            progressive: config.proximityTransition
+            isProgressive: config.proximityTransition
         });
     }
 
-    #configureOverviewObserver(needs) {
-        this._needsOverview = needs.overview;
-        // A held presentation still needs its final hidden notification before becoming dormant.
-        const finishingOverview = this.#overview.isObserving && (!this.#overview.isHidden || this.#overview.isTargetVisible);
-        this.#overview.configure({
-            shouldObserve: this._needsOverview || finishingOverview,
-            followProgress: needs.overviewProgress
-        });
+    #configureOverviewObserver(config, needs) {
+        this.#isOverviewLifecycleNeeded = needs.isOverviewObservationNeeded && !isShellOverviewPassive(config);
+        let signals = [];
+        if (this.#isOverviewLifecycleNeeded) {
+            signals = ['showing', 'hiding'];
+            if (needs.isOverviewProgressNeeded)
+                signals.push('hidden');
+        }
+        if (needs.isOverviewObservationNeeded && this.#isOverviewCleanupNeeded)
+            signals = ['showing', 'hiding', 'hidden'];
+        this.#overview.configure({ signals, isFollowingProgress: needs.isOverviewProgressNeeded });
     }
 
-    #emitWindowState(state, force = false, geometryChanged = false) {
+    #emitWindowState(state, isForced = false, isGeometryChanged = false) {
         // Geometry must take over a timed fade even when its destination has not changed.
-        const takesOverFade = this._progressive && geometryChanged && !this.#lastWindowUpdateWasImmediate;
-        if (force || takesOverFade || !areWindowStatesEqual(this.#lastWindowState, state)) {
+        const isFadeTakeover = this.#isProgressive && isGeometryChanged && !this.#isLastWindowUpdateImmediate;
+        if (isForced || isFadeTakeover || !isWindowStateEqual(this.#lastWindowState, state)) {
             const isWorkspaceChanged = this.#lastWindowState?.currentWorkspace && state.currentWorkspace
                 ? this.#lastWindowState.currentWorkspace.index() !== state.currentWorkspace.index() : false;
             this.#lastWindowState = state;
-            this.#lastWindowUpdateWasImmediate = this._progressive && geometryChanged && !isWorkspaceChanged;
-            if (this.#lastWindowUpdateWasImmediate)
+            this.#isLastWindowUpdateImmediate = this.#isProgressive && isGeometryChanged && !isWorkspaceChanged;
+            if (this.#isLastWindowUpdateImmediate)
                 this._onWindowProgress(state);
             else
                 this._onWindowChanged(state, isWorkspaceChanged);
@@ -115,7 +132,7 @@ export default class EventManager {
         } else {
             const state = this.#windows.getCurrentState();
             this.#lastWindowState = state;
-            this.#lastWindowUpdateWasImmediate = true;
+            this.#isLastWindowUpdateImmediate = true;
             this._onWorkspaceCompleted(state);
         }
     }
@@ -139,8 +156,8 @@ export default class EventManager {
         if (signal === 'hiding' || signal === 'hidden')
             this.#lastWindowState = this.#windows.getCurrentState();
         this._onOverviewChanged({ progress, isHidden, isTargetVisible, effectStrength: this.#lastWindowState.effectStrength });
-        if (isHidden && !this._needsOverview)
-            this.#overview.configure({ shouldObserve: false, followProgress: false });
+        if (isHidden && !this.#isOverviewLifecycleNeeded && !this.#isOverviewCleanupNeeded)
+            this.#overview.configure({});
     }
 
     destroy() {

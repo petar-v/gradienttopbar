@@ -33,9 +33,9 @@ test('renderer fixtures isolate settings, actors, timelines and stylesheet cache
     fixture.settings.gradients.main.colors.start = 'rgba(255,255,0,1)';
     assert.equal(otherFixture.settings.gradients.main.colors.start, 'rgba(0,0,0,1)');
     fixture.state.animationsEnabled = true;
-    Object.assign(fixture.settings, { windowBehavior: 'apply-style' });
+    Object.assign(fixture.settings, { windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true });
     renderer.configure(fixture.settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
-    renderer.updateWindow({ effectStrength: 1 });
+    renderer.updateWindow({ effectStrength: 0.6 });
     assert.equal(fixture.timelines.size, 1);
     assert.equal(otherFixture.timelines.size, 0);
     assert.equal(fixture.children.size, 2);
@@ -60,7 +60,7 @@ test('overview styling works without window tracking and includes content shadow
     expectStyle('panel-gradient');
     showOverview(true);
     expectStyle('panel-overview-gradient');
-    assert.equal(fixture.windowEvents.enabled, false, 'Overview must work without window tracking');
+    assert.equal(fixture.windowEvents.isEnabled, false, 'Overview must work without window tracking');
     assert.match(state.css, /panel-overview-gradient/);
     assert.match(state.css, /background-gradient-start: rgba\(0,255,0,0.4\)/);
     assert.match(state.css, /#panel\.panel-overview-gradient \.panel-button/);
@@ -77,7 +77,7 @@ for (const behavior of ['keep-gradient', 'keep-theme', 'apply-style']) {
             settings.overviewBehavior = behavior;
             settings.windowBehavior = windowBehavior;
             state.strength = 1;
-            extension.configure(settings);
+            fixture.refreshConfiguration();
             const expected = { 'keep-gradient': 'panel-gradient', 'keep-theme': null, 'apply-style': 'panel-overview-gradient' }[behavior];
             expectStyle(expected);
             fixture.windowEvents.callback({ effectStrength: 1, workspaceTransition: 'progress', startEffectStrength: 0, endEffectStrength: 1, transitionProgress: 0.5 });
@@ -104,7 +104,7 @@ test('overview exit refreshes proximity and disable/re-enable releases observers
     settings.styleTrigger = 'proximity';
     settings.proximityTransition = true;
     settings.overviewBehavior = 'apply-style';
-    extension.configure(settings);
+    fixture.refreshConfiguration();
     state.strength = 0.25;
     showOverview(false);
     assert.equal([...children][1].opacity, 64, 'Exit recalculates partial proximity on the destination workspace');
@@ -115,7 +115,7 @@ test('overview exit refreshes proximity and disable/re-enable releases observers
     assert.equal(handlers.size, 0, 'Disable disconnects overview signals');
     extension.enable();
     expectStyle('panel-overview-gradient');
-    assert.equal(handlers.size, 4, 'Re-enable while open installs one set of overview handlers');
+    assert.equal(handlers.size, 2, 'Binary overview observes only takeover and return');
     extension.disable();
 });
 
@@ -132,28 +132,28 @@ test('configuration preserves gesture actors and settles disabled gesture blendi
     const configuredLayers = [...children];
     const previousWrites = state.writes;
     const previousLoads = state.loads;
-    extension.configure(settings);
+    fixture.refreshConfiguration();
     assert([...children].every((actor, index) => actor === configuredLayers[index]), 'No-op configuration retains gesture actors');
     assert.equal(state.writes, previousWrites, 'Identical CSS is not written');
     assert.equal(state.loads, previousLoads, 'Identical CSS is not reloaded');
     settings.shadowBlur++;
-    extension.configure(settings);
+    fixture.refreshConfiguration();
     assert([...children].every((actor, index) => actor === configuredLayers[index]), 'Shadow changes retain gesture actors');
     assert.equal([...children][1].opacity, 102, 'Shadow changes retain gesture progress');
     settings.windowBehavior = 'apply-style';
     state.strength = 0.6;
-    extension.configure(settings);
+    fixture.refreshConfiguration();
     assert.equal([...children][1].opacity, 102, 'Mixed behavior and appearance changes retain overview progress');
     assert.equal([...children][0].get_children()[1].opacity, 153, 'The same update refreshes the desktop destination');
     fixture.setOverviewProgress(0.2);
     state.animationsEnabled = true;
     settings.overviewTransition = false;
-    extension.configure(settings);
+    fixture.refreshConfiguration();
     const settling = [...timelines][0];
     assert(settling, 'Disabling gesture blending settles using an animation');
     assert.equal([...children][1].opacity, 51, 'Settling starts at the current gesture progress');
     settings.shadowBlur++;
-    extension.configure(settings);
+    fixture.refreshConfiguration();
     assert(timelines.has(settling), 'Cosmetic updates retain a settling overview animation');
     settling.advance(0.5);
     assert.equal([...children][1].opacity, 153);
@@ -174,7 +174,7 @@ test('configuration preserves gesture actors and settles disabled gesture blendi
 test('background snapshots preserve custom panel classes, pseudo-classes and inline style', async t => {
     const fixture = await createRendererFixture(t);
     const { panel } = fixture;
-    panel.get_style_class_name = () => 'custom-panel panel-gradient panel-background-blending';
+    panel.get_style_class_name = () => 'custom-panel panel-gradient panel-background-blending panel-css-overview panel-native-duration-150';
     panel.get_style_pseudo_class = () => 'overview custom-state';
     panel.get_style = () => 'background-color: red';
     const themeBackground = fixture.createPanelBackground({ gradientClass: null, isInOverview: true });
@@ -509,36 +509,36 @@ test('timed desktop transitions retain actors, retarget and stop on destroy', as
     const update = overviewUpdate(renderer);
     renderer.configure({ ...settings, windowBehavior: 'apply-style' }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
     update(0, false, true);
-    renderer.updateWindow({ effectStrength: 1 });
+    renderer.updateWindow({ effectStrength: 0.8 });
     assert.equal(timelines.size, 1, 'Window changes start a timed transition');
     const interrupted = [...timelines][0];
     interrupted.advance(0.5);
     const animatedLayers = [...children];
-    renderer.configure({ ...settings, windowBehavior: 'apply-style', shadowBlur: 9 }, { window: { effectStrength: 1 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
+    renderer.configure({ ...settings, windowBehavior: 'apply-style', shadowBlur: 9 }, { window: { effectStrength: 0.8 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
     assert([...children].every((actor, index) => actor === animatedLayers[index]), 'Appearance changes retain animated actors');
     assert(timelines.has(interrupted), 'Appearance changes retain the running timeline');
-    assert.equal([...children][1].opacity, 128, 'Appearance changes preserve timed progress');
+    assert.equal([...children][1].opacity, 102, 'Appearance changes preserve timed progress');
     renderer.configure({
         ...settings,
         gradients: {
             ...settings.gradients,
             alternate: { ...settings.gradients.alternate, colors: { start: 'rgba(255,0,0,0.5)', end: 'rgba(0,0,255,0.5)' } }
         }
-    }, { window: { effectStrength: 1 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
+    }, { window: { effectStrength: 0.8 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
     assert.deepEqual([...children], animatedLayers, 'Colour changes retain desktop actors');
     assert(timelines.has(interrupted), 'Colour changes retain the running timeline');
-    assert.equal(animatedLayers[0].opacity, 170, 'Colour changes refresh opacity correction at the displayed progress');
-    assert.equal(animatedLayers[1].opacity, 128, 'Colour changes preserve desktop progress');
+    assert.equal(animatedLayers[0].opacity, 191, 'Colour changes refresh opacity correction at the displayed progress');
+    assert.equal(animatedLayers[1].opacity, 102, 'Colour changes preserve desktop progress');
 
     renderer.configure({ ...settings, windowBehavior: 'apply-style', proximityDistance: 80 }, {
         window: { effectStrength: 0.25 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false }
     });
     assert(timelines.has(interrupted), 'A changed destination reuses the previous animation controller');
     assert.equal(interrupted.get_progress(), 0, 'Retargeting restarts the fade');
-    assert.equal([...children][1].opacity, 128, 'Retargeting starts at the current visual progress');
+    assert.equal([...children][1].opacity, 102, 'Retargeting starts at the current visual progress');
     const retargeted = [...timelines][0];
     retargeted.advance(0.5);
-    assert.equal([...children][1].opacity, 96, 'Retargeting moves from current progress toward the new strength');
+    assert.equal([...children][1].opacity, 83, 'Retargeting moves from current progress toward the new strength');
     renderer.updateWindow({ effectStrength: 0 });
     assert(timelines.has(retargeted), 'A new destination reuses the previous animation controller');
     [...timelines][0].advance(1);
@@ -626,6 +626,7 @@ test('inactive distance edits preserve a captured desktop animation', async t =>
     const renderer = fixture.createRenderer();
     const update = overviewUpdate(renderer);
     renderer.configure({ ...settings, windowBehavior: 'apply-style', styleTrigger: 'maximized' }, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
+    renderer.updateWorkspaceProgress({ startStrength: 0, endStrength: 1, progress: 0.5 });
     renderer.updateWindow({ effectStrength: 1 });
     [...timelines][0].advance(0.5);
     update(0.4, true, false, 1);
@@ -719,56 +720,57 @@ test('failed stylesheet loads remain retryable on identical configuration', asyn
 
 for (const overviewTransition of [false, true]) {
     for (const [windowBehavior, strength] of [['keep-gradient', 0], ['apply-style', 1], ['keep-theme', 1], ['apply-style', 0.4], ['keep-theme', 0.4]]) {
-        test(`do nothing holds ${windowBehavior} at ${strength}, gestures ${overviewTransition}`, async t => {
+        test(`do nothing keeps ${windowBehavior} updates live from ${strength}, gestures ${overviewTransition}`, async t => {
             const fixture = await createRendererFixture(t);
             const { settings, children, classes, timelines } = fixture;
             Object.assign(settings, { overviewBehavior: 'do-nothing', overviewTransition, windowBehavior, styleTrigger: 'proximity', proximityTransition: true });
             const renderer = fixture.createRenderer();
             renderer.configure(settings, { window: { effectStrength: strength }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
-            const layers = [...children];
-            const opacities = layers.map(actor => actor.opacity);
-            const originalClasses = [...classes];
             const update = overviewUpdate(renderer);
             for (const [progress, isTargetVisible] of [[0, true], [0.4, true], [1, true], [0.3, false], [0.8, true], [0, false]]) {
+                const layers = [...children];
+                const opacities = layers.map(actor => actor.opacity);
+                const originalClasses = [...classes];
                 update(progress, isTargetVisible, false, 0.75);
-                renderer.updateWindow({ effectStrength: 0.75 });
-                renderer.updateWorkspaceProgress({ startStrength: 0, endStrength: 1, progress: 0.8 });
-                assert.deepEqual([...children], layers, 'Hold reuses the displayed backgrounds');
+                assert.deepEqual([...children], layers, 'Overview notifications do not replace desktop backgrounds');
                 assert.deepEqual(layers.map(actor => actor.opacity), opacities);
                 assert.deepEqual([...classes], originalClasses);
+                renderer.updateWindow({ effectStrength: 0.75 });
+                renderer.updateWorkspaceProgress({ startStrength: 0, endStrength: 1, progress: 0.8 });
+                if (windowBehavior !== 'keep-gradient')
+                    assert.equal([...children][1].opacity, 204, 'Workspace progress remains live during overview');
                 assert.equal(timelines.size, 0);
             }
             update(0, false, true, 0.75);
             if (windowBehavior === 'keep-gradient')
                 fixture.expectStyle('panel-gradient');
             else
-                assert.equal([...children][1].opacity, 191, 'Hidden restores the latest desktop strength');
+                assert.equal([...children][1].opacity, 204, 'Hidden does not replace the latest desktop input');
         });
     }
 }
 
-test('do nothing pauses animations and holds endpoints through reconfiguration', async t => {
+test('do nothing keeps desktop animation and reconfiguration live during overview', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, state, children, timelines } = fixture;
     Object.assign(settings, { overviewBehavior: 'do-nothing', windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true });
     state.animationsEnabled = true;
     const renderer = fixture.createRenderer();
     renderer.configure(settings, { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0, isHidden: true, isTargetVisible: false } });
-    renderer.updateWindow({ effectStrength: 1 });
+    renderer.updateWindow({ effectStrength: 0.8 });
     [...timelines][0].advance(0.4);
-    const layers = [...children];
-    const opacities = layers.map(actor => actor.opacity);
+    const timeline = [...timelines][0];
     const update = overviewUpdate(renderer);
     update(0.2, true, false, 1);
-    assert.equal(timelines.size, 0, 'Entry stops the desktop timeline');
+    assert(timelines.has(timeline), 'Overview entry leaves the desktop timeline running');
     renderer.configure({ ...settings, windowBehavior: 'keep-theme', shadowBlur: 8 }, {
         window: { effectStrength: 0.8 }, workspaceTransition: null, overview: { progress: 1, isHidden: false, isTargetVisible: true }
     });
-    assert.deepEqual([...children], layers);
-    assert.deepEqual(layers.map(actor => actor.opacity), opacities);
-    assert.match(layers[1].style_class, /panel-maximized-gradient/, 'Hold retains the original endpoint');
+    assert.equal([...children][1].style_class, '', 'Settings immediately replace the target with the original theme');
+    [...timelines][0].advance(1);
+    assert.equal([...children][1].opacity, 204);
     update(0, false, true, 1);
-    fixture.expectStyle(null);
+    assert.equal([...children][1].opacity, 204, 'Closing overview does not override desktop progress');
     assert.equal(timelines.size, 0);
 });
 
@@ -788,31 +790,29 @@ test('do nothing initializes in overview and releases actors on disable and re-e
     fixture.showOverview(false);
 });
 
-test('switching overview modes freezes and resumes the displayed overview blend', async t => {
+test('switching overview modes discards an obsolete blend and starts a fresh override', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, children, timelines, state } = fixture;
-    settings.overviewTransition = true;
+    Object.assign(settings, { overviewTransition: true, windowBehavior: 'apply-style' });
     const renderer = fixture.createRenderer();
     const snapshot = { window: { effectStrength: 0 }, workspaceTransition: null, overview: { progress: 0.4, isHidden: false, isTargetVisible: true } };
     renderer.configure(settings, snapshot);
     const layers = [...children];
-    const opacities = layers.map(actor => actor.opacity);
     state.animationsEnabled = true;
     renderer.configure({ ...settings, overviewTransition: false }, snapshot);
     assert.equal(timelines.size, 1);
     renderer.configure({ ...settings, overviewBehavior: 'do-nothing' }, snapshot);
     assert.equal(timelines.size, 0);
     overviewUpdate(renderer)(0.8);
-    assert.deepEqual([...children], layers);
-    assert.deepEqual(layers.map(actor => actor.opacity), opacities);
+    assert.equal(children.size, 0, 'Do nothing immediately restores the native desktop');
     renderer.configure({ ...settings, overviewBehavior: 'keep-theme' }, snapshot);
-    assert.equal([...children][0], layers[0], 'Resuming retains the captured source');
+    assert.notEqual([...children][0], layers[0], 'Resuming builds from the current desktop');
     assert.equal([...children][1].opacity, 102, 'The new destination follows the current gesture');
     overviewUpdate(renderer)(0, false, true);
     fixture.expectStyle('panel-gradient');
 });
 
-test('do nothing holds an interrupted workspace blend until hidden', async t => {
+test('do nothing lets workspace completion update the desktop during overview', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, children } = fixture;
     Object.assign(settings, { overviewBehavior: 'do-nothing', windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true });
@@ -829,12 +829,12 @@ test('do nothing holds an interrupted workspace blend until hidden', async t => 
     renderer.completeWorkspace({ effectStrength: 0.8 });
     update(0.5, false, false, 0.8);
     assert.deepEqual([...children], layers);
-    assert.equal(layers[1].opacity, 128, 'Workspace completion cannot replace the held mix');
+    assert.equal(layers[1].opacity, 204, 'Workspace completion immediately updates the mix');
     update(0, false, true, 0.8);
-    assert.equal([...children][1].opacity, 204, 'Exit restores the current workspace');
+    assert.equal([...children][1].opacity, 204, 'Overview exit leaves the current workspace unchanged');
 });
 
-test('resuming an overview override captures held desktop endpoints before refreshing them', async t => {
+test('resuming an overview override captures the current desktop after settings change', async t => {
     const fixture = await createRendererFixture(t);
     const { settings, children } = fixture;
     Object.assign(settings, { overviewBehavior: 'do-nothing', overviewTransition: true, windowBehavior: 'apply-style', styleTrigger: 'proximity', proximityTransition: true });
@@ -846,14 +846,14 @@ test('resuming an overview override captures held desktop endpoints before refre
     renderer.configure(changed, snapshot);
     renderer.configure({ ...changed, overviewBehavior: 'apply-style' }, snapshot);
     const captured = [...children][0].get_children();
-    assert.match(captured[1].style_class, /panel-maximized-gradient/, 'Capture keeps the displayed alternate endpoint');
-    assert.equal(captured[1].opacity, 102, 'Capture keeps the displayed desktop progress');
+    assert.equal(captured[1].style_class, '', 'Capture uses the newly selected theme endpoint');
+    assert.equal(captured[1].opacity, 204, 'Capture uses current desktop progress');
     overviewUpdate(renderer)(0, false, true, 0.8);
     assert.equal([...children][1].style_class, '', 'Hidden restores the newly selected theme endpoint');
     assert.equal([...children][1].opacity, 204);
 });
 
-test('do nothing pauses without opacity writes and still refreshes held native alpha', async t => {
+test('do nothing ignores overview opacity writes and keeps desktop animation and native alpha live', async t => {
     const f = await createRendererFixture(t);
     const renderer = f.createRenderer();
     const config = {
@@ -877,16 +877,18 @@ test('do nothing pauses without opacity writes and still refreshes held native a
     }
     for (let i = 0; i < 60; i++)
         renderer.updateOverview({ progress: i / 60, isHidden: false, isTargetVisible: true, effectStrength: 0.6 });
-    assert.equal(f.timelines.size, 0, 'The running fade stops on entry');
-    assert.equal(writes.count, 0, 'Held notifications do not reapply the current opacity');
-    const heldSourceOpacity = layers[0].opacity;
+    assert.equal(f.timelines.size, 1, 'The running fade continues through overview');
+    assert.equal(writes.count, 0, 'Overview notifications do not reapply the current opacity');
+    const sourceOpacity = layers[0].opacity;
     f.state.nativeAlpha = 51;
     f.styleHandlers.get(layers[1]).callback();
-    assert.notEqual(layers[0].opacity, heldSourceOpacity, 'Held alpha still refreshes at unchanged progress');
+    assert.notEqual(layers[0].opacity, sourceOpacity, 'Theme alpha refreshes at unchanged progress');
     assert.equal(layers[1].opacity, 77);
     renderer.updateOverview({ progress: 0, isHidden: true, isTargetVisible: false, effectStrength: 0.6 });
     assert.deepEqual([...f.children], layers);
-    assert.equal(layers[1].opacity, 153, 'Hidden restores the latest desktop input');
+    assert.equal(layers[1].opacity, 77, 'Hidden does not interrupt desktop animation progress');
+    [...f.timelines][0].advance(1);
+    assert.equal(layers[1].opacity, 153, 'The desktop animation completes normally');
     layers[1].opacity = 0;
     renderer.updateWindow({ effectStrength: 0.6 });
     assert.equal(layers[1].opacity, 153, 'An unchanged desktop input can still repair opacity');

@@ -10,10 +10,10 @@ test('event classes expose only their collaboration and lifecycle methods', asyn
         'gi://Meta': { default: { MaximizeFlags: { VERTICAL: 2, BOTH: 3 } } }
     });
     const surfaces = [
-        ['events/eventManager.js', ['configure', 'destroy']],
+        ['events/eventManager.js', ['configure', 'destroy', 'setOverviewCleanupNeeded']],
         ['events/signalConnections.js', ['connect', 'disconnect', 'disconnectAll']],
-        ['events/observers/overviewEvents.js', ['configure', 'destroy', 'isTargetVisible', 'progress']],
-        ['events/observers/workspaceEvents.js', ['configure', 'disable', 'stopObservingWorkspaceSwipe', 'transition', 'transitioning']],
+        ['events/observers/overviewEvents.js', ['configure', 'destroy', 'isHidden', 'isTargetVisible', 'progress']],
+        ['events/observers/workspaceEvents.js', ['configure', 'disable', 'stopObservingWorkspaceSwipe', 'transition', 'isTransitioning']],
         ['events/observers/windowsEvents/windowEvents.js', [
             'configure', 'disable', 'getCurrentState', 'getEffectStrengthForWorkspace', 'setStateChangeCallback', 'updateState'
         ]],

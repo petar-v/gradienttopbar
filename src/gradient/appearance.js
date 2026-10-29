@@ -57,25 +57,41 @@ export const getAppearance = (config, state) => {
     return name === null ? null : config.gradients[name];
 };
 
-const areAppearancesEqual = (first, second) => first === second || (
+const isAppearanceEqual = (first, second) => first === second || (
     first !== null && second !== null &&
     first.direction === second.direction &&
     first.colors.start === second.colors.start && first.colors.end === second.colors.end
 );
 
-// steady-state requirements, an existing held overview may still need its final hidden signal.
+// Do nothing leaves desktop behavior independent of overview visibility.
 export const getObservationNeeds = config => {
     const main = getAppearance(config, APPEARANCE_STATE.NORMAL);
     const triggered = getAppearance(config, APPEARANCE_STATE.TRIGGERED);
     const overview = getAppearance(config, APPEARANCE_STATE.OVERVIEW);
-    const windows = !areAppearancesEqual(main, triggered);
-    const overviewOverrides = config.overviewBehavior !== APPEARANCE_BEHAVIOR.DO_NOTHING && (
-        !areAppearancesEqual(main, overview) || !areAppearancesEqual(triggered, overview)
+    const isWindowObservationNeeded = !isAppearanceEqual(main, triggered);
+    const isOverviewOverrideNeeded = config.overviewBehavior !== APPEARANCE_BEHAVIOR.DO_NOTHING && (
+        !isAppearanceEqual(main, overview) || !isAppearanceEqual(triggered, overview)
     );
     return {
-        windows,
-        workspaceProgress: windows && config.workspaceGestureBlending,
-        overview: windows || overviewOverrides,
-        overviewProgress: overviewOverrides && config.overviewTransition
+        isWindowObservationNeeded,
+        isWorkspaceProgressNeeded: isWindowObservationNeeded && config.workspaceGestureBlending,
+        isOverviewObservationNeeded: isOverviewOverrideNeeded,
+        isOverviewProgressNeeded: isOverviewOverrideNeeded && config.overviewTransition
     };
+};
+
+// Capabilities describe effective inputs, never the renderer for an unrelated transition.
+export const isDesktopCompositionPossible = config => {
+    const needs = getObservationNeeds(config);
+    return needs.isWorkspaceProgressNeeded || (needs.isWindowObservationNeeded && isProgressiveProximity(config));
+};
+
+export const isShellOverviewStyleSupported = config =>
+    config.overviewBehavior !== APPEARANCE_BEHAVIOR.DO_NOTHING &&
+    config.overviewBehavior !== APPEARANCE_BEHAVIOR.KEEP_THEME;
+
+export const isShellOverviewPassive = config => {
+    const needs = getObservationNeeds(config);
+    return needs.isOverviewObservationNeeded && !needs.isOverviewProgressNeeded &&
+        !isDesktopCompositionPossible(config) && isShellOverviewStyleSupported(config);
 };

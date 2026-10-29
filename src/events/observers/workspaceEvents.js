@@ -48,10 +48,10 @@ export default class WorkspaceEvents {
         this._signals = new SignalConnections();
         this._transitionGroup = null;
         this._swipeTracker = null;
-        this.enabled = false;
+        this.isEnabled = false;
     }
 
-    get transitioning() {
+    get isTransitioning() {
         return this._transitionGroup !== null;
     }
 
@@ -65,7 +65,7 @@ export default class WorkspaceEvents {
             this._callback({ type: 'progress', ...transition });
     }
 
-    #observeWorkspaceSwipe(emitInitialProgress = true) {
+    #observeWorkspaceSwipe(isInitialProgressEmitted = true) {
         if (overview.visible || overview.visibleTarget)
             return;
 
@@ -80,7 +80,7 @@ export default class WorkspaceEvents {
             this.stopObservingWorkspaceSwipe();
             this._callback({ type: 'complete' });
         });
-        if (emitInitialProgress)
+        if (isInitialProgressEmitted)
             this.#emitWorkspaceProgress();
     }
 
@@ -90,17 +90,17 @@ export default class WorkspaceEvents {
         this._transitionGroup = null;
     }
 
-    configure({ enabled, followProgress }) {
-        if (!enabled) {
+    configure({ isEnabled, isFollowingProgress }) {
+        if (!isEnabled) {
             this.disable();
             return;
         }
 
-        this.enabled = true;
+        this.isEnabled = true;
         this._signals.connect(this._workspaceManager, 'workspace-switched', () => {
             this._callback({ type: 'change' });
         });
-        const swipeTracker = followProgress ? wm?._workspaceAnimation?._swipeTracker : null;
+        const swipeTracker = isFollowingProgress ? wm?._workspaceAnimation?._swipeTracker : null;
         if (swipeTracker !== this._swipeTracker) {
             if (this._swipeTracker)
                 this._signals.disconnect(this._swipeTracker);
@@ -108,7 +108,7 @@ export default class WorkspaceEvents {
             if (swipeTracker)
                 this._signals.connect(swipeTracker, 'begin', () => this.#observeWorkspaceSwipe());
         }
-        if (followProgress)
+        if (isFollowingProgress)
             // Configuration returns the adopted gesture in its final snapshot.
             this.#observeWorkspaceSwipe(false);
         else
@@ -119,6 +119,6 @@ export default class WorkspaceEvents {
         this.stopObservingWorkspaceSwipe();
         this._signals.disconnectAll();
         this._swipeTracker = null;
-        this.enabled = false;
+        this.isEnabled = false;
     }
 }

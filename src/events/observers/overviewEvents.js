@@ -12,27 +12,29 @@ const getOverviewProgressAdjustment = shellOverview => {
 export default class OverviewEvents {
     constructor(callback) {
         this._callback = callback;
-        this.isHidden = !overview.visible;
+        this._isHidden = !overview.visible;
         this._signals = new SignalConnections();
         this._adjustment = null;
-        this.isObserving = false;
     }
 
-    configure({ shouldObserve, followProgress }) {
-        if (!this.isObserving)
-            this.isHidden = !overview.visible;
-
-        if (!shouldObserve) {
-            this.destroy();
-            return;
+    configure({ signals = [], isFollowingProgress = false }) {
+        this._isHidden = this.isHidden;
+        if (signals.join() !== this._lifecycleSignals?.join()) {
+            this._signals.disconnect(overview);
+            this._lifecycleSignals = signals;
+            for (const signal of signals) {
+                this._signals.connect(overview, signal, () => {
+                    this._isHidden = signal === 'hidden';
+                    this._lastProgress = this.progress;
+                    this._callback(signal);
+                });
+            }
         }
-
-        this.#startObserving();
-        this.#configureProgressTracking(followProgress);
+        this.#configureProgressTracking(isFollowingProgress);
     }
 
-    #configureProgressTracking(followProgress) {
-        const adjustment = followProgress ? getOverviewProgressAdjustment(overview) : null;
+    #configureProgressTracking(isFollowingProgress) {
+        const adjustment = isFollowingProgress ? getOverviewProgressAdjustment(overview) : null;
 
         if (adjustment === this._adjustment)
             return;
@@ -54,17 +56,8 @@ export default class OverviewEvents {
         }
     }
 
-    #startObserving() {
-        if (this.isObserving)
-            return;
-
-        this.isObserving = true;
-        ['showing', 'hiding', 'shown', 'hidden'].forEach(signal =>
-            this._signals.connect(overview, signal, () => {
-                this.isHidden = signal === 'hidden';
-                this._lastProgress = this.progress;
-                this._callback(signal);
-            }));
+    get isHidden() {
+        return this._lifecycleSignals?.includes('hidden') ? this._isHidden : !overview.visible;
     }
 
     get progress() {
@@ -79,6 +72,6 @@ export default class OverviewEvents {
     destroy() {
         this._signals.disconnectAll();
         this._adjustment = null;
-        this.isObserving = false;
+        this._lifecycleSignals = [];
     }
 }

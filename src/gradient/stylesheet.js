@@ -1,6 +1,7 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
-import { TRANSITION_DURATION_MS, OVERVIEW_ENTER_DURATION_MS, OVERVIEW_EXIT_DURATION_MS } from './transitionTimings.js';
+import { APPEARANCE_STATE, getAppearance, isShellOverviewStyleSupported } from './appearance.js';
+import { OVERVIEW_ENTER_DURATION_MS, OVERVIEW_EXIT_DURATION_MS, WINDOW_ENTER_DURATION_MS, WINDOW_EXIT_DURATION_MS, WORKSPACE_SWITCH_DURATION_MS } from './transitionTimings.js';
 
 /** @type {Record<import('./appearance.js').AppearanceName, string>} */
 export const GRADIENT_CLASSES = {
@@ -8,45 +9,66 @@ export const GRADIENT_CLASSES = {
     alternate: 'panel-maximized-gradient',
     overview: 'panel-overview-gradient'
 };
+export const CSS_OVERVIEW_CLASS = 'panel-css-overview';
 export const BLENDING_CLASS = 'panel-background-blending';
 export const RESTORING_CLASS = 'panel-background-restoring';
+export const NATIVE_DURATION_CLASSES = Object.fromEntries([
+    0, WINDOW_ENTER_DURATION_MS, WINDOW_EXIT_DURATION_MS, WORKSPACE_SWITCH_DURATION_MS,
+    OVERVIEW_ENTER_DURATION_MS, OVERVIEW_EXIT_DURATION_MS
+].map(duration => [duration, `panel-native-duration-${duration}`]));
 
 /**
- * @param {string} className
+ * @param {string} selector
  * @param {import('./appearance.js').GradientDefinition} gradient
  */
-const gradientRule = (className, { colors, direction }) => `
-          .${className} {
+const gradientRule = (selector, { colors, direction }) => `
+          ${selector} {
             background-color: transparent;
             background-gradient-direction: ${direction};
             background-gradient-start: ${colors.start};
             background-gradient-end: ${colors.end};
           }`;
 
-const panelSelectors = (...descendants) => descendants.flatMap(descendant =>
-    Object.values(GRADIENT_CLASSES).map(className => `#panel.${className} ${descendant}`)
+const panelSelectors = (selectors, ...descendants) => descendants.flatMap(descendant =>
+    selectors.map(selector => `${selector} ${descendant}`)
 ).join(',\n');
 
 const generateCss = config => {
     const { main, alternate, overview } = config.gradients;
+    const isShellOverviewSupported = isShellOverviewStyleSupported(config);
+    const overviewSelector = `#panel.${CSS_OVERVIEW_CLASS}:overview`;
+    const shadowSelectors = Object.values(GRADIENT_CLASSES).map(name => `#panel.${name}`);
+    if (isShellOverviewSupported)
+        shadowSelectors.push(overviewSelector);
+    const shellRules = isShellOverviewSupported ? `
+          #panel.${CSS_OVERVIEW_CLASS} {
+            transition-duration: ${OVERVIEW_EXIT_DURATION_MS}ms;
+          }
+          ${overviewSelector} {
+            transition-duration: ${OVERVIEW_ENTER_DURATION_MS}ms;
+          }${gradientRule(overviewSelector, getAppearance(config, APPEARANCE_STATE.OVERVIEW))}` : '';
     const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
     const contentShadows = config.contentShadows ? `
-          ${panelSelectors('.panel-button', '.panel-button StLabel')} {
+          ${panelSelectors(shadowSelectors, '.panel-button', '.panel-button StLabel')} {
             text-shadow: ${shadow};
           }
-          ${panelSelectors('.panel-button StIcon')} {
+          ${panelSelectors(shadowSelectors, '.panel-button StIcon')} {
             icon-shadow: ${shadow};
           }
-          ${panelSelectors('.workspace-dot')} {
+          ${panelSelectors(shadowSelectors, '.workspace-dot')} {
             box-shadow: ${shadow};
           }` : '';
     return `#panel {
-            transition-duration: ${config.overviewTransition ? TRANSITION_DURATION_MS : OVERVIEW_EXIT_DURATION_MS}ms;
+            transition-duration: ${OVERVIEW_EXIT_DURATION_MS}ms;
           }
           #panel:overview {
-            transition-duration: ${config.overviewTransition ? TRANSITION_DURATION_MS : OVERVIEW_ENTER_DURATION_MS}ms;
+            transition-duration: ${OVERVIEW_ENTER_DURATION_MS}ms;
           }
-          #panel.${BLENDING_CLASS} {
+          ${Object.entries(NATIVE_DURATION_CLASSES).map(([duration, className]) => `#panel.${className} {
+            transition-duration: ${duration}ms;
+          }`).join('\n')}
+          ${shellRules}
+          #panel.${BLENDING_CLASS}, #panel.${BLENDING_CLASS}:overview {
             background-color: transparent;
             background-gradient-direction: none;
             background-image: none;
@@ -54,9 +76,9 @@ const generateCss = config => {
             box-shadow: none;
             transition-duration: 0ms;
           }
-          #panel.${RESTORING_CLASS} {
+          #panel.${RESTORING_CLASS}, #panel.${RESTORING_CLASS}:overview {
             transition-duration: 0ms;
-          }${gradientRule(GRADIENT_CLASSES.main, main)}${gradientRule(GRADIENT_CLASSES.alternate, alternate)}${gradientRule(GRADIENT_CLASSES.overview, overview)}${contentShadows}`;
+          }${gradientRule(`.${GRADIENT_CLASSES.main}`, main)}${gradientRule(`.${GRADIENT_CLASSES.alternate}`, alternate)}${gradientRule(`.${GRADIENT_CLASSES.overview}`, overview)}${contentShadows}`;
 };
 
 /*
@@ -95,11 +117,25 @@ export const applyGradientStylesheet = config => {
     // but I found this interferes with other extensions and becomes a mess to maintain.
     // unload the previous version
     // save the current version
+    const previous = loadedStylesheet;
     writeStylesheetCss(userStylesheet, css);
     loadedStylesheet = null;
     theme.unload_stylesheet(userStylesheet);
     // load again
-    theme.load_stylesheet(userStylesheet);
+    try {
+        theme.load_stylesheet(userStylesheet);
+    } catch (error) {
+        if (previous) {
+            try {
+                writeStylesheetCss(userStylesheet, previous.css);
+                theme.load_stylesheet(userStylesheet);
+                loadedStylesheet = { theme, css: previous.css };
+            } catch (restoreError) {
+                throw new AggregateError([error, restoreError], `Stylesheet replacement failed: ${error.message}; restoration failed: ${restoreError.message}`, { cause: restoreError });
+            }
+        }
+        throw error;
+    }
     loadedStylesheet = { theme, css };
     return true;
 };

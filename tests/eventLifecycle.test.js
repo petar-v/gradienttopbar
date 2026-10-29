@@ -6,10 +6,10 @@ import { createRendererFixture } from './fixtures/renderer.js';
 for (const [windowBehavior, overviewBehavior, overviewTransition, windowSignals, overviewSignals, progressSignals] of [
     ['keep-gradient', 'do-nothing', false, 0, 0, 0],
     ['keep-gradient', 'do-nothing', true, 0, 0, 0],
-    ['apply-style', 'do-nothing', true, 3, 4, 0],
-    ['keep-gradient', 'apply-style', false, 0, 4, 0],
-    ['keep-gradient', 'keep-theme', true, 0, 4, 1],
-    ['apply-style', 'apply-style', true, 3, 4, 1]
+    ['apply-style', 'do-nothing', true, 3, 0, 0],
+    ['keep-gradient', 'apply-style', false, 0, 0, 0],
+    ['keep-gradient', 'keep-theme', true, 0, 3, 1],
+    ['apply-style', 'apply-style', true, 3, 3, 1]
 ]) {
     test(`subscription requirements: ${windowBehavior}, ${overviewBehavior}, gestures ${overviewTransition}`, async t => {
         const f = await createEventsFixture(t);
@@ -63,7 +63,7 @@ test('overview progress uses observed strength and deduplicates clamped app-grid
     assert.equal(f.overviewStates.at(-1).effectStrength, 0.75, 'Progress uses the latest observed window state');
 });
 
-test('overview without gesture blending refreshes exit state without a progress subscription', async t => {
+test('Do nothing ignores overview lifecycle and gesture notifications', async t => {
     const f = await createEventsFixture(t);
     const events = f.createEvents();
     events.configure({ ...f.config, overviewBehavior: 'do-nothing', overviewTransition: true });
@@ -73,10 +73,10 @@ test('overview without gesture blending refreshes exit state without a progress 
     assert.equal(f.overviewStates.length, 0);
     f.first.y = 42;
     f.overview.emit('hiding');
-    assert.equal(f.overviewStates.at(-1).effectStrength, 0.75);
+    assert.equal(f.overviewStates.length, 0, 'Do nothing does no work on hiding');
     f.first.y = 62;
     f.overview.emit('hidden');
-    assert.equal(f.overviewStates.at(-1).effectStrength, 0.25, 'Fully hidden restores fresh desktop state');
+    assert.equal(f.overviewStates.length, 0, 'Fully hidden needs no special desktop refresh');
 });
 
 test('progress arriving before showing does not rescan windows', async t => {
@@ -103,7 +103,7 @@ test('overview interruption retains the latest observed workspace state', async 
     assert.equal(f.overviewStates.at(-1).effectStrength, 1);
 });
 
-test('switching to main-only retains overview lifecycle until hidden and then detaches', async t => {
+test('switching to main-only Do nothing immediately detaches overview lifecycle', async t => {
     const f = await createEventsFixture(t);
     const events = f.createEvents();
     events.configure(f.config);
@@ -113,13 +113,12 @@ test('switching to main-only retains overview lifecycle until hidden and then de
     const mainOnly = { ...f.config, windowBehavior: 'keep-gradient', overviewBehavior: 'do-nothing' };
     events.configure(mainOnly);
     assert.equal(f.first.handlers.size, 0);
-    assert.equal(f.overview.handlers.size, 4, 'Hold still needs its final exit notification');
+    assert.equal(f.overview.handlers.size, 0);
     assert.equal(f.adjustment.handlers.size, 0);
     f.overview.visible = false;
     f.overview.visibleTarget = false;
     f.overview.emit('hidden');
-    assert.equal(f.overviewStates.at(-1).isHidden, true);
-    assert.equal(f.overviewStates.at(-1).effectStrength, 0);
+    assert.equal(f.overviewStates.length, 1, 'Only the earlier showing event was delivered');
     assert([...f.targets].every(target => target.handlers.size === 0));
     f.reads.scans = 0;
     events.configure(mainOnly);
@@ -137,7 +136,7 @@ test('missing overview adjustment retains lifecycle fallback and current visibil
     const snapshot = events.configure(f.config);
     assert.equal(snapshot.overview.progress, null);
     assert.equal(snapshot.overview.isHidden, false);
-    assert.equal(f.overview.handlers.size, 4);
+    assert.equal(f.overview.handlers.size, 3);
     assert.equal(f.adjustment.handlers.size, 0);
     f.overview.visible = false;
     f.overview.visibleTarget = false;
@@ -150,7 +149,7 @@ test('non-callable overview adjustment falls back to lifecycle observation', asy
     f.overview._overview.controls._stateAdjustment = { value: 0, connect: true };
     const snapshot = f.createEvents().configure(f.config);
     assert.equal(snapshot.overview.progress, null);
-    assert.equal(f.overview.handlers.size, 4);
+    assert.equal(f.overview.handlers.size, 3);
 });
 
 test('hundreds of mode switches release vanished windows, pending refreshes and swipe handlers', async t => {
@@ -180,7 +179,7 @@ test('hundreds of mode switches release vanished windows, pending refreshes and 
 });
 
 for (const scene of ['partial proximity', 'interrupted fade', 'workspace swipe']) {
-    test(`real event coordination holds ${scene} until main-only overview exit`, async t => {
+    test(`real event coordination releases ${scene} immediately when Do nothing becomes main-only`, async t => {
         const f = await createEventsFixture(t);
         const r = await createRendererFixture(t);
         r.state.animationsEnabled = true;
@@ -199,7 +198,7 @@ for (const scene of ['partial proximity', 'interrupted fade', 'workspace swipe']
         for (const timeline of [...r.timelines])
             timeline.advance(1);
         if (scene === 'interrupted fade') {
-            const created = new f.Window(3, 32);
+            const created = new f.Window(3, 42);
             created.workspace = f.workspaceA;
             f.state.windows.push(created);
             f.shell.display.emit('window-created', created);
@@ -211,17 +210,14 @@ for (const scene of ['partial proximity', 'interrupted fade', 'workspace swipe']
             assert.equal(group.handlers.size, 2);
         }
         const layers = [...r.children];
-        const opacities = layers.map(actor => actor.opacity);
         assert.equal(layers.length, 2);
         f.overview.visible = true;
         f.overview.visibleTarget = true;
         f.overview.emit('showing');
-        assert.equal(r.timelines.size, 0, 'Overview pauses the existing motion');
         const mainOnly = { ...config, windowBehavior: 'keep-gradient' };
         renderer.configure(mainOnly, events.configure(mainOnly));
-        assert.deepEqual([...r.children], layers, 'Settings changes retain the held appearance');
-        assert.deepEqual(layers.map(actor => actor.opacity), opacities);
-        assert.equal(f.overview.handlers.size, 4);
+        assert.equal(r.children.size, 0, 'Settings changes apply while overview remains visible');
+        assert.equal(f.overview.handlers.size, 0);
         f.overview.visible = false;
         f.overview.visibleTarget = false;
         f.overview.emit('hidden');
@@ -261,8 +257,8 @@ test('real event coordination stops and resumes overview progress subscriptions 
     f.adjustment.value = 0.8;
     f.adjustment.emit('notify::value');
     assert.equal([...r.children][1].opacity, 102);
-    const hold = { ...config, overviewBehavior: 'do-nothing' };
-    renderer.configure(hold, events.configure(hold));
+    const ignoredOverview = { ...config, overviewBehavior: 'do-nothing' };
+    renderer.configure(ignoredOverview, events.configure(ignoredOverview));
     assert.equal(r.timelines.size, 0);
     renderer.configure(config, events.configure(config));
     assert.equal(f.adjustment.handlers.size, 1);

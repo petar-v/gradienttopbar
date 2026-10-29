@@ -15,17 +15,17 @@ for (const [windowBehavior, overviewBehavior, alternate, overview, expected] of 
     ['apply-style', 'apply-style', same, same, [false, false, false]],
     ['apply-style', 'keep-theme', same, same, [false, true, true]],
     ['keep-theme', 'keep-theme', same, same, [true, true, true]],
-    ['apply-style', 'do-nothing', different, same, [true, true, false]],
+    ['apply-style', 'do-nothing', different, same, [true, false, false]],
     ['apply-style', 'keep-gradient', different, same, [true, true, true]],
     ['apply-style', 'apply-style', same, different, [false, true, true]],
-    ['apply-style', 'do-nothing', { ...same, direction: 'horizontal' }, same, [true, true, false]]
+    ['apply-style', 'do-nothing', { ...same, direction: 'horizontal' }, same, [true, false, false]]
 ]) {
     test(`effective appearance requirements: ${windowBehavior}, ${overviewBehavior}, ${JSON.stringify(expected)}`, () => {
         assert.equal(typeof appearance.getObservationNeeds, 'function');
         const config = { windowBehavior, overviewBehavior, overviewTransition: true, gradients: { main, alternate, overview } };
         const needs = appearance.getObservationNeeds(config);
-        assert.deepEqual([needs.windows, needs.overview, needs.overviewProgress], expected);
-        assert.equal(appearance.getObservationNeeds({ ...config, overviewTransition: false }).overviewProgress, false);
+        assert.deepEqual([needs.isWindowObservationNeeded, needs.isOverviewObservationNeeded, needs.isOverviewProgressNeeded], expected);
+        assert.equal(appearance.getObservationNeeds({ ...config, overviewTransition: false }).isOverviewProgressNeeded, false);
     });
 }
 
@@ -101,7 +101,7 @@ test('equalizing desktop endpoints cancels queued work and settles an active fad
 });
 
 for (const change of ['behavior', 'definitions']) {
-    test(`do-nothing retains its held blend when ${change} make the configuration static`, async t => {
+    test(`do-nothing immediately releases its desktop blend when ${change} make the configuration static`, async t => {
         const { f, r, renderer, events, config } = await createFixture(t);
         const settings = {
             ...config, overviewBehavior: 'do-nothing',
@@ -109,7 +109,6 @@ for (const change of ['behavior', 'definitions']) {
         };
         renderer.configure(settings, events.configure(settings));
         const actors = [...r.children];
-        const opacities = actors.map(actor => actor.opacity);
         assert.equal(actors.length, 2);
         f.overview.visible = true;
         f.overview.visibleTarget = true;
@@ -119,9 +118,8 @@ for (const change of ['behavior', 'definitions']) {
             : { ...settings, gradients: { ...settings.gradients, alternate: copyGradient(settings.gradients.main) } };
         renderer.configure(equal, events.configure(equal));
         assert.equal(f.first.handlers.size, 0);
-        assert.equal(f.overview.handlers.size, 4);
-        assert.deepEqual([...r.children], actors);
-        assert.deepEqual(actors.map(actor => actor.opacity), opacities);
+        assert.equal(f.overview.handlers.size, 0);
+        assert.equal(r.children.size, 0);
         assert.equal(r.timelines.size, 0);
         f.overview.visible = false;
         f.overview.visibleTarget = false;

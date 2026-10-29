@@ -23,7 +23,7 @@ export default class ProximityWindows {
         for (const window of windows) {
             const windowDistance = window.get_frame_rect().y - panelBottom;
             const strength = calculateProximityStrength(windowDistance, distance);
-            if (!this.progressive && strength > 0)
+            if (!this.isProgressive && strength > 0)
                 return 1;
             effectStrength = Math.max(effectStrength, strength);
             if (effectStrength === 1)

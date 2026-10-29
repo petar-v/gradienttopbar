@@ -35,7 +35,7 @@ class Gradients extends Adw.PreferencesPage {
             name: 'Gradients'
         });
 
-        let updatingSettings = false;
+        let isUpdatingSettings = false;
 
         const gradientGroup = new Adw.PreferencesGroup({
             title: gettext('Main gradient'),
@@ -69,7 +69,7 @@ class Gradients extends Adw.PreferencesPage {
                 expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
             });
             directionRow.connect('notify::selected', () => {
-                if (!updatingSettings && directionRow.selectedItem)
+                if (!isUpdatingSettings && directionRow.selectedItem)
                     setGradientDirection(settings, directionKey, directionRow.selectedItem.value);
             });
             const editor = createGradientEditor(
@@ -129,7 +129,7 @@ class Gradients extends Adw.PreferencesPage {
             expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
         behaviorRow.connect('notify::selected', () => {
-            if (!updatingSettings && behaviorRow.selectedItem)
+            if (!isUpdatingSettings && behaviorRow.selectedItem)
                 setWindowBehavior(settings, behaviorRow.selectedItem.value);
         });
         interactionGroup.add(behaviorRow);
@@ -149,20 +149,21 @@ class Gradients extends Adw.PreferencesPage {
 
         const overviewGroup = new Adw.PreferencesGroup({
             title: gettext('Overview'),
-            description: gettext('Takes priority over window interaction while overview or the application grid is open.'),
+            description: gettext('Do nothing leaves window interaction unchanged while overview or the application grid is open. Other choices override window interaction.'),
             header_suffix: createResetButton(
                 window,
                 gettext('Reset overview appearance?'),
-                gettext('Restore the main gradient in overview and reset the custom gradient colours and direction.'),
+                gettext('Restore Do nothing in overview and reset the custom gradient colours and direction.'),
                 settings,
                 [OVERVIEW_BEHAVIOR_KEY, OVERVIEW_COLORS, OVERVIEW_GRADIENT_DIRECTION]
             )
         });
         const overviewBehaviorModel = new Gio.ListStore({ item_type: ChoiceOption });
         [
+            new ChoiceOption(gettext('Do nothing'), APPEARANCE_BEHAVIOR.DO_NOTHING),
             new ChoiceOption(gettext('Keep main gradient'), APPEARANCE_BEHAVIOR.KEEP_GRADIENT),
-            new ChoiceOption(gettext('Use original theme'), APPEARANCE_BEHAVIOR.KEEP_THEME),
-            new ChoiceOption(gettext('Use custom gradient'), APPEARANCE_BEHAVIOR.APPLY_STYLE)
+            new ChoiceOption(gettext('Use custom gradient'), APPEARANCE_BEHAVIOR.APPLY_STYLE),
+            new ChoiceOption(gettext('Use original theme'), APPEARANCE_BEHAVIOR.KEEP_THEME)
         ].forEach(option => overviewBehaviorModel.append(option));
         const overviewBehaviorRow = new Adw.ComboRow({
             title: gettext('When overview is open'),
@@ -170,7 +171,7 @@ class Gradients extends Adw.PreferencesPage {
             expression: new Gtk.PropertyExpression(ChoiceOption, null, 'name')
         });
         overviewBehaviorRow.connect('notify::selected', () => {
-            if (!updatingSettings && overviewBehaviorRow.selectedItem)
+            if (!isUpdatingSettings && overviewBehaviorRow.selectedItem)
                 setOverviewBehavior(settings, overviewBehaviorRow.selectedItem.value);
         });
         overviewGroup.add(overviewBehaviorRow);
@@ -190,13 +191,13 @@ class Gradients extends Adw.PreferencesPage {
         const onSettingsChanged = s => {
             const config = getConfig(s);
 
-            updatingSettings = true;
+            isUpdatingSettings = true;
             selectRowValue(behaviorRow, config.windowBehavior);
             selectRowValue(overviewBehaviorRow, config.overviewBehavior);
             refreshMainGradient(config);
             refreshAlternateGradient(config);
             refreshOverviewGradient(config);
-            updatingSettings = false;
+            isUpdatingSettings = false;
             alternateGradientGroup.set_visible(config.windowBehavior === APPEARANCE_BEHAVIOR.APPLY_STYLE);
             overviewGradientGroup.set_visible(config.overviewBehavior === APPEARANCE_BEHAVIOR.APPLY_STYLE);
         };

@@ -7,8 +7,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 let demoWindow;
 let demoKeyboard;
 
-export function getSessionInfo() {
+export function hideOverview() {
     Main.overview.hide();
+}
+
+export function getSessionInfo() {
     const extension = Main.extensionManager.lookup('gradienttopbar@pshow.org');
     const monitor = Main.layoutManager.primaryMonitor;
     return {
