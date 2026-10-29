@@ -3,7 +3,6 @@ import Meta from 'gi://Meta';
 const { VERTICAL, BOTH } = Meta.MaximizeFlags;
 
 // Detects windows that occupy the full monitor or are vertically maximized.
-// This behaviour deliberately avoids layout and position-change dependencies.
 export default class MaximizedWindows {
     matches(window) {
         if (window.is_monitor_sized() || window.is_screen_sized())
@@ -13,15 +12,16 @@ export default class MaximizedWindows {
     }
 
     getEffectStrength(windows) {
-        return Number(windows.some(window => this.matches(window)));
+        for (const window of windows) {
+            if (this.matches(window))
+                return 1;
+        }
+        return 0;
     }
 
     // Maximization changes window size; moving an unmaximized window is irrelevant.
-    attachWindowEvents(signals, window, updateState) {
-        signals.connect(window, 'size-changed', updateState);
-        signals.connect(window, 'workspace-changed', updateState);
+    attachWindowEvents(signals, window, { geometryChanged, workspaceChanged }) {
+        signals.connect(window, 'size-changed', geometryChanged);
+        signals.connect(window, 'workspace-changed', workspaceChanged);
     }
-
-    // Maximized detection requires no behaviour-specific global events.
-    attachGlobalEvents() {}
 }

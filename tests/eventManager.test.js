@@ -4,16 +4,34 @@ import { createEventsFixture } from './fixtures/events.js';
 
 test('configuration exposes lifecycle operations and returns one final snapshot', async t => {
     const fixture = await createEventsFixture(t);
-    const { windowStates, overviewStates, EventManager, config } = fixture;
+    const { windowStates, overviewStates, workspaceA, EventManager, config } = fixture;
     assert.deepEqual(Object.getOwnPropertyNames(EventManager.prototype).sort(),
         ['configure', 'constructor', 'destroy'], 'Only lifecycle operations are public');
     const events = fixture.createEvents();
     assert.equal(typeof events.configure, 'function', 'EventManager configures its observers');
     const initial = events.configure(config);
     assert.equal(initial.window.effectStrength, 0.5, 'Nearby windows supply partial strength');
+    assert.equal(initial.window.currentWorkspace, workspaceA, 'Configuration preserves the full window state');
     assert.equal(initial.overview.hidden, true);
     assert.equal(windowStates.length, 0, 'Configuration returns a snapshot without intermediate rendering');
     assert.equal(overviewStates.length, 0);
+});
+
+test('equal strengths on different workspaces remain distinct states', async t => {
+    const fixture = await createEventsFixture(t);
+    const { second, workspaceB, state, windowStates, config } = fixture;
+    second.y = 52;
+    const events = fixture.createEvents();
+    events.configure(config);
+    state.activeWorkspace = workspaceB;
+    second.emit('position-changed');
+    fixture.flush();
+    assert.equal(windowStates.length, 1, 'Workspace identity changes state even at equal strength');
+    assert.equal(windowStates[0].effectStrength, 0.5);
+    assert.equal(windowStates[0].currentWorkspace, workspaceB, 'Window callbacks preserve the full state');
+    second.emit('position-changed');
+    fixture.flush();
+    assert.equal(windowStates.length, 1, 'The same strength and workspace are deduplicated');
 });
 
 test('window movement, minimization and unlock publish the expected state', async t => {
@@ -23,9 +41,11 @@ test('window movement, minimization and unlock publish the expected state', asyn
     events.configure(config);
     let count = windowStates.length;
     first.emit('position-changed');
+    fixture.flush();
     assert.equal(windowStates.length, count, 'Unchanged state is not emitted again');
     first.y = 42;
     first.emit('position-changed');
+    fixture.flush();
     assert.equal(windowStates.at(-1).effectStrength, 0.75, 'Window movement updates strength');
     shell.window_manager.emit('minimize', { get_meta_window: () => first });
     assert.equal(windowStates.at(-1).effectStrength, 0, 'Minimization excludes the window before its flag changes');
@@ -49,6 +69,7 @@ test('workspace swipes refresh endpoints, retrace reversal and release completed
     let count = windowStates.length;
     first.y = 52;
     first.emit('position-changed');
+    fixture.flush();
     assert.equal(windowStates.length, count, 'Window changes do not overwrite an active swipe');
     group.progress = 0.25;
     group.emit('notify::progress');
@@ -62,6 +83,7 @@ test('workspace swipes refresh endpoints, retrace reversal and release completed
     assert.equal(group.handlers.size, 0, 'Completed swipe releases its connections');
     count = windowStates.length;
     second.emit('position-changed');
+    fixture.flush();
     assert.equal(windowStates.length, count, 'Completion updates the deduplication baseline');
 });
 
@@ -76,6 +98,7 @@ test('cancelled workspace swipes restore the active workspace', async t => {
     group.emit('notify::progress');
     group.emit('destroy');
     assert.equal(windowStates.at(-1).effectStrength, 1, 'Cancellation restores the still-active workspace');
+    assert.equal(windowStates.at(-1).currentWorkspace, workspaceB, 'Swipe completion preserves the full window state');
     assert.equal(windowStates.at(-1).type, 'complete');
 });
 
@@ -154,15 +177,17 @@ test('detector replacement updates state and unsupported swipe data leaves track
     assert.equal(windowStates.length, count, 'Detector replacement does not emit an intermediate render');
     assert.equal([...first.handlers.values()].some(handler => handler.signal === 'position-changed'), false,
         'Switching detectors disconnects proximity-only window signals');
-    assert.equal(layoutManager.handlers.size, 0, 'Switching detectors disconnects proximity-only global signals');
+    assert.equal(layoutManager.handlers.size, 1, 'Both detectors observe monitor-layout changes');
     first.get_maximize_flags = () => 3;
     first.emit('size-changed');
+    fixture.flush();
     assert.equal(windowStates.at(-1).effectStrength, 1, 'The new detector handles window state');
     events.configure(config);
     controller._switchData.baseMonitorGroup = {};
     swipeTracker.emit('begin');
     first.y = 62;
     first.emit('position-changed');
+    fixture.flush();
     assert.equal(windowStates.at(-1).effectStrength, 0.25, 'Unsupported swipe data does not suppress window events');
     events.destroy();
     events.destroy();
@@ -206,11 +231,11 @@ test('workspace switching still works without private swipe APIs', async t => {
     events.destroy();
 });
 
-test('disabled window observers configure detectors without connecting signals', async t => {
+test('disabled window observers neither connect nor enumerate windows', async t => {
     const fixture = await createEventsFixture(t);
     const { screenShield, layoutManager, Window, SignalTarget } = fixture;
     const detectorWindow = new Window(4, 52);
-    const detectorWorkspace = { list_windows: () => [detectorWindow] };
+    const detectorWorkspace = { list_windows: () => { throw new Error('Disabled tracking enumerated windows'); } };
     const detectorDisplay = new SignalTarget();
     detectorDisplay.list_all_windows = () => [detectorWindow];
     const detectorWindowManager = new SignalTarget();
@@ -219,10 +244,11 @@ test('disabled window observers configure detectors without connecting signals',
     });
     const observedStrengths = [];
     observer.setStateChangeCallback(state => observedStrengths.push(state.effectStrength));
-    observer.configureDetector('proximity', 40);
-    assert.equal(observer.getEffectStrength(), 0.5, 'The observer configures proximity detection directly');
-    observer.configureDetector('maximized', 40);
-    assert.equal(observer.getEffectStrength(), 0, 'A disabled observer can replace its detector');
+    observer.configure({ enabled: false, trigger: 'proximity', distance: 40, progressive: true });
+    assert.equal(observer.getEffectStrength(), 0);
+    observer.configure({ enabled: false, trigger: 'maximized', distance: 40, progressive: true });
+    assert.equal(observer.getEffectStrength(), 0);
+    assert.deepEqual(observedStrengths, [], 'Configuration never publishes intermediate state');
     assert.equal(observer.enabled, false, 'Detector configuration does not enable tracking');
     for (const target of [detectorWindow, detectorDisplay, detectorWindowManager, layoutManager, screenShield])
         assert.equal(target.handlers.size, 0, 'Configuring a disabled observer does not connect signals');
@@ -241,21 +267,26 @@ test('enabled window observers reuse connections and replace detectors cleanly',
     });
     const observedStrengths = [];
     observer.setStateChangeCallback(state => observedStrengths.push(state.effectStrength));
-    observer.configureDetector('proximity', 40);
-    observer.enable();
+    observer.configure({ enabled: true, trigger: 'proximity', distance: 40, progressive: true });
+    assert.equal(observer.getEffectStrength(), 0.5);
     const observerTargets = [detectorWindow, detectorDisplay, detectorWindowManager, layoutManager, screenShield];
     const connectionCounts = observerTargets.map(target => target.nextId);
-    observer.configureDetector('proximity', 40);
-    observer.configureDetector('proximity', 80);
+    observer.configure({ enabled: true, trigger: 'proximity', distance: 40, progressive: true });
+    observer.configure({ enabled: true, trigger: 'proximity', distance: 80, progressive: true });
     assert.deepEqual(observerTargets.map(target => target.nextId), connectionCounts,
         'No-op and distance-only configuration preserve all connections');
     assert.equal(observer.getEffectStrength(), 0.75, 'Distance updates change detection without reconnecting');
-    observer.configureDetector('maximized', 80);
+    observer.configure({ enabled: true, trigger: 'proximity', distance: 80, progressive: false });
+    assert.equal(observer.getEffectStrength(), 1);
+    assert.deepEqual(observerTargets.map(target => target.nextId), connectionCounts,
+        'Blending settings also preserve detector connections');
+    observer.configure({ enabled: true, trigger: 'maximized', distance: 80, progressive: false });
     assert.equal(observer.enabled, true, 'Replacing a detector preserves enabled tracking');
-    assert.deepEqual(observedStrengths, [0.5, 0], 'Replacement publishes only the new detector state');
+    assert.equal(observer.getEffectStrength(), 0);
+    assert.deepEqual(observedStrengths, [], 'Reconciliation returns state without callbacks');
     assert.equal([...detectorWindow.handlers.values()].some(handler => handler.signal === 'position-changed'), false,
         'Replacing proximity detection removes its window signals');
-    assert.equal(layoutManager.handlers.size, 0, 'Replacing proximity detection removes its global signals');
+    assert.equal(layoutManager.handlers.size, 1, 'Replacing the detector keeps one monitor-layout listener');
     observer.disable();
     for (const target of observerTargets)
         assert.equal(target.handlers.size, 0, 'The observer releases every connection after replacement');

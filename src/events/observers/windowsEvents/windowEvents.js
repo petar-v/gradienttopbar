@@ -1,5 +1,5 @@
 import Meta from 'gi://Meta';
-import { screenShield } from 'resource:///org/gnome/shell/ui/main.js';
+import { layoutManager, screenShield } from 'resource:///org/gnome/shell/ui/main.js';
 import SignalConnections from '../../signalConnections.js';
 import MaximizedWindows from './windowsDetectors/maximizedWindows.js';
 import ProximityWindows from './windowsDetectors/proximityWindows.js';
@@ -27,6 +27,7 @@ export default class WindowEvents {
         this.windowManager = windowManager;
         this.workspaceManager = workspaceManager;
         this._signals = new SignalConnections();
+        this._updateLaterId = null;
         this.enabled = false;
 
         this.stateChangeCallback = () => {};
@@ -42,20 +43,41 @@ export default class WindowEvents {
     }
 
     getCurrentState(excludedWindowId = null) {
-        const currentWorkspace = this.workspaceManager.get_active_workspace();
         return {
-            effectStrength: this.getEffectStrengthForWorkspace(currentWorkspace, excludedWindowId),
-            currentWorkspace
+            effectStrength: this.getEffectStrength(excludedWindowId),
+            currentWorkspace: this.workspaceManager.get_active_workspace()
         };
     }
 
     updateState(force = false, excludedWindowId = null) {
-        this.stateChangeCallback(this.getCurrentState(excludedWindowId), force);
+        this.#cancelUpdate();
+        if (this.enabled)
+            this.stateChangeCallback(this.getCurrentState(excludedWindowId), force);
+    }
+
+    #scheduleUpdate(window) {
+        if (!this.enabled || !isApplicationWindow(window) ||
+            !window.located_on_workspace(this.workspaceManager.get_active_workspace()))
+            return;
+        if (this._updateLaterId)
+            return;
+        this._updateLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._updateLaterId = null;
+            this.updateState();
+            return false;
+        });
+    }
+
+    #cancelUpdate() {
+        if (this._updateLaterId) {
+            global.compositor.get_laters().remove(this._updateLaterId);
+            this._updateLaterId = null;
+        }
     }
 
     /**
      * Enables window event tracking
-     * Sets up all event listeners and initializes the current state
+     * Sets up event listeners without publishing an intermediate configuration
      */
     enable() {
         if (this.enabled)
@@ -63,8 +85,12 @@ export default class WindowEvents {
 
         this.enabled = true;
         const attachWindowEvents = window => {
-            if (!isDesktopIconsNG(window))
-                this.#detector.attachWindowEvents(this._signals, window, () => this.updateState());
+            if (!isDesktopIconsNG(window)) {
+                this.#detector.attachWindowEvents(this._signals, window, {
+                    geometryChanged: () => this.#scheduleUpdate(window),
+                    workspaceChanged: () => this.updateState()
+                });
+            }
         };
         this._signals.connect(this.display, 'window-created', (_, window) => {
             attachWindowEvents(window);
@@ -80,11 +106,11 @@ export default class WindowEvents {
         });
         this._signals.connect(this.windowManager, 'unminimize', () => this.updateState());
         this._signals.connect(this.display, 'window-left-monitor', () => this.updateState());
-        this.#detector.attachGlobalEvents(this._signals, force => this.updateState(force));
+        // both detectors depend on which monitor owns the panel.
+        this._signals.connect(layoutManager, 'monitors-changed', () => this.updateState(true));
         this.display.list_all_windows().forEach(attachWindowEvents);
         // Screen unlock can require a refresh even if the detected state is unchanged.
         this._signals.connect(screenShield, 'unlock-screen', () => this.updateState(true));
-        this.updateState();
     }
 
     /**
@@ -92,6 +118,7 @@ export default class WindowEvents {
      * Cleans up all event listeners and resets the state
      */
     disable() {
+        this.#cancelUpdate();
         this._signals.disconnectAll();
         this.enabled = false;
     }
@@ -102,36 +129,45 @@ export default class WindowEvents {
      * @returns {number} The effect strength from zero to one
      */
     getEffectStrength(excludedWindowId = null) {
+        if (!this.enabled)
+            return 0;
         return this.getEffectStrengthForWorkspace(
             this.workspaceManager.get_active_workspace(), excludedWindowId
         );
     }
 
     getEffectStrengthForWorkspace(workspace, excludedWindowId = null) {
-        if (!workspace)
+        if (!this.enabled || !workspace)
             return 0;
 
-        const windows = workspace.list_windows()
-            .filter(isApplicationWindow)
-            .filter(window => window.get_id() !== excludedWindowId);
-        return this.#detector.getEffectStrength(windows);
+        return this.#detector.getEffectStrength(this.#eligibleWindows(workspace.list_windows(), excludedWindowId));
     }
 
-    configureDetector(trigger, distance) {
+    *#eligibleWindows(windows, excludedWindowId) {
+        for (const window of windows) {
+            if (isApplicationWindow(window) && window.get_id() !== excludedWindowId)
+                yield window;
+        }
+    }
+
+    configure({ enabled, trigger, distance, progressive }) {
+        this.#cancelUpdate();
+        if (!enabled) {
+            this.disable();
+            return;
+        }
         const Detector = trigger === STYLE_TRIGGER.PROXIMITY
             ? ProximityWindows : MaximizedWindows;
 
         if (this.#detector?.constructor !== Detector) {
-            const wasEnabled = this.enabled;
-            if (wasEnabled)
-                this.disable();
-
+            this.disable();
             this.#detector = new Detector(distance);
-            if (wasEnabled)
-                this.enable();
         }
 
-        if (Detector === ProximityWindows)
+        if (Detector === ProximityWindows) {
             this.#detector.distance = distance;
+            this.#detector.progressive = progressive;
+        }
+        this.enable();
     }
 }

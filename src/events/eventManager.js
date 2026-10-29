@@ -37,45 +37,58 @@ export default class EventManager {
 
         this.#windows = new WindowEvents(global.display, global.window_manager, workspaceManager);
         this.#windows.setStateChangeCallback((state, force) => {
-            if (!this.#workspaces.transitioning)
+            if (this.#workspaces.transitioning)
+                this._lastState = state;
+            else
                 this.#emitWindowState(state, force);
         });
         this.#workspaces = new WorkspaceEvents(workspaceManager, state => this.#updateWorkspace(state));
-        this.#overview = new OverviewEvents(() => this.#updateOverview());
+        this.#overview = new OverviewEvents(signal => this.#updateOverview(signal));
     }
 
     configure(config) {
-        // enabling or replacing a detector can emit synchronously, so commit only the final snapshot.
-        this._configuring = true;
-        try {
-            this.#windows.configureDetector(config.styleTrigger, config.proximityDistance);
+        const shouldObserveWindows = config.windowBehavior !== APPEARANCE_BEHAVIOR.KEEP_GRADIENT;
+        this.#configureWindowObservers(config, shouldObserveWindows);
+        this.#configureOverviewObserver(config, shouldObserveWindows);
 
-            if (config.windowBehavior === APPEARANCE_BEHAVIOR.KEEP_GRADIENT) {
-                this.#workspaces.disable();
-                this.#windows.disable();
-            } else {
-                this.#workspaces.enable();
-                this.#windows.enable();
-            }
-        } finally {
-            this._configuring = false;
-        }
-        const window = this.#windowState();
+        const window = this.#windows.getCurrentState();
         this._lastState = window;
         const { progress, hidden, target } = this.#overview;
         return {
-            window: { effectStrength: window.effectStrength },
+            window,
             workspaceTransition: this.#workspaceTransition(this.#workspaces.transition),
             overview: { progress, hidden, target }
         };
     }
 
+    #configureWindowObservers(config, shouldObserveWindows) {
+        this.#windows.configure({
+            enabled: shouldObserveWindows,
+            trigger: config.styleTrigger,
+            distance: config.proximityDistance,
+            progressive: config.proximityTransition
+        });
+        if (shouldObserveWindows)
+            this.#workspaces.enable();
+        else
+            this.#workspaces.disable();
+    }
+
+    #configureOverviewObserver(config, shouldObserveWindows) {
+        const overviewOverride = config.overviewBehavior !== APPEARANCE_BEHAVIOR.DO_NOTHING;
+        this._needsOverview = shouldObserveWindows || overviewOverride;
+        // A held presentation still needs its final hidden notification before becoming dormant.
+        const finishingOverview = this.#overview.isObserving && (!this.#overview.hidden || this.#overview.target);
+        this.#overview.configure({
+            shouldObserve: this._needsOverview || finishingOverview,
+            followProgress: overviewOverride && config.overviewTransition
+        });
+    }
+
     #emitWindowState(state, force = false) {
-        if (this._configuring)
-            return;
         if (force || !areSameState(this._lastState, state)) {
             this._lastState = state;
-            this._onWindowChanged({ effectStrength: state.effectStrength });
+            this._onWindowChanged(state);
         }
     }
 
@@ -87,34 +100,34 @@ export default class EventManager {
 
         if (transition.type === 'progress') {
             this._onWorkspaceProgress(this.#workspaceTransition(transition));
-        } else if (!this._configuring) {
-            const state = this.#windowState();
+        } else {
+            const state = this.#windows.getCurrentState();
             this._lastState = state;
-            this._onWorkspaceCompleted({ effectStrength: state.effectStrength });
+            this._onWorkspaceCompleted(state);
         }
     }
 
-    #windowState() {
-        const state = this.#windows.getCurrentState();
-        if (!this.#windows.enabled)
-            state.effectStrength = 0;
-        return state;
-    }
-
     #workspaceTransition(transition) {
-        return transition ? {
-            startStrength: this.#windows.getEffectStrengthForWorkspace(transition.startWorkspace),
-            endStrength: this.#windows.getEffectStrengthForWorkspace(transition.endWorkspace),
+        if (!transition)
+            return null;
+        const startStrength = this.#windows.getEffectStrengthForWorkspace(transition.startWorkspace);
+        return {
+            startStrength,
+            endStrength: transition.startWorkspace === transition.endWorkspace
+                ? startStrength : this.#windows.getEffectStrengthForWorkspace(transition.endWorkspace),
             progress: transition.progress
-        } : null;
+        };
     }
 
-    #updateOverview() {
+    #updateOverview(signal) {
         // Overview takes ownership of rendering until it is fully hidden again.
         this.#workspaces.detachTransition();
         const { progress, hidden, target } = this.#overview;
-        const effectStrength = this.#windows.enabled ? this.#windows.getEffectStrength() : 0;
-        this._onOverviewChanged({ progress, hidden, target, effectStrength });
+        if (signal === 'hiding' || signal === 'hidden')
+            this._lastState = this.#windows.getCurrentState();
+        this._onOverviewChanged({ progress, hidden, target, effectStrength: this._lastState.effectStrength });
+        if (hidden && !this._needsOverview)
+            this.#overview.configure({ shouldObserve: false, followProgress: false });
     }
 
     destroy() {

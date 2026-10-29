@@ -1,4 +1,4 @@
-// Run with: node tests/colors.js
+// Run with: node tests/colors.test.js
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { normalizeColor } from '../src/colors.js';

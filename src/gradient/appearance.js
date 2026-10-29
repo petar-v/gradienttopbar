@@ -12,6 +12,7 @@ export const STYLE_TRIGGER = {
 };
 
 export const APPEARANCE_BEHAVIOR = {
+    DO_NOTHING: 'do-nothing',
     KEEP_GRADIENT: 'keep-gradient',
     KEEP_THEME: 'keep-theme',
     APPLY_STYLE: 'apply-style'

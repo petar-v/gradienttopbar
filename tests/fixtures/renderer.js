@@ -104,12 +104,11 @@ export const createRendererFixture = async t => {
     class WindowEvents {
         constructor() { windowEvents = this; }
         setStateChangeCallback(callback) { this.callback = callback; }
-        configureDetector() {}
-        enable() { this.enabled = true; }
+        configure({ enabled }) { this.enabled = enabled; }
         disable() { this.enabled = false; }
         updateState() { this.callback({ effectStrength: state.strength }); }
-        getEffectStrength() { return state.strength; }
-        getCurrentState() { return { effectStrength: state.strength }; }
+        getEffectStrength() { return this.enabled ? state.strength : 0; }
+        getCurrentState() { return { effectStrength: this.getEffectStrength() }; }
     }
     class WorkspaceEvents {
         enable() {}

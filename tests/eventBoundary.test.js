@@ -1,4 +1,4 @@
-// Run with: node tests/eventBoundary.js
+// Run with: node tests/eventBoundary.test.js
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ESLint } from 'eslint';
