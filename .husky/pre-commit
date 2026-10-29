@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -e
+
+if ! git diff --cached --quiet -- src/gradient/backgroundTransitions.smcat; then
+    if ! git diff --quiet -- src/gradient/backgroundTransitions.smcat; then
+        printf '%s\n' 'Stage all changes to src/gradient/backgroundTransitions.smcat before committing so its diagram matches the commit.' >&2
+        exit 1
+    fi
+
+    yarn docs:states
+    git add -- docs/background-transitions.svg
+fi
+
+yarn prettify && yarn lint
