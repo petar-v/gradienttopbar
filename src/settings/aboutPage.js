@@ -4,8 +4,8 @@ import GObject from 'gi://GObject';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { exportSettingsToFile, loadSettingsFromFile } from '../config.js';
-import { loadFileDialog, saveFileDialog } from './components/fileChooser.js';
+import { exportSettingsToFile, importSettingsFromFile } from './settingsBackup.js';
+import { showSettingsImportDialog, showSettingsExportDialog } from './components/fileChooser.js';
 
 const LICENSE =
   '<span size="small">' +
@@ -88,9 +88,9 @@ class About extends Adw.PreferencesPage {
             valign: Gtk.Align.CENTER
         });
         restoreButton.connect('clicked', () =>
-            loadFileDialog({
-                onFileSelected: loadSettingsFromFile,
-                onFileError: error => showSettingsError(gettext('Could not import settings'), error),
+            showSettingsImportDialog({
+                onSelected: importSettingsFromFile,
+                onError: error => showSettingsError(gettext('Could not import settings'), error),
                 transientFor: this.get_root()
             })
         );
@@ -99,7 +99,7 @@ class About extends Adw.PreferencesPage {
             valign: Gtk.Align.CENTER
         });
         exportButton.connect('clicked', () =>
-            saveFileDialog({
+            showSettingsExportDialog({
                 onSelected: exportSettingsToFile,
                 onError: error => showSettingsError(gettext('Could not export settings'), error),
                 transientFor: this.get_root()

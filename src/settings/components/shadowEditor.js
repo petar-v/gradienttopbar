@@ -7,7 +7,7 @@ import {
     bindSetting, getSettingRange, getShadowOffsets, getShadowColor, setShadowOffsets, setShadowColor
 } from '../../config.js';
 import { createOffsetPicker } from './offsetPicker.js';
-import { createColorDialog } from './colorDialog.js';
+import { createColorPickerButton } from './colorDialog.js';
 import { drawCheckerboard } from './checkerboard.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -48,7 +48,7 @@ export const createShadowEditor = settings => {
     const centre = new Gtk.Button({ label: gettext('Centre'), margin_end: 12 });
     centre.connect('clicked', () => setShadowOffsets(settings, 0, 0));
     widget.attach(centre, 0, 3, 1, 1);
-    const colorButton = createColorDialog(
+    const colorButton = createColorPickerButton(
         gettext('Shadow colour and opacity'),
         () => getShadowColor(settings),
         color => setShadowColor(settings, color)

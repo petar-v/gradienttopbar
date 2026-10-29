@@ -152,7 +152,7 @@ export const createRendererFixture = async t => {
         },
         'config.js': {
             TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
-            getTopBarStyleSettings: settings => settings.get_boolean('top-bar-style-settings'),
+            isTopBarSettingsMenuEnabled: settings => settings.get_boolean('top-bar-style-settings'),
             attachSettingListener: (settings, key, callback) => settings.connect(`changed::${key}`, callback),
             getConfig: settings => ({ ...settings }),
             attachSettingsListeners: () => [], detachSettingsListeners() {}

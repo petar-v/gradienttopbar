@@ -3,7 +3,7 @@ import GLib from 'gi://GLib';
 import Gradient from './gradient/gradient.js';
 import {
     getConfig,
-    getTopBarStyleSettings,
+    isTopBarSettingsMenuEnabled,
     attachSettingListener,
     TOP_BAR_STYLE_SETTINGS,
     attachSettingsListeners,
@@ -16,7 +16,7 @@ const SETTINGS_DEBOUNCE_MS = 500;
 
 export default class GradientTopBar extends Extension {
     updateTopBarMenu() {
-        if (getTopBarStyleSettings(this._settings)) {
+        if (isTopBarSettingsMenuEnabled(this._settings)) {
             this._topBarMenu ??= new TopBarMenu(() => this.openPreferences());
         } else {
             this._topBarMenu?.destroy();

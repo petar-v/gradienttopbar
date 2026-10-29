@@ -12,6 +12,12 @@ const coordinateToOffset = (coordinate, size, [min, max]) => {
 const offsetToCoordinate = (offset, size, [min, max]) =>
     (offset - min) / (max - min) * size;
 
+// keep drawing and pointer coordinates centred on the same square
+const calculateOffsetPickerGeometry = (width, height, padding) => {
+    const size = Math.min(width, height) - padding * 2;
+    return { size, left: (width - size) / 2, top: (height - size) / 2 };
+};
+
 export const createOffsetPicker = (getOffsets, getColor, setOffsets, ranges) => {
     const padding = 1;
     const pad = new Gtk.DrawingArea({
@@ -22,12 +28,8 @@ export const createOffsetPicker = (getOffsets, getColor, setOffsets, ranges) => 
         tooltip_text: gettext('Click or drag to position the shadow. Right is +X; down is +Y.')
     });
     pad.set_cursor_from_name('crosshair');
-    const geometry = () => {
-        const size = Math.min(pad.get_width(), pad.get_height()) - padding * 2;
-        return { size, left: (pad.get_width() - size) / 2, top: (pad.get_height() - size) / 2 };
-    };
-    const position = (x, y) => {
-        const { size, left, top } = geometry();
+    const setOffsetsFromPointerPosition = (x, y) => {
+        const { size, left, top } = calculateOffsetPickerGeometry(pad.get_width(), pad.get_height(), padding);
         if (size <= 0)
             return;
         setOffsets(
@@ -36,7 +38,7 @@ export const createOffsetPicker = (getOffsets, getColor, setOffsets, ranges) => 
         );
     };
     pad.set_draw_func((_area, cr, width, height) => {
-        const { size, left, top } = geometry();
+        const { size, left, top } = calculateOffsetPickerGeometry(pad.get_width(), pad.get_height(), padding);
         cr.save();
         cr.rectangle(left, top, size, size);
         cr.clip();
@@ -71,9 +73,9 @@ export const createOffsetPicker = (getOffsets, getColor, setOffsets, ranges) => 
     let origin;
     drag.connect('drag-begin', (_gesture, x, y) => {
         origin = [x, y];
-        position(x, y);
+        setOffsetsFromPointerPosition(x, y);
     });
-    drag.connect('drag-update', (_gesture, x, y) => position(origin[0] + x, origin[1] + y));
+    drag.connect('drag-update', (_gesture, x, y) => setOffsetsFromPointerPosition(origin[0] + x, origin[1] + y));
     pad.add_controller(drag);
     return { widget: pad, refresh: () => pad.queue_draw() };
 };

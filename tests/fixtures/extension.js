@@ -40,7 +40,7 @@ export const createExtensionFixture = async t => {
         'config.js': {
             getConfig: target => ({ ...target }),
             TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
-            getTopBarStyleSettings: target => target.get_boolean('top-bar-style-settings'),
+            isTopBarSettingsMenuEnabled: target => target.get_boolean('top-bar-style-settings'),
             attachSettingListener: (target, key, callback) => target.connect(`changed::${key}`, callback),
             attachSettingsListeners(_settings, callback) { state.onChange = callback; return []; },
             detachSettingsListeners(target, ids) { ids.forEach(id => target.disconnect(id)); }

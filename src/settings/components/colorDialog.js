@@ -1,7 +1,7 @@
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 
-export const createColorDialog = (pickerTitle, getColor, callback) => {
+export const createColorPickerButton = (pickerTitle, getColor, onColorSelected) => {
     const colorDialog = Gtk.ColorDialog.new();
     colorDialog.set_title(pickerTitle);
     colorDialog.set_modal(true);
@@ -28,7 +28,7 @@ export const createColorDialog = (pickerTitle, getColor, callback) => {
                     logError(error);
                 return;
             }
-            callback(selected.to_string());
+            onColorSelected(selected.to_string());
         });
     });
 

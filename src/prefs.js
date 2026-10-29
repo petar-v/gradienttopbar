@@ -23,7 +23,6 @@ class GradientTopBarPreferences extends ExtensionPreferences {
 
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window._settings = settings;
 
         window.add(new GradientsPage(window, settings));
         window.add(new ContentShadowsPage(window, settings));

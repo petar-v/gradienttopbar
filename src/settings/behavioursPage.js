@@ -20,7 +20,7 @@ import {
     detachSettingsListeners,
     getWindowBehavior,
     getStyleTrigger,
-    getProximityTransition
+    isProximityTransitionEnabled
 } from '../config.js';
 
 import { createResetButton } from './components/resetButton.js';
@@ -77,7 +77,7 @@ class Behavior extends Adw.PreferencesPage {
         const proximityTransitionRow = new Adw.SwitchRow({
             title: gettext('Blend as windows approach'),
             subtitle: gettext('Gradually blend into the selected appearance as windows approach the panel.'),
-            active: getProximityTransition(this._settings)
+            active: isProximityTransitionEnabled(this._settings)
         });
 
         // Set initial value
