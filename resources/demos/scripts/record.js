@@ -96,6 +96,7 @@ async function preparePrivateSession() {
     const moduleUri = Gio.File.new_for_uri(import.meta.url).get_parent().get_child('shell-actions.js').get_uri();
     await evaluate(`import(${JSON.stringify(moduleUri)}).then(module => { global.demoActions = module; return true; })`);
     shellModuleLoaded = true;
+    await shellCall('hideOverview');
     const { extension, monitor, display } = await shellCall('getSessionInfo');
     if (extension.state !== 1 || extension.path !== `${profile}/extensions-data/gnome-shell/extensions/gradienttopbar@pshow.org`)
         throw new Error(`Private extension is not active: ${JSON.stringify(extension)}`);

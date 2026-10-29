@@ -2,9 +2,9 @@ import Gtk from 'gi://Gtk';
 
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-export const loadFileDialog = ({
-    onFileSelected,
-    onFileError,
+export const showSettingsImportDialog = ({
+    onSelected,
+    onError,
     transientFor
 }) => {
     const dialog = new Gtk.FileDialog({
@@ -16,19 +16,19 @@ export const loadFileDialog = ({
     dialog.open(transientFor, null, async (self, res) => {
         try {
             const file = self.open_finish(res);
-            await onFileSelected(file);
+            await onSelected(file);
         } catch (error) {
             if (
                 error instanceof Gtk.DialogError &&
         error.code === Gtk.DialogError.DISMISSED
             )
                 return;
-            onFileError && onFileError(error);
+            onError && onError(error);
         }
     });
 };
 
-export const saveFileDialog = ({ onSelected, onError, transientFor }) => {
+export const showSettingsExportDialog = ({ onSelected, onError, transientFor }) => {
     const dialog = new Gtk.FileDialog({
         modal: true,
         title: gettext('Export Settings')

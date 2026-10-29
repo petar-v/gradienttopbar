@@ -3,6 +3,9 @@ import { createModuleLoader } from './modules.js';
 
 export const createExtensionFixture = async t => {
     const state = { menusCreated: 0, menusDestroyed: 0, onChange: null, onMenuChange: null, openMenuPreferences: null };
+    state.configurations = [];
+    state.reconciled = [];
+    state.windowState = null;
     const pending = new Map();
     let nextId = 0;
     const GLib = {
@@ -35,12 +38,25 @@ export const createExtensionFixture = async t => {
                 destroy() { state.menusDestroyed++; }
             }
         },
-        'gradient/gradient.js': { default: class { destroy() {} } },
-        'events/eventManager.js': { default: class { destroy() {} } },
+        'gradient/gradient.js': {
+            default: class {
+                configure(config, windowState) {
+                    state.configurations.push(config);
+                    state.reconciled.push(config, windowState);
+                }
+                destroy() {}
+            }
+        },
+        'events/eventManager.js': {
+            default: class {
+                configure(config) { state.reconciled.push(config); return state.windowState; }
+                destroy() {}
+            }
+        },
         'config.js': {
             getConfig: target => ({ ...target }),
             TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
-            getTopBarStyleSettings: target => target.get_boolean('top-bar-style-settings'),
+            isTopBarSettingsMenuEnabled: target => target.get_boolean('top-bar-style-settings'),
             attachSettingListener: (target, key, callback) => target.connect(`changed::${key}`, callback),
             attachSettingsListeners(_settings, callback) { state.onChange = callback; return []; },
             detachSettingsListeners(target, ids) { ids.forEach(id => target.disconnect(id)); }
@@ -50,7 +66,7 @@ export const createExtensionFixture = async t => {
     const extension = new module.namespace.default();
     extension.getSettings = () => settings;
     t.after(() => {
-        if (extension._settings)
+        if (state.onMenuChange)
             extension.disable();
         assert.equal(pending.size, 0, 'Fixture leaked a configuration timer');
         assert.equal(state.onMenuChange, null, 'Fixture leaked a menu subscription');

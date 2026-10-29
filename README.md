@@ -6,7 +6,7 @@ Give GNOME’s top bar a customizable gradient.
 - Vertical or horizontal orientation
 - Trigger an alternate style when windows are maximized or near the panel
 - Keep the gradient, restore the original theme, or apply a custom gradient when triggered
-- Independently keep the main gradient, use the original theme, or choose a custom gradient in overview
+- Hold the current appearance in overview, or independently choose the main gradient, a custom gradient, or the original theme
 - Set the proximity distance from 0 to 100 px
 - Optionally blend gradually into the alternate style as a window approaches the panel
 - Smooth transitions when switching between workspaces with different top-bar styles
@@ -17,9 +17,11 @@ Note:
 
 If you use a tiling extension, switching the style trigger from **Maximized windows** to **Proximity** can improve detection and styling. Set the proximity distance to **0 px** to trigger the alternate (maximized) style when a window touches the top bar.
 
-In **Gradients → Overview**, choose the top bar style for overview and the application grid. **Keep main gradient** preserves the default behavior. **Use original theme** restores the active Shell theme, and **Use custom gradient** provides independent colours, opacity and direction. Overview styling takes priority over window interaction; closing overview restores the style for the current workspace. Switching options retains your custom gradient. The **Content Shadows** tab controls text and icon shadows for all gradients, including overview. Shadows do not apply to the original theme.
+In **Gradients → Overview**, choose the top bar style for overview and the application grid. **Do nothing** is the default: it applies no overview override and leaves normal window and workspace behavior running, including proximity blends and desktop animations. Windows opening, closing or becoming maximized can still change the bar while overview is open. **Keep main gradient** uses the main gradient, **Use custom gradient** provides independent colours, opacity and direction, and **Use original theme** restores the active Shell theme. Closing an overview override restores the style for the current workspace. Explicitly saved overview choices are preserved when upgrading; resetting overview selects **Do nothing**. Switching options retains your custom gradient. The **Content Shadows** tab controls text and icon shadows for all gradients, including overview. Shadows do not apply to the original theme.
 
-**Blend with overview gestures** is off by default and independent of proximity blending. When enabled, CSS background opacity follows gesture progress, including the original theme. The theme background fades along with the gradients, so translucent gradients keep their appearance at both endpoints.
+**Blend with overview gestures** is off by default and independent of proximity blending. The control is disabled for **Do nothing**, while retaining its saved value. For the other overview choices, enabling it makes CSS background opacity follow gesture progress, including the original theme. The theme background fades along with the gradients, so translucent gradients keep their appearance at both endpoints.
+
+Static styles and transitions between native gradient or theme endpoints use Shell’s CSS fades, even when gesture blending is enabled elsewhere. Fractional proximity, workspace gestures and overview gestures use custom composition only while needed; settled native endpoints release the custom layers. A discrete workspace change that targets a fractional appearance still needs composition. Pure CSS overview cycles need no extension lifecycle callbacks. Mixed desktop composition and binary overview retain takeover/return callbacks, with final hidden observation only while cleanup needs it. **Do nothing** attaches no overview lifecycle or progress listeners. Selecting it while overview is open immediately restores the current desktop appearance and removes obsolete overview composition and observers. Native in-flight pixels cannot be captured: a native fade settles its known destination before custom takeover. Native fades can therefore look different when interrupted, reversed, or blending transparent gradients.
 
 ## Recommended companion: Overview Seamless Zoom
 

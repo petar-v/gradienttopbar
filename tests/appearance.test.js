@@ -1,4 +1,4 @@
-// Run with: node tests/appearance.js
+// Run with: node tests/appearance.test.js
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { APPEARANCE_STATE, getAppearance } from '../src/gradient/appearance.js';

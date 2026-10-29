@@ -6,6 +6,16 @@ import { APPEARANCE_STATE, STYLE_TRIGGER, getAppearance } from '../../gradient/a
 import { createGradientPreview } from './gradientEditor.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+// keep the preview's text and icon shadows in sync
+const generateShadowPreviewCss = (config, isOriginalTheme) => {
+    const { shadowOffsetX, shadowOffsetY, shadowBlur, shadowColor } = config;
+    const shadow = config.contentShadows && !isOriginalTheme
+        ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}` : 'none';
+    return `
+        label { font-size: 24px; font-weight: bold; color: white; text-shadow: ${shadow}; }
+        image { color: white; -gtk-icon-shadow: ${shadow}; }`;
+};
+
 export const createShadowPreview = settings => {
     const states = [APPEARANCE_STATE.NORMAL, APPEARANCE_STATE.TRIGGERED, APPEARANCE_STATE.OVERVIEW];
     const styles = {
@@ -73,26 +83,21 @@ export const createShadowPreview = settings => {
         widget.get_style_context().add_provider(sampleStyle, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
     const refresh = () => {
         const config = getConfig(settings);
-        const { shadowOffsetX, shadowOffsetY, shadowBlur, shadowColor } = config;
         styles[APPEARANCE_STATE.TRIGGERED] = config.styleTrigger === STYLE_TRIGGER.PROXIMITY
             ? gettext('Window Nearby') : gettext('Window Maximized');
 
         const style = styles[states[styleIndex]];
         sampleText.set_label(sampleTexts[textIndex] ?? style);
 
-        const originalTheme = getGradient() === null;
-        const shadow = config.contentShadows && !originalTheme
-            ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}` : 'none';
-        sampleStyle.load_from_string(`
-        label { font-size: 24px; font-weight: bold; color: white; text-shadow: ${shadow}; }
-        image { color: white; -gtk-icon-shadow: ${shadow}; }`);
+        const isOriginalTheme = getAppearance(config, states[styleIndex]) === null;
+        sampleStyle.load_from_string(generateShadowPreviewCss(config, isOriginalTheme));
         styleLabel.set_label(`${gettext('Preview')} · ${style}`);
 
         const nextStyle = styles[states[(styleIndex + 1) % states.length]];
         const nextLabel = gettext('Next preview style: %s').replace('%s', nextStyle);
         styleSwitch.set_tooltip_text(nextLabel);
         styleSwitch.update_property([Gtk.AccessibleProperty.LABEL], [nextLabel]);
-        sample.set_tooltip_text(originalTheme
+        sample.set_tooltip_text(isOriginalTheme
             ? gettext('Original Shell theme cannot be reproduced here; checkerboard shows unavailable background.')
             : gettext('Shadow preview using the configured gradient colours'));
         background.queue_draw();

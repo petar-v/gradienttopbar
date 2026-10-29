@@ -3,7 +3,7 @@ import Gdk from 'gi://Gdk';
 import Cairo from 'cairo';
 
 import { GRADIENT_DIRECTION } from '../../gradient/appearance.js';
-import { createColorDialog } from './colorDialog.js';
+import { createColorPickerButton } from './colorDialog.js';
 import { drawCheckerboard } from './checkerboard.js';
 
 export const createGradientPreview = getGradient => {
@@ -28,8 +28,8 @@ export const createGradientPreview = getGradient => {
         if (!selected)
             return;
         const { colors, direction } = selected;
-        const vertical = direction === GRADIENT_DIRECTION.VERTICAL;
-        const gradient = new Cairo.LinearGradient(0, 0, vertical ? 0 : width, vertical ? height : 0);
+        const isVertical = direction === GRADIENT_DIRECTION.VERTICAL;
+        const gradient = new Cairo.LinearGradient(0, 0, isVertical ? 0 : width, isVertical ? height : 0);
         [colors.start, colors.end].forEach((color, index) => {
             const rgba = new Gdk.RGBA();
             rgba.parse(color);
@@ -56,7 +56,7 @@ export const createGradientEditor = (startTitle, endTitle, getGradient, saveColo
 
     const buttons = [startTitle, endTitle].map((title, index) => {
         const endpoint = index === 0 ? 'start' : 'end';
-        const button = createColorDialog(
+        const button = createColorPickerButton(
             title,
             () => getGradient().colors[endpoint],
             color => saveColor(endpoint, color)
@@ -70,11 +70,11 @@ export const createGradientEditor = (startTitle, endTitle, getGradient, saveColo
     });
 
     const refresh = () => {
-        const vertical = getGradient().direction === GRADIENT_DIRECTION.VERTICAL;
+        const isVertical = getGradient().direction === GRADIENT_DIRECTION.VERTICAL;
         buttons.forEach((button, index) => {
             const edge = index === 0 ? Gtk.Align.START : Gtk.Align.END;
-            button.set_halign(vertical ? Gtk.Align.CENTER : edge);
-            button.set_valign(vertical ? edge : Gtk.Align.CENTER);
+            button.set_halign(isVertical ? Gtk.Align.CENTER : edge);
+            button.set_valign(isVertical ? edge : Gtk.Align.CENTER);
         });
         // Alignment changes alone leave the overlay allocation cached.
         editor.queue_allocate();

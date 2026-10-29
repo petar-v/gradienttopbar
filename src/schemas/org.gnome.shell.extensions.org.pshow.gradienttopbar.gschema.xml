@@ -17,17 +17,23 @@
     <value nick="keep-gradient" value="0"/>
     <value nick="keep-theme" value="1"/>
     <value nick="apply-style" value="2"/>
+    <value nick="do-nothing" value="3"/>
   </enum>
   <schema id="org.gnome.shell.extensions.org.pshow.gradienttopbar" path="/org/gnome/shell/extensions/org/pshow/gradienttopbar/">
     <key name="overview-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.OverviewBehavior">
-      <default>'keep-gradient'</default>
+      <default>'do-nothing'</default>
       <summary>Top bar appearance in overview</summary>
-      <description>Keep the main gradient, use the original Shell theme, or use a custom gradient while overview is open. Takes priority over window interaction.</description>
+      <description>Leave normal window and workspace interaction running, use the main gradient, use a custom gradient, or use the original Shell theme while overview is open. Do nothing applies no overview override. Other choices override window interaction until overview closes.</description>
     </key>
     <key name="overview-transition" type="b">
       <default>false</default>
       <summary>Blend with overview gestures</summary>
       <description>Follow overview gesture and animation progress when changing the panel background.</description>
+    </key>
+    <key name="workspace-gesture-blending" type="b">
+      <default>true</default>
+      <summary>Blend with workspace gestures</summary>
+      <description>Gradually blend between backgrounds as you swipe between workspaces.</description>
     </key>
     <key name="overview-colors" type="as">
       <default>["rgba(0, 0, 0, 1)", "rgba(0, 0, 0, 0)"]</default>
@@ -60,7 +66,7 @@
       <description>Gradually blend into the alternate gradient or original theme as a window approaches the panel.</description>
     </key>
     <key name="maximized-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.MaximizedBehavior">
-      <default>'apply-style'</default>
+      <default>'keep-theme'</default>
       <summary>Behavior when the style trigger is active</summary>
       <description>Determines what style to apply to the top bar when the selected window condition is met: keep the normal gradient, use the default theme, or apply a custom style.</description>
     </key>

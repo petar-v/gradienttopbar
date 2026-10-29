@@ -5,7 +5,7 @@ const calculateProximityStrength = (windowDistance, proximityDistance) =>
         ? Number(windowDistance <= 0)
         : Math.max(0, Math.min(1, 1 - windowDistance / proximityDistance));
 
-// Keeps all panel-layout dependencies inside the proximity behaviour.
+// measures window distance from the primary panel.
 export default class ProximityWindows {
     constructor(distance) {
         this.distance = distance;
@@ -19,28 +19,23 @@ export default class ProximityWindows {
         const distance = this.distance;
         const panelBottom = primaryMonitor.y + panel.get_height();
 
-        return windows.reduce((effectStrength, window) => {
+        let effectStrength = 0;
+        for (const window of windows) {
             const windowDistance = window.get_frame_rect().y - panelBottom;
-            return Math.max(
-                effectStrength,
-                calculateProximityStrength(windowDistance, distance)
-            );
-        }, 0);
+            const strength = calculateProximityStrength(windowDistance, distance);
+            if (!this.isProgressive && strength > 0)
+                return 1;
+            effectStrength = Math.max(effectStrength, strength);
+            if (effectStrength === 1)
+                break;
+        }
+        return effectStrength;
     }
 
     // Proximity can change when a window moves, resizes, or changes workspace.
-    attachWindowEvents(signals, window, updateState) {
-        signals.connect(window, 'size-changed', updateState);
-        signals.connect(window, 'position-changed', updateState);
-        signals.connect(window, 'workspace-changed', updateState);
-    }
-
-    // Recalculate the boundary whenever GNOME changes the monitor layout.
-    attachGlobalEvents(signals, updateState) {
-        signals.connect(
-            layoutManager,
-            'monitors-changed',
-            () => updateState(true)
-        );
+    attachWindowEvents(signals, window, { geometryChanged, workspaceChanged }) {
+        signals.connect(window, 'size-changed', geometryChanged);
+        signals.connect(window, 'position-changed', geometryChanged);
+        signals.connect(window, 'workspace-changed', workspaceChanged);
     }
 }

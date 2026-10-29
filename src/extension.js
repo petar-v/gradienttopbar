@@ -3,7 +3,7 @@ import GLib from 'gi://GLib';
 import Gradient from './gradient/gradient.js';
 import {
     getConfig,
-    getTopBarStyleSettings,
+    isTopBarSettingsMenuEnabled,
     attachSettingListener,
     TOP_BAR_STYLE_SETTINGS,
     attachSettingsListeners,
@@ -15,74 +15,92 @@ import TopBarMenu from './topBarMenu.js';
 const SETTINGS_DEBOUNCE_MS = 500;
 
 export default class GradientTopBar extends Extension {
-    updateTopBarMenu() {
-        if (getTopBarStyleSettings(this._settings)) {
-            this._topBarMenu ??= new TopBarMenu(() => this.openPreferences());
+    #settings;
+    #configureTimeoutId;
+    #topBarMenu;
+    #topBarMenuHandlerId;
+    #settingsHandlerIds;
+    #events;
+    #gradient;
+    #config;
+
+    #updateTopBarMenu() {
+        if (isTopBarSettingsMenuEnabled(this.#settings)) {
+            this.#topBarMenu ??= new TopBarMenu(() => this.openPreferences());
         } else {
-            this._topBarMenu?.destroy();
-            this._topBarMenu = null;
+            this.#topBarMenu?.destroy();
+            this.#topBarMenu = null;
         }
     }
 
-    scheduleConfigure() {
-        if (this._configureTimeoutId)
-            GLib.Source.remove(this._configureTimeoutId);
+    #scheduleConfigure() {
+        if (this.#configureTimeoutId)
+            GLib.Source.remove(this.#configureTimeoutId);
 
-        this._configureTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SETTINGS_DEBOUNCE_MS, () => {
-            this._configureTimeoutId = null;
-            this.configure(this._settings);
+        this.#configureTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SETTINGS_DEBOUNCE_MS, () => {
+            this.#configureTimeoutId = null;
+            this.#configure(this.#settings);
             return GLib.SOURCE_REMOVE;
         });
     }
 
-    configure(settings) {
+    #configure(settings) {
         const config = getConfig(settings);
-        const state = this.events.configure(config);
-        this.gradient.configure(config, state);
+        const state = this.#events.configure(config);
+        try {
+            this.#gradient.configure(config, state);
+            this.#config = config;
+        } catch (error) {
+            if (this.#config)
+                this.#events.configure(this.#config);
+            throw error;
+        }
     }
 
     enable() {
-        this._settings = this.getSettings();
-        this._topBarMenuHandlerId = attachSettingListener(
-            this._settings, TOP_BAR_STYLE_SETTINGS, () => this.updateTopBarMenu()
+        this.#settings = this.getSettings();
+        this.#topBarMenuHandlerId = attachSettingListener(
+            this.#settings, TOP_BAR_STYLE_SETTINGS, () => this.#updateTopBarMenu()
         );
-        this.updateTopBarMenu();
-        this.gradient = new Gradient();
-        this.events = new EventManager({
-            onWindowChanged: state => this.gradient.updateWindow(state),
-            onWorkspaceProgress: transition => this.gradient.updateWorkspaceProgress(transition),
-            onWorkspaceCompleted: state => this.gradient.completeWorkspace(state),
-            onOverviewChanged: state => this.gradient.updateOverview(state)
+        this.#updateTopBarMenu();
+        this.#gradient = new Gradient(isOverviewCleanupNeeded => this.#events?.setOverviewCleanupNeeded(isOverviewCleanupNeeded));
+        this.#events = new EventManager({
+            onWindowChanged: (state, isWorkspaceChanged) => this.#gradient.updateWindow(state, isWorkspaceChanged),
+            onWindowProgress: state => this.#gradient.followWindow(state),
+            onWorkspaceProgress: transition => this.#gradient.updateWorkspaceProgress(transition),
+            onWorkspaceCompleted: state => this.#gradient.completeWorkspace(state),
+            onOverviewChanged: state => this.#gradient.updateOverview(state)
         });
 
-        this._settingsHandlerIds = attachSettingsListeners(
-            this._settings,
-            this.scheduleConfigure.bind(this)
+        this.#settingsHandlerIds = attachSettingsListeners(
+            this.#settings,
+            this.#scheduleConfigure.bind(this)
         );
-        this.configure(this._settings);
+        this.#configure(this.#settings);
     }
 
     disable() {
-        this.events.destroy();
-        this.events = null;
+        this.#events.destroy();
+        this.#events = null;
 
-        this.gradient.destroy();
-        this.gradient = null;
+        this.#gradient.destroy();
+        this.#gradient = null;
+        this.#config = null;
 
-        detachSettingsListeners(this._settings, [this._topBarMenuHandlerId]);
+        detachSettingsListeners(this.#settings, [this.#topBarMenuHandlerId]);
 
-        this._topBarMenuHandlerId = null;
-        this._topBarMenu?.destroy();
-        this._topBarMenu = null;
+        this.#topBarMenuHandlerId = null;
+        this.#topBarMenu?.destroy();
+        this.#topBarMenu = null;
 
-        if (this._configureTimeoutId) {
-            GLib.Source.remove(this._configureTimeoutId);
-            this._configureTimeoutId = null;
+        if (this.#configureTimeoutId) {
+            GLib.Source.remove(this.#configureTimeoutId);
+            this.#configureTimeoutId = null;
         }
 
-        detachSettingsListeners(this._settings, this._settingsHandlerIds);
+        detachSettingsListeners(this.#settings, this.#settingsHandlerIds);
 
-        this._settingsHandlerIds = null;
-        this._settings = null;
+        this.#settingsHandlerIds = null;
+        this.#settings = null;
     }
 }
