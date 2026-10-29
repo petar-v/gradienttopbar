@@ -2,6 +2,14 @@ import BackgroundBlend from './backgroundBlend.js';
 import { isBackgroundStyleEqual, setGradientClass } from './panelBackground.js';
 import { OVERVIEW_ENTER_DURATION_MS, OVERVIEW_EXIT_DURATION_MS } from './transitionTimings.js';
 
+// use endpoint styles as-is, and keep intermediate progress as a composition.
+const getBackgroundAtProgress = (backgrounds, progress) => {
+    const [source, target] = backgrounds;
+    if (progress === 0 || progress === 1)
+        return backgrounds[progress];
+    return { source, target, progress };
+};
+
 /**
  * Owns the presentation state described in backgroundTransitions.smcat.
  * A blend can remain stationary between endpoints; it need not be animating.
@@ -46,7 +54,7 @@ export default class BackgroundTransitions {
 
         // keep the mix unless the desired desktop endpoint has changed.
         const source = isDesktopEndpointChanged
-            ? this.#resolveDesktopAppearance() : presentation.blend.sourceStyle;
+            ? getBackgroundAtProgress(this.#appearances.desktop, this.#desktop.progress) : presentation.blend.sourceStyle;
         const target = this.#appearances.overview;
         presentation.blend.updateStyles(source, target);
         setGradientClass(target.gradientClass);
@@ -83,20 +91,12 @@ export default class BackgroundTransitions {
             this.#renderDesktop(this.#desktop.progress, this.#desktop.isAnimationRequested, this.#desktop.duration);
     }
 
-    #resolveDesktopAppearance() {
-        const { progress } = this.#desktop;
-        const [source, target] = this.#appearances.desktop;
-        if (progress === 0 || progress === 1)
-            return this.#appearances.desktop[progress];
-        return { source, target, progress };
-    }
-
     #captureAppearance() {
         const presentation = this.#presentation;
         return presentation.kind === 'settled' ? presentation.style : presentation.blend.getStyle();
     }
 
-    #settle(style) {
+    #commitPanelAppearance(style) {
         const previous = this.#presentation;
         if (previous.kind === 'desktop-blend')
             this.#rememberedDesktopProgress = previous.blend.progress;
@@ -108,7 +108,7 @@ export default class BackgroundTransitions {
 
     #beginDesktopBlend() {
         const [source, target] = this.#appearances.desktop;
-        this.#settle(source);
+        this.#commitPanelAppearance(source);
         const blend = new BackgroundBlend(source, target);
         this.#presentation = { kind: 'desktop-blend', blend, baseStyle: source };
         blend.setProgress(this.#rememberedDesktopProgress);
@@ -116,13 +116,13 @@ export default class BackgroundTransitions {
 
     #renderDesktop(progress, isAnimationRequested = false, duration) {
         if (isBackgroundStyleEqual(...this.#appearances.desktop)) {
-            this.#settle(this.#appearances.desktop[0]);
+            this.#commitPanelAppearance(this.#appearances.desktop[0]);
             this.#rememberedDesktopProgress = 0;
             return;
         }
         if (this.#presentation.kind === 'settled' &&
             progress === this.#rememberedDesktopProgress && (progress === 0 || progress === 1)) {
-            this.#settle(this.#appearances.desktop[progress]);
+            this.#commitPanelAppearance(this.#appearances.desktop[progress]);
             return;
         }
 
@@ -137,7 +137,7 @@ export default class BackgroundTransitions {
             if (this.#presentation !== presentation)
                 return;
             if (progress === 0 || progress === 1)
-                this.#settle(this.#appearances.desktop[progress]);
+                this.#commitPanelAppearance(this.#appearances.desktop[progress]);
         };
         if (isAnimationRequested && progress !== presentation.blend.progress) {
             presentation.blend.animateTo(progress, complete, duration);
@@ -151,7 +151,7 @@ export default class BackgroundTransitions {
         // capture before settling, which destroys the currently displayed blend.
         const source = this.#captureAppearance();
         const target = this.#appearances.overview;
-        this.#settle(target);
+        this.#commitPanelAppearance(target);
         const blend = new BackgroundBlend(source, target);
         this.#presentation = { kind: 'overview-blend', blend, baseStyle: target };
     }
@@ -159,7 +159,7 @@ export default class BackgroundTransitions {
     #refreshOverviewExit() {
         // Resolve the new endpoint without briefly rendering desktop beneath overview.
         this.#presentation.blend.updateStyles(
-            this.#resolveDesktopAppearance(), this.#appearances.overview
+            getBackgroundAtProgress(this.#appearances.desktop, this.#desktop.progress), this.#appearances.overview
         );
         this.#rememberedDesktopProgress = this.#desktop.progress;
     }
@@ -176,7 +176,7 @@ export default class BackgroundTransitions {
 
         if (isBackgroundStyleEqual(...this.#appearances.desktop) &&
             isBackgroundStyleEqual(this.#appearances.desktop[0], this.#appearances.overview)) {
-            this.#settle(this.#appearances.overview);
+            this.#commitPanelAppearance(this.#appearances.overview);
             this.#rememberedDesktopProgress = 0;
             return;
         }
@@ -196,19 +196,19 @@ export default class BackgroundTransitions {
             presentation.blend.animateTo(isTargetVisible ? 1 : 0, () => {
                 if (this.#presentation !== presentation)
                     return;
-                this.#settle(isTargetVisible ? this.#appearances.overview : presentation.baseStyle);
+                this.#commitPanelAppearance(isTargetVisible ? this.#appearances.overview : presentation.baseStyle);
                 if (!isTargetVisible)
                     this.#renderDesktop(this.#desktop.progress);
             }, isTargetVisible ? OVERVIEW_ENTER_DURATION_MS : OVERVIEW_EXIT_DURATION_MS);
         } else if (isTargetVisible) {
-            this.#settle(this.#appearances.overview);
+            this.#commitPanelAppearance(this.#appearances.overview);
         } else {
             this.#renderDesktop(this.#desktop.progress, true, OVERVIEW_EXIT_DURATION_MS);
         }
     }
 
     destroy() {
-        this.#settle({ gradientClass: null });
+        this.#commitPanelAppearance({ gradientClass: null });
         this.#appearances = null;
     }
 }

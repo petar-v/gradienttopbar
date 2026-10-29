@@ -74,6 +74,7 @@ export const getObservationNeeds = config => {
     );
     return {
         windows,
+        workspaceProgress: windows && config.workspaceGestureBlending,
         overview: windows || overviewOverrides,
         overviewProgress: overviewOverrides && config.overviewTransition
     };

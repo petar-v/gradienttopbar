@@ -128,7 +128,7 @@ export const createEventsFixture = async t => {
         reads, pending, flush, targets,
         config: {
             styleTrigger: 'proximity', windowBehavior: 'apply-style', proximityDistance: 40, proximityTransition: true,
-            overviewBehavior: 'apply-style', overviewTransition: true,
+            overviewBehavior: 'apply-style', overviewTransition: true, workspaceGestureBlending: true,
             gradients: {
                 main: { colors: { start: 'rgba(0,0,0,1)', end: 'rgba(0,0,0,0)' }, direction: 'vertical' },
                 alternate: { colors: { start: 'rgba(255,0,0,1)', end: 'rgba(0,0,255,1)' }, direction: 'horizontal' },

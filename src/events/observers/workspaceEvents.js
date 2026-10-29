@@ -1,4 +1,4 @@
-import { wm } from 'resource:///org/gnome/shell/ui/main.js';
+import { overview, wm } from 'resource:///org/gnome/shell/ui/main.js';
 import SignalConnections from '../signalConnections.js';
 
 const calculateWorkspaceBlend = (workspaces, snapPoints, progress) => {
@@ -47,6 +47,7 @@ export default class WorkspaceEvents {
         this._callback = callback;
         this._signals = new SignalConnections();
         this._transitionGroup = null;
+        this._swipeTracker = null;
         this.enabled = false;
     }
 
@@ -65,6 +66,9 @@ export default class WorkspaceEvents {
     }
 
     #observeWorkspaceSwipe(emitInitialProgress = true) {
+        if (overview.visible || overview.visibleTarget)
+            return;
+
         const group = wm?._workspaceAnimation?._switchData?.baseMonitorGroup;
         if (!group || group === this._transitionGroup || !calculateWorkspaceBlendFromSwipe(group))
             return;
@@ -86,24 +90,35 @@ export default class WorkspaceEvents {
         this._transitionGroup = null;
     }
 
-    enable() {
-        if (this.enabled)
+    configure({ enabled, followProgress }) {
+        if (!enabled) {
+            this.disable();
             return;
+        }
 
         this.enabled = true;
         this._signals.connect(this._workspaceManager, 'workspace-switched', () => {
             this._callback({ type: 'change' });
         });
-        const swipeTracker = wm?._workspaceAnimation?._swipeTracker;
-        if (swipeTracker)
-            this._signals.connect(swipeTracker, 'begin', () => this.#observeWorkspaceSwipe());
-        // Configuration returns the adopted gesture in its final snapshot.
-        this.#observeWorkspaceSwipe(false);
+        const swipeTracker = followProgress ? wm?._workspaceAnimation?._swipeTracker : null;
+        if (swipeTracker !== this._swipeTracker) {
+            if (this._swipeTracker)
+                this._signals.disconnect(this._swipeTracker);
+            this._swipeTracker = swipeTracker;
+            if (swipeTracker)
+                this._signals.connect(swipeTracker, 'begin', () => this.#observeWorkspaceSwipe());
+        }
+        if (followProgress)
+            // Configuration returns the adopted gesture in its final snapshot.
+            this.#observeWorkspaceSwipe(false);
+        else
+            this.stopObservingWorkspaceSwipe();
     }
 
     disable() {
         this.stopObservingWorkspaceSwipe();
         this._signals.disconnectAll();
+        this._swipeTracker = null;
         this.enabled = false;
     }
 }

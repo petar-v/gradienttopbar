@@ -118,8 +118,8 @@ export const isBackgroundStyleEqual = (first, second) => {
         !!first.isInOverview === !!second.isInOverview;
 };
 
-export const watchPanelBackground = (actor, onChange, owner = actor) => {
+export const watchBackgroundStyleChanges = (actor, onChange, owner = actor) => {
     // Groups can be blend targets too; the endpoint owns the whole tree's listeners.
     actor.connectObject('style-changed', onChange, owner);
-    actor.get_children().forEach(child => watchPanelBackground(child, onChange, owner));
+    actor.get_children().forEach(child => watchBackgroundStyleChanges(child, onChange, owner));
 };

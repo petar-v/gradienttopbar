@@ -137,7 +137,7 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
         getCurrentState() { return { effectStrength: this.getEffectStrength() }; }
     }
     class WorkspaceEvents {
-        enable() {}
+        configure() {}
         disable() {}
         stopObservingWorkspaceSwipe() {}
     }
@@ -193,7 +193,7 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
         connect: () => 1,
         disconnect() {},
         windowBehavior: 'keep-gradient', styleTrigger: 'maximized', proximityTransition: false, proximityDistance: 40,
-        overviewBehavior: 'apply-style',
+        overviewBehavior: 'apply-style', workspaceGestureBlending: true,
         // Rendering receives normalized config; overviewSettings.js exercises real settings normalization.
         gradients: {
             main: { colors: { start: 'rgba(0,0,0,1)', end: 'rgba(0,0,0,0)' }, direction: 'vertical' },

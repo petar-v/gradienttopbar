@@ -56,6 +56,7 @@ export default class EventManager {
         const needs = getObservationNeeds(config);
         this.#configureWindowObservers(config, needs.windows);
         this.#configureOverviewObserver(needs);
+        this.#workspaces.configure({ enabled: needs.windows, followProgress: needs.workspaceProgress });
         if (!this.#overview.isHidden || this.#overview.isTargetVisible)
             this.#workspaces.stopObservingWorkspaceSwipe();
 
@@ -76,10 +77,6 @@ export default class EventManager {
             distance: config.proximityDistance,
             progressive: config.proximityTransition
         });
-        if (shouldObserveWindows)
-            this.#workspaces.enable();
-        else
-            this.#workspaces.disable();
     }
 
     #configureOverviewObserver(needs) {

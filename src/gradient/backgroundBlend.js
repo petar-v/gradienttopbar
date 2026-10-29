@@ -4,7 +4,7 @@ import Clutter from 'gi://Clutter';
 
 import {
     createPanelBackground, allocateBackground,
-    applyBlendOpacity, refreshPanelBackground, watchPanelBackground, isBackgroundStyleEqual
+    applyBlendOpacity, refreshPanelBackground, watchBackgroundStyleChanges, isBackgroundStyleEqual
 } from './panelBackground.js';
 
 import { BLENDING_CLASS, RESTORING_CLASS } from './stylesheet.js';
@@ -36,8 +36,8 @@ export default class BackgroundBlend {
             allocateBackground(this.#targetBackground);
         };
         panel.connectObject('notify::allocation', this.#allocateBackgrounds, this.#sourceBackground);
-        watchPanelBackground(this.#sourceBackground, () => this.refreshAppearance());
-        watchPanelBackground(this.#targetBackground, () => this.refreshAppearance());
+        watchBackgroundStyleChanges(this.#sourceBackground, () => this.refreshAppearance());
+        watchBackgroundStyleChanges(this.#targetBackground, () => this.refreshAppearance());
         panel.add_style_class_name(BLENDING_CLASS);
         panel.ensure_style();
         this.#allocateBackgrounds();
@@ -68,30 +68,34 @@ export default class BackgroundBlend {
             return;
         }
 
-        if (!this.#timeline) {
-            const timeline = new Clutter.Timeline({ actor: panel, duration });
-            this.#timeline = timeline;
-            this.#timelineDuration = duration;
-            timeline.set_progress_mode(Clutter.AnimationMode.EASE_OUT_QUAD);
-            this.#timelineSignals = [
-                timeline.connect('new-frame', () => {
-                    const { start: from, target } = this.#animation;
-                    this.#renderProgress(from + (target - from) * timeline.get_progress());
-                }),
-                timeline.connect('completed', () => {
-                    const { target, complete: onComplete } = this.#animation;
-                    this.#animation = null;
-                    this.#renderProgress(target);
-                    onComplete();
-                })
-            ];
-        }
+        if (!this.#timeline)
+            this.#createAnimationTimeline(duration);
         if (this.#timelineDuration !== duration) {
             this.#timeline.duration = duration;
             this.#timelineDuration = duration;
         }
         this.#animation = { start, target: progress, complete };
         this.#timeline.start();
+    }
+
+    // create the controller once; retargeting only changes its destination and duration.
+    #createAnimationTimeline(duration) {
+        const timeline = new Clutter.Timeline({ actor: panel, duration });
+        this.#timeline = timeline;
+        this.#timelineDuration = duration;
+        timeline.set_progress_mode(Clutter.AnimationMode.EASE_OUT_QUAD);
+        this.#timelineSignals = [
+            timeline.connect('new-frame', () => {
+                const { start: from, target } = this.#animation;
+                this.#renderProgress(from + (target - from) * timeline.get_progress());
+            }),
+            timeline.connect('completed', () => {
+                const { target, complete: onComplete } = this.#animation;
+                this.#animation = null;
+                this.#renderProgress(target);
+                onComplete();
+            })
+        ];
     }
 
     stopAnimation() {
@@ -126,7 +130,7 @@ export default class BackgroundBlend {
         panel.insert_child_at_index(this.#sourceBackground, 0);
         previous.destroy();
         panel.connectObject('notify::allocation', this.#allocateBackgrounds, this.#sourceBackground);
-        watchPanelBackground(this.#sourceBackground, () => this.refreshAppearance());
+        watchBackgroundStyleChanges(this.#sourceBackground, () => this.refreshAppearance());
     }
 
     #replaceTargetBackground(style) {
@@ -138,7 +142,7 @@ export default class BackgroundBlend {
         this.#targetBackground = createPanelBackground(style);
         panel.insert_child_at_index(this.#targetBackground, 1);
         previous.destroy();
-        watchPanelBackground(this.#targetBackground, () => this.refreshAppearance());
+        watchBackgroundStyleChanges(this.#targetBackground, () => this.refreshAppearance());
     }
 
     // Refresh nested captures only when appearance changes, not on every animation frame.

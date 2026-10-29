@@ -97,6 +97,7 @@ test('scoped settings subscriptions detach independently and runtime subscriptio
     config.detachSettingsListeners(scopedSettings, ids);
     assert.equal(subscriptions.size, 0, 'Scoped subscriptions release their owned handlers');
     const allIds = config.attachSettingsListeners(scopedSettings, state.onChange);
-    assert.equal(allIds.length, 17, 'Runtime subscriptions still cover all rendering and behavior settings');
+    assert.equal(allIds.length, 18, 'Runtime subscriptions still cover all rendering and behavior settings');
+    assert([...subscriptions.values()].some(({ signal }) => signal === 'changed::workspace-gesture-blending'), 'Workspace blending changes reconfigure runtime');
     config.detachSettingsListeners(scopedSettings, allIds);
 });

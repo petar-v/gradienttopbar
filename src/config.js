@@ -22,6 +22,7 @@ export const SHADOW_OFFSET_Y = 'shadow-offset-y';
 export const ALTERNATE_COLORS_KEY = 'maximized-colors';
 export const OVERVIEW_BEHAVIOR_KEY = 'overview-behavior';
 export const OVERVIEW_TRANSITION = 'overview-transition';
+export const WORKSPACE_GESTURE_BLENDING = 'workspace-gesture-blending';
 export const OVERVIEW_COLORS = 'overview-colors';
 export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
 
@@ -58,6 +59,7 @@ export const getConfig = settings => {
         styleTrigger: getStyleTrigger(settings),
         proximityDistance: getProximityDistance(settings),
         proximityTransition: isProximityTransitionEnabled(settings),
+        workspaceGestureBlending: settings.get_boolean(WORKSPACE_GESTURE_BLENDING),
         contentShadows: settings.get_boolean(CONTENT_SHADOWS),
         shadowColor: getShadowColor(settings),
         shadowBlur: settings.get_int(SHADOW_BLUR),
@@ -179,6 +181,7 @@ export const attachSettingsListeners = (settings, listener, keys = [
     STYLE_TRIGGER_KEY,
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
+    WORKSPACE_GESTURE_BLENDING,
     CONTENT_SHADOWS,
     SHADOW_COLOR,
     SHADOW_BLUR,

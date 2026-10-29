@@ -5,7 +5,7 @@
 # Overview visibility and the latest desired desktop progress are separate inputs.
 # A null overview override holds presentation until fully hidden, including on exit.
 # configure installs styles and inputs together before following these transitions.
-# beginDesktopBlend and beginOverviewBlend pass through settle to release old layers;
+# beginDesktopBlend and beginOverviewBlend pass through commitPanelAppearance to release old layers;
 # those synchronous intermediate settled states are omitted from the arrows below.
 
 initial,
@@ -18,16 +18,16 @@ initial => settled: construct;
 settled => settled: "desktop update [same endpoint] / commit style";
 settled => "desktop-blend": "desktop update [new progress] / beginDesktopBlend";
 "desktop-blend" => "desktop-blend": "desktop update / set progress or animate";
-"desktop-blend" => settled: "desktop completion [endpoint] / settle";
+"desktop-blend" => settled: "desktop completion [endpoint] / commitPanelAppearance";
 settled => "overview-blend": "overview gesture / beginOverviewBlend";
 "desktop-blend" => "overview-blend": "overview gesture / capture appearance then beginOverviewBlend";
 "overview-blend" => "overview-blend": "overview gesture / set progress";
 "overview-blend" => "overview-blend": "gesture leaves progress 1 / refreshOverviewExit";
 "overview-blend" => "overview-blend": "desktop update / remember input only";
 settled => settled: "desktop update [overview active] / remember input only";
-settled => settled: "overview target [no gesture blend] / settle overview";
-"desktop-blend" => settled: "overview target [no gesture blend] / settle overview";
-"overview-blend" => settled: "timed completion / settle overview or base style";
+settled => settled: "overview target [no gesture blend] / commitPanelAppearance overview";
+"desktop-blend" => settled: "overview target [no gesture blend] / commitPanelAppearance overview";
+"overview-blend" => settled: "timed completion / commitPanelAppearance overview or base style";
 "overview-blend" => "desktop-blend": "overview hidden / restore latest desktop";
 settled => "desktop-blend": "desktop restore [progress differs] / beginDesktopBlend";
 settled => settled: "desktop restore [same endpoint] / commit style";

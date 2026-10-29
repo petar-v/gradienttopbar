@@ -11,13 +11,10 @@ export const GRADIENT_CLASSES = {
 export const BLENDING_CLASS = 'panel-background-blending';
 export const RESTORING_CLASS = 'panel-background-restoring';
 
-
-// TODO: use the util functions to generate the css or maybe we keep this readable idk
 /**
  * @param {string} className
  * @param {import('./appearance.js').GradientDefinition} gradient
  */
-// eslint-disable-next-line no-unused-vars -- Retained CSS generation helper.
 const gradientRule = (className, { colors, direction }) => `
           .${className} {
             background-color: transparent;
@@ -26,7 +23,6 @@ const gradientRule = (className, { colors, direction }) => `
             background-gradient-end: ${colors.end};
           }`;
 
-// eslint-disable-next-line no-unused-vars -- Retained CSS generation helper.
 const panelSelectors = (...descendants) => descendants.flatMap(descendant =>
     Object.values(GRADIENT_CLASSES).map(className => `#panel.${className} ${descendant}`)
 ).join(',\n');
@@ -35,22 +31,13 @@ const generateCss = config => {
     const { main, alternate, overview } = config.gradients;
     const shadow = `${config.shadowOffsetX}px ${config.shadowOffsetY}px ${config.shadowBlur}px ${config.shadowColor}`;
     const contentShadows = config.contentShadows ? `
-          #panel.${GRADIENT_CLASSES.main} .panel-button,
-          #panel.${GRADIENT_CLASSES.alternate} .panel-button,
-          #panel.${GRADIENT_CLASSES.overview} .panel-button,
-          #panel.${GRADIENT_CLASSES.main} .panel-button StLabel,
-          #panel.${GRADIENT_CLASSES.alternate} .panel-button StLabel,
-          #panel.${GRADIENT_CLASSES.overview} .panel-button StLabel {
+          ${panelSelectors('.panel-button', '.panel-button StLabel')} {
             text-shadow: ${shadow};
           }
-          #panel.${GRADIENT_CLASSES.main} .panel-button StIcon,
-          #panel.${GRADIENT_CLASSES.alternate} .panel-button StIcon,
-          #panel.${GRADIENT_CLASSES.overview} .panel-button StIcon {
+          ${panelSelectors('.panel-button StIcon')} {
             icon-shadow: ${shadow};
           }
-          #panel.${GRADIENT_CLASSES.main} .workspace-dot,
-          #panel.${GRADIENT_CLASSES.alternate} .workspace-dot,
-          #panel.${GRADIENT_CLASSES.overview} .workspace-dot {
+          ${panelSelectors('.workspace-dot')} {
             box-shadow: ${shadow};
           }` : '';
     return `#panel {
@@ -69,25 +56,7 @@ const generateCss = config => {
           }
           #panel.${RESTORING_CLASS} {
             transition-duration: 0ms;
-          }
-          .${GRADIENT_CLASSES.main} {
-            background-color: transparent;
-            background-gradient-direction: ${main.direction};
-            background-gradient-start: ${main.colors.start};
-            background-gradient-end: ${main.colors.end};
-          }
-          .${GRADIENT_CLASSES.alternate} {
-            background-color: transparent;
-            background-gradient-direction: ${alternate.direction};
-            background-gradient-start: ${alternate.colors.start};
-            background-gradient-end: ${alternate.colors.end};
-          }
-          .${GRADIENT_CLASSES.overview} {
-            background-color: transparent;
-            background-gradient-direction: ${overview.direction};
-            background-gradient-start: ${overview.colors.start};
-            background-gradient-end: ${overview.colors.end};
-          }${contentShadows}`;
+          }${gradientRule(GRADIENT_CLASSES.main, main)}${gradientRule(GRADIENT_CLASSES.alternate, alternate)}${gradientRule(GRADIENT_CLASSES.overview, overview)}${contentShadows}`;
 };
 
 /*

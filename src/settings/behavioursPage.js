@@ -15,6 +15,12 @@ import {
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
     OVERVIEW_TRANSITION,
+    WORKSPACE_GESTURE_BLENDING,
+    COLORS,
+    GRADIENT_DIRECTION_KEY,
+    ALTERNATE_COLORS_KEY,
+    ALTERNATE_GRADIENT_DIRECTION_KEY,
+    OVERVIEW_BEHAVIOR_KEY,
     TOP_BAR_STYLE_SETTINGS,
     attachSettingsListeners,
     detachSettingsListeners,
@@ -27,7 +33,7 @@ import { createResetButton } from './components/resetButton.js';
 import { createProximityDistanceEditor } from './components/proximityDistanceEditor.js';
 import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
 
-import { APPEARANCE_BEHAVIOR, STYLE_TRIGGER } from '../gradient/appearance.js';
+import { APPEARANCE_BEHAVIOR, STYLE_TRIGGER, getObservationNeeds } from '../gradient/appearance.js';
 
 class Behavior extends Adw.PreferencesPage {
     _init(window, settings) {
@@ -37,7 +43,6 @@ class Behavior extends Adw.PreferencesPage {
             name: 'Behavior'
         });
 
-        this._settings = settings;
         const panelGroup = new Adw.PreferencesGroup({ title: gettext('Top bar') });
         const styleSettingsRow = new Adw.SwitchRow({
             title: gettext('Top Bar Style Settings'),
@@ -47,7 +52,7 @@ class Behavior extends Adw.PreferencesPage {
         panelGroup.add(styleSettingsRow);
         this.add(panelGroup);
 
-        let updatingSettings = false;
+        let isUpdatingSettings = false;
         const distanceEditor = createProximityDistanceEditor(settings);
 
         const behaviorGroup = new Adw.PreferencesGroup({
@@ -77,28 +82,28 @@ class Behavior extends Adw.PreferencesPage {
         const proximityTransitionRow = new Adw.SwitchRow({
             title: gettext('Blend as windows approach'),
             subtitle: gettext('Gradually blend into the selected appearance as windows approach the panel.'),
-            active: isProximityTransitionEnabled(this._settings)
+            active: isProximityTransitionEnabled(settings)
         });
 
         // Set initial value
-        selectRowValue(triggerRow, getStyleTrigger(this._settings));
+        selectRowValue(triggerRow, getStyleTrigger(settings));
         const updateProximityControls = () => {
-            const enabled = getWindowBehavior(this._settings) !== APPEARANCE_BEHAVIOR.KEEP_GRADIENT;
-            behaviorGroup.set_sensitive(enabled);
-            disabledGroup.set_visible(!enabled);
-            const usesProximity = getStyleTrigger(this._settings) === STYLE_TRIGGER.PROXIMITY;
-            distanceEditor.widget.set_sensitive(usesProximity);
-            proximityTransitionRow.set_sensitive(enabled && usesProximity);
+            const isWindowInteractionEnabled = getWindowBehavior(settings) !== APPEARANCE_BEHAVIOR.KEEP_GRADIENT;
+            behaviorGroup.set_sensitive(isWindowInteractionEnabled);
+            disabledGroup.set_visible(!isWindowInteractionEnabled);
+            const isProximityTrigger = getStyleTrigger(settings) === STYLE_TRIGGER.PROXIMITY;
+            distanceEditor.widget.set_sensitive(isProximityTrigger);
+            proximityTransitionRow.set_sensitive(isWindowInteractionEnabled && isProximityTrigger);
         };
 
         // Connect to changes
         triggerRow.connect('notify::selected', () => {
-            if (!updatingSettings)
-                setStyleTrigger(this._settings, triggerRow.selectedItem.value);
+            if (!isUpdatingSettings)
+                setStyleTrigger(settings, triggerRow.selectedItem.value);
         });
         proximityTransitionRow.connect('notify::active', () => {
-            if (!updatingSettings)
-                setProximityTransition(this._settings, proximityTransitionRow.active);
+            if (!isUpdatingSettings)
+                setProximityTransition(settings, proximityTransitionRow.active);
         });
 
         behaviorGroup.add(triggerRow);
@@ -114,9 +119,9 @@ class Behavior extends Adw.PreferencesPage {
             header_suffix: createResetButton(
                 window,
                 gettext('Reset transitions?'),
-                gettext('Restore the default window proximity and overview gesture blending.'),
+                gettext('Restore the default window proximity, overview gesture and workspace gesture blending.'),
                 settings,
-                [PROXIMITY_TRANSITION, OVERVIEW_TRANSITION]
+                [PROXIMITY_TRANSITION, OVERVIEW_TRANSITION, WORKSPACE_GESTURE_BLENDING]
             )
         });
         transitionsGroup.add(proximityTransitionRow);
@@ -126,21 +131,30 @@ class Behavior extends Adw.PreferencesPage {
         });
         bindSetting(settings, OVERVIEW_TRANSITION, overviewTransitionRow, 'active');
         transitionsGroup.add(overviewTransitionRow);
+        const workspaceTransitionRow = new Adw.SwitchRow({
+            title: gettext('Blend with workspace gestures'),
+            subtitle: gettext('Gradually blend between backgrounds as you swipe between workspaces.')
+        });
+        bindSetting(settings, WORKSPACE_GESTURE_BLENDING, workspaceTransitionRow, 'active');
+        transitionsGroup.add(workspaceTransitionRow);
         this.add(transitionsGroup);
 
         const onSettingsChanged = (s, key) => {
             const config = getConfig(s);
-            updatingSettings = true;
+            isUpdatingSettings = true;
             selectRowValue(triggerRow, config.styleTrigger);
             if (!key || key === PROXIMITY_DISTANCE)
                 distanceEditor.refresh();
             proximityTransitionRow.set_active(config.proximityTransition);
-            updatingSettings = false;
+            isUpdatingSettings = false;
             updateProximityControls();
+            overviewTransitionRow.set_sensitive(config.overviewBehavior !== APPEARANCE_BEHAVIOR.DO_NOTHING);
+            workspaceTransitionRow.set_sensitive(getObservationNeeds(config).windows);
         };
         onSettingsChanged(settings);
         const settingsHandlerIds = attachSettingsListeners(settings, onSettingsChanged, [
-            WINDOW_BEHAVIOR_KEY, STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE, PROXIMITY_TRANSITION
+            WINDOW_BEHAVIOR_KEY, STYLE_TRIGGER_KEY, PROXIMITY_DISTANCE, PROXIMITY_TRANSITION, OVERVIEW_BEHAVIOR_KEY,
+            COLORS, GRADIENT_DIRECTION_KEY, ALTERNATE_COLORS_KEY, ALTERNATE_GRADIENT_DIRECTION_KEY
         ]);
         window.connect('close-request', () => {
             distanceEditor.commit();

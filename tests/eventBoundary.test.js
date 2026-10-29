@@ -13,7 +13,7 @@ test('event classes expose only their collaboration and lifecycle methods', asyn
         ['events/eventManager.js', ['configure', 'destroy']],
         ['events/signalConnections.js', ['connect', 'disconnect', 'disconnectAll']],
         ['events/observers/overviewEvents.js', ['configure', 'destroy', 'isTargetVisible', 'progress']],
-        ['events/observers/workspaceEvents.js', ['disable', 'enable', 'stopObservingWorkspaceSwipe', 'transition', 'transitioning']],
+        ['events/observers/workspaceEvents.js', ['configure', 'disable', 'stopObservingWorkspaceSwipe', 'transition', 'transitioning']],
         ['events/observers/windowsEvents/windowEvents.js', [
             'configure', 'disable', 'getCurrentState', 'getEffectStrengthForWorkspace', 'setStateChangeCallback', 'updateState'
         ]],

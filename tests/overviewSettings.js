@@ -43,6 +43,81 @@ test('overview defaults and transition controls remain independent', t => {
     assert(!proximityBlend.is_sensitive(), 'Window blending is unavailable with maximized interaction');
 });
 
+test('workspace gesture blending defaults, binds independently and resets with transitions', t => {
+    const { settings, window, behaviorPage } = createOverviewFixture(t);
+    const row = find(behaviorPage, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend with workspace gestures');
+    assert(row, 'Workspace blending is exposed in Behaviour');
+    assert(getConfig(settings).workspaceGestureBlending === true && row.active, 'Workspace blending defaults on');
+    const transitions = find(behaviorPage, widget => widget instanceof Adw.PreferencesGroup && widget.title === 'Transitions');
+    assert(find(transitions, widget => widget === row), 'Workspace blending belongs beside overview blending');
+    const changed = [];
+    const handlers = attachSettingsListeners(settings, (_settings, key) => changed.push(key));
+    t.after(() => detachSettingsListeners(settings, handlers));
+    assert(handlers.length === 18, 'Runtime subscribes to every rendering setting');
+    row.active = false;
+    assert(!settings.get_boolean('workspace-gesture-blending'), 'The row writes its setting');
+    assert(changed.includes('workspace-gesture-blending'), 'Workspace blending notifies runtime');
+    settings.set_boolean('workspace-gesture-blending', true);
+    assert(row.active, 'External settings refresh the row');
+    for (const workspace of [false, true]) {
+        for (const overview of [false, true]) {
+            settings.set_boolean('workspace-gesture-blending', workspace);
+            settings.set_boolean('overview-transition', overview);
+            assert(row.active === workspace && getConfig(settings).overviewTransition === overview, 'The two gesture controls remain independent');
+        }
+    }
+    settings.set_boolean('workspace-gesture-blending', false);
+    settings.set_boolean('overview-transition', true);
+    settings.set_boolean('proximity-transition', false);
+    const before = new Map(settings.settings_schema.list_keys().map(key => [key, settings.get_value(key)]));
+    const reset = find(behaviorPage, widget => widget instanceof Gtk.Button && widget.tooltip_text === 'Reset transitions?');
+    reset.emit('clicked');
+    let dialog = window.get_visible_dialog();
+    dialog.emit('response', 'cancel');
+    dialog.force_close();
+    assert(!row.active, 'Cancelling leaves the saved choice intact');
+    reset.emit('clicked');
+    dialog = window.get_visible_dialog();
+    dialog.emit('response', 'reset');
+    dialog.force_close();
+    for (const [key, value] of before) {
+        const expected = ['proximity-transition', 'overview-transition', 'workspace-gesture-blending'].includes(key) ? settings.get_default_value(key) : value;
+        assert(settings.get_value(key).equal(expected), `Transition reset changed the wrong setting: ${key}`);
+    }
+    assert(row.active && getConfig(settings).workspaceGestureBlending, 'Reset restores workspace blending');
+});
+
+test('workspace blending sensitivity follows only effective desktop appearances and preserves saved values', t => {
+    const { settings, behaviorPage } = createOverviewFixture(t);
+    const row = find(behaviorPage, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend with workspace gestures');
+    assert(row, 'Workspace blending row exists');
+    settings.set_boolean('workspace-gesture-blending', false);
+    settings.set_string('maximized-behavior', 'keep-gradient');
+    settings.set_string('overview-behavior', 'apply-style');
+    settings.set_strv('overview-colors', ['red', 'blue']);
+    assert(!row.is_sensitive() && !row.active, 'Overview-only changes cannot enable desktop blending');
+    settings.set_string('maximized-behavior', 'keep-theme');
+    assert(row.is_sensitive() && !row.active, 'Original theme differs from a custom gradient and preserves the saved choice');
+    settings.set_string('maximized-behavior', 'apply-style');
+    settings.set_strv('colors', ['rgba(255,0,0,1)', 'rgba(0,0,255,0.5)']);
+    settings.set_strv('maximized-colors', ['rgb(255, 0, 0)', 'rgba(0, 0, 255, 0.5)']);
+    settings.set_string('gradient-direction', 'vertical');
+    settings.set_string('maximized-gradient-direction', 'vertical');
+    assert(!row.is_sensitive() && !row.active, 'Normalized equivalent gradients disable blending without changing its value');
+    settings.set_string('gradient-direction', 'horizontal');
+    assert(row.is_sensitive(), 'Main direction changes refresh sensitivity');
+    settings.set_string('maximized-gradient-direction', 'horizontal');
+    assert(!row.is_sensitive(), 'Alternate direction changes refresh sensitivity');
+    settings.set_strv('colors', ['green', 'blue']);
+    assert(row.is_sensitive(), 'Main colours refresh sensitivity');
+    settings.set_strv('maximized-colors', ['green', 'blue']);
+    assert(!row.is_sensitive(), 'Alternate colours refresh sensitivity');
+    settings.set_boolean('workspace-gesture-blending', true);
+    assert(row.active && !row.is_sensitive(), 'External saved choices remain visible while insensitive');
+    settings.set_string('maximized-behavior', 'keep-theme');
+    assert(row.is_sensitive() && row.active, 'Re-enabling interaction restores the saved active choice');
+});
+
 const gradients = [
     ['Gradient Direction', 'Gradient Start Colour', 'colors', 'gradient-direction'],
     ['Alternate Gradient Direction', 'Alternate Gradient Start Colour', 'maximized-colors', 'maximized-gradient-direction'],

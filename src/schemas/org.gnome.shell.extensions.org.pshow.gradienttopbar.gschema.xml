@@ -24,6 +24,11 @@
       <summary>Top bar appearance in overview</summary>
       <description>Keep the main gradient, use the original Shell theme, or use a custom gradient while overview is open. Takes priority over window interaction.</description>
     </key>
+    <key name="workspace-gesture-blending" type="b">
+      <default>true</default>
+      <summary>Blend with workspace gestures</summary>
+      <description>Gradually blend between backgrounds as you swipe between workspaces.</description>
+    </key>
     <key name="overview-transition" type="b">
       <default>false</default>
       <summary>Blend with overview gestures</summary>
