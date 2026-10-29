@@ -20,7 +20,11 @@ const main = async () => {
     window.add(page);
     const action = new Gio.SimpleAction({ name: 'probe' });
     const settingsId = monitor.connect(action, 'notify::enabled', () => {}, 'Settings');
+    const panelId = monitor.connect(action, 'notify::state', () => {}, 'Panel menu');
     const id = monitor.connect(action, 'activate', () => {}, 'Test');
+    const render = monitor.work('Renderer', 'Window changed', () => {});
+    render();
+    monitor.work('Work', 'Window scan', () => {})();
     const actionStats = () => monitor.snapshot().rows.find(item => item.group === 'Test');
     action.activate(null);
     window.present();
@@ -28,8 +32,12 @@ const main = async () => {
         await wait(350);
         const row = find(page, widget => widget instanceof Adw.ActionRow && widget.title === 'activate');
         assert(row && row.subtitle.includes('1 callbacks'), 'D-Bus snapshots reach the preferences page');
+        assert(page._summaryLabels.get('connections').label === '3', 'The summary shows total signal connections');
+        assert(page._summaryLabels.get('desktopConnections').label === '2', 'Desktop connection totals exclude Settings');
+        assert(page._summaryLabels.get('callbacks').label === '1' && page._summaryLabels.get('desktopCallbacks').label === '1', 'Callback totals exclude function calls');
+        assert(page._status.description === '', 'The verbose summary paragraph is removed');
         const badge = find(row, widget => widget instanceof Gtk.Label && widget.has_css_class('listener-count'));
-        assert(badge && badge.label === '1' && badge.has_css_class('success'), 'Active connection counts appear in a green badge');
+        assert(badge && badge.label === 'On' && badge.has_css_class('success'), 'Active listeners show a green On badge');
         const groupTitles = [];
         find(page, widget => {
             if (widget instanceof Adw.PreferencesGroup)
@@ -37,11 +45,22 @@ const main = async () => {
             return false;
         });
         assert(groupTitles.at(-1) === 'Settings', 'Settings stay last even when other groups appear later');
+        assert(groupTitles.at(-2) === 'Panel menu', 'Panel listeners stay directly above Settings');
+        for (const title of ['Renderer functions', 'Work functions']) {
+            const group = find(page, widget => widget instanceof Adw.PreferencesGroup && widget.title === title);
+            assert(group && group.description.length > 0, 'Function groups have explanatory descriptions');
+        }
+        const functionRow = find(page, widget => widget instanceof Adw.ActionRow && widget.title === 'Update appearance after window changes');
+        const functionBadge = find(functionRow, widget => widget instanceof Gtk.Label && widget.has_css_class('callback-count'));
+        assert(functionRow.subtitle.startsWith('Requests an appearance update') && functionRow.subtitle.includes('\nFunction') && functionBadge.label === '1', 'Functions show descriptions, live statistics and callback totals in a badge');
         const reset = find(page, widget => widget instanceof Gtk.Button && widget.label === 'Reset statistics');
         assert(reset, 'The reset control names the statistics it clears');
         reset.emit('clicked');
         await wait(150);
         assert(actionStats().active === 1 && actionStats().calls === 0, 'Reset clears accumulated statistics but retains live connections');
+        page._refresh();
+        await wait(150);
+        assert(functionBadge.label === '0', 'Reset clears the function callback badge');
         action.activate(null);
         const timing = find(page, widget => widget instanceof Adw.SwitchRow && widget.title === 'Measure callback duration');
         timing.active = true;
@@ -55,9 +74,10 @@ const main = async () => {
         assert(actionStats().calls === 2, 'Pause preserves callback behavior without adding counts');
         monitor.disconnect(action, id);
         monitor.disconnect(action, settingsId);
+        monitor.disconnect(action, panelId);
         await wait(1200);
         assert(row.subtitle.includes('0 connected'), 'Disconnected listeners remain visible with zero active handlers');
-        assert(badge.label === '0' && badge.has_css_class('error') && !badge.has_css_class('success'), 'Inactive connection counts change to a red badge');
+        assert(badge.label === 'Off' && badge.has_css_class('error') && !badge.has_css_class('success'), 'Inactive listeners change to a red Off badge');
         stop();
         await wait(50);
         page._refresh();

@@ -1,9 +1,10 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import ListenerMonitor from './listenerMonitor.js';
+import { listenerSignals } from './listenerCatalog.js';
 import { BUS_NAME, OBJECT_PATH, INTERFACE_XML } from './protocol.js';
 
-export const monitor = new ListenerMonitor(() => GLib.get_monotonic_time());
+export const monitor = new ListenerMonitor(() => GLib.get_monotonic_time(), listenerSignals);
 let exportedObject;
 let ownerId;
 
