@@ -1,39 +1,31 @@
-# Presentation ownership, independent of Shell visibility inputs.
-# native has no custom actors/timeline and may delegate overview pseudo changes to Shell.
-# desktop-blend and overview-blend preserve exact compositions, including nested captures.
-# Stationary fractional mixtures retain actors with no running animation callback.
-# configure installs appearance definitions and desktop/overview inputs atomically.
-
 initial,
-native,
-"desktop-blend",
-"overview-blend",
+presentation [label="Presentation ownership"] {
+    native [label="Native CSS" color="#2563eb"]:
+        No custom layers or timeline
+        CSS handles native endpoints,
+    "desktop-blend" [label="Desktop blend" color="#0f766e"]:
+        Proximity and workspace blends
+        Reuse layers as progress changes,
+    "overview-blend" [label="Overview blend" color="#7c3aed"]:
+        Blend desktop with overview
+        Reuse layers and cached opacity;
+
+    native => "desktop-blend": fractional desktop /
+        compose layers;
+    "desktop-blend" => native: desktop endpoint /
+        release layers;
+
+    native => "overview-blend": fractional overview /
+        compose layers;
+    "desktop-blend" => "overview-blend": overview input /
+        capture mixture;
+    "overview-blend" => native: native endpoint /
+        release layers;
+    "overview-blend" => "desktop-blend": fractional desktop /
+        restore mixture;
+},
 final;
 
 initial => native: construct;
-native => native: "desktop/window/workspace update [native endpoints] / native CSS destination and cause duration";
-native => "desktop-blend": "fractional desktop / settle known native destination, suspend CSS ownership, compose";
-"desktop-blend" => "desktop-blend": "desktop input / reuse actors, set progress or animate";
-"desktop-blend" => native: "desktop endpoint / install destination then release custom resources";
-native => "overview-blend": "fractional overview / settle native destination, compose desktop and overview";
-"desktop-blend" => "overview-blend": "overview input / capture exact desktop mixture before replacement";
-"overview-blend" => "overview-blend": "fractional overview input / reuse actors and alpha caches";
-"overview-blend" => native: "overview endpoint 1 / install native overview, release custom resources";
-native => "overview-blend": "leave overview endpoint [even before target reversal] / resolve fresh desktop, compose";
-native => native: "binary overview [native source and destination] / native CSS fade";
-"desktop-blend" => "overview-blend": "binary overview [fractional source] / preserve composition while settling";
-"overview-blend" => "desktop-blend": "overview exit [fractional desktop] / restore fresh desktop composition";
-"overview-blend" => native: "overview exit [native desktop] / restore fresh endpoint";
-native => native: "Do nothing / ignore overview, continue ordinary desktop updates";
-"desktop-blend" => "desktop-blend": "Do nothing / ignore overview, continue ordinary desktop progress and animation";
-"overview-blend" => native: "configure Do nothing [native desktop] / immediately release overview composition";
-"overview-blend" => "desktop-blend": "configure Do nothing [fractional desktop] / immediately compose current desktop";
-
-# Reconfiguration retains custom endpoint identity/alpha caches when definitions are equivalent.
-# Native CSS rules are independent of unrelated progress capabilities.
-# Shell CSS ownership is removed before custom layers cover the panel.
-# The owner exposes one transient overview-cleanup observation requirement.
-# Completion checks its presentation identity; superseded animations cannot commit.
-native => final: "destroy / restore live original theme and remove owned classes";
-"desktop-blend" => final: "destroy / install live original theme before releasing layers";
-"overview-blend" => final: "destroy / install live original theme before releasing layers";
+presentation => final: destroy /
+    restore theme;

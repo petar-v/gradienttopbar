@@ -17,6 +17,8 @@
   "author": "Petar Vasilev <petar@pshow.org>",
   "type": "module",
   "scripts": {
+    "postinstall": "husky",
+    "docs:states": "smcat src/gradient/backgroundTransitions.smcat --output-to docs/background-transitions.svg --direction top-down --dot-graph-attrs 'bgcolor=white pad=0.35 nodesep=0.7 ranksep=0.6 labeljust=l' --dot-node-attrs 'fontname=Helvetica fontsize=14' --dot-edge-attrs 'fontname=Helvetica fontsize=12 color=slategray fontcolor=gray25 arrowsize=0.7'",
     "demo": "bash resources/demos/scripts/record.sh",
     "demo:check": "bash resources/demos/scripts/check.sh",
     "demo:export": "bash resources/demos/scripts/export.sh",
@@ -27,14 +29,14 @@
     "zip-extension": "gnome-extensions pack src --force",
     "validate-schemas": "glib-compile-schemas --strict --dry-run ./src/schemas/",
     "zip": "cd src && zip -FS -r ../gradienttopbar@pshow.org.shell-extension.zip .",
-    "prettify": "prettier --write 'src/**/*.{css}' && yarn lint --fix",
+    "prettify": "prettier --write 'src/**/*.css' && yarn lint --fix",
     "lint": "eslint 'src/**/*.{js,json}' 'tests/**/*.js'",
     "test": "node --experimental-vm-modules --test tests/*.test.js",
     "test:gtk": "sh tests/run-gtk.sh",
     "setup-python": "python3 -m venv .venv && .venv/bin/python -m pip install -r requirements-dev.txt",
     "shexli": ".venv/bin/shexli --format json \"$PWD/src\" | .venv/bin/python -c \"import json, sys; report = json.load(sys.stdin); print(json.dumps(report, indent=2)); raise SystemExit(any(finding['rule_id'] != 'EGO-M-004' for finding in report['findings']))\"",
     "verify": "yarn lint && yarn shexli",
-    "precommit": "lint-staged",
+    "precommit": "sh .husky/pre-commit",
     "upload": "gnome-extensions upload --accept-tos"
   },
   "devDependencies": {
@@ -43,19 +45,8 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.7",
     "husky": "^9.1.7",
-    "prettier": "^3.9.10"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "yarn prettify && yarn lint"
-    }
-  },
-  "lint-staged": {
-    "src/**/*.{js,css,json}": [
-      "yarn prettify",
-      "yarn lint",
-      "git add"
-    ]
+    "prettier": "^3.9.10",
+    "state-machine-cat": "^15.0.10"
   },
   "packageManager": "yarn@4.18.1"
 }

@@ -124,7 +124,7 @@ This section provides information for developers who want to contribute to the G
 Before you start development, make sure you have the following installed:
 
 - GNOME Shell (version 45 or higher)
-- Node.js and Yarn (the project uses Yarn 4.18.1)
+- Node.js 22 or 24+ and Yarn (the project uses Yarn 4.18.1)
 - Python 3.12 or newer
 - Git
 
@@ -165,7 +165,13 @@ The project includes several scripts to help with development:
 - `yarn lint`: Lints the code using ESLint.
 - `yarn shexli`: Runs the extensions.gnome.org static analyzer.
 - `yarn verify`: Runs ESLint and Shexli.
-- `yarn precommit`: Runs lint-staged for pre-commit hooks.
+- `yarn precommit`: Runs the pre-commit hook, including diagram regeneration when its source is staged, then formatting and linting.
+
+### Background presentation states
+
+![Background presentation state machine: Native CSS, Desktop blend, and Overview blend](docs/background-transitions.svg)
+
+Edit [backgroundTransitions.smcat](src/gradient/backgroundTransitions.smcat), then run `yarn docs:states` (or `npm run docs:states`) to regenerate the SVG.
 
 ## Workflow
 
@@ -177,14 +183,6 @@ The project includes several scripts to help with development:
 6. To publish a new version:
    1) Run `yarn zip` to create the complete extension zip
    2) Run `yarn upload` and follow the browser flow
-
-# To Do
-
-- [x] Add box shadow settings
-- [x] Fix an issue where "Desktop icons" extension creates a weird window that messes up the dynamic toolbar colour effect.
-- [x] Add demo videos
-- [x] Figure out reliable testing methods or at least unit tests - the [demo recording scripts](resources/demos/README.md) provide reproducible scenarios for visual testing.
-- [x] Make it work with something like tiling when the window occupies the whole top horizontally - proximity mode detects tiled windows near or touching the panel, resolving the styling issue without relying on maximized-window detection.
 
 # Credits
 This extension is a fork of [the Original Gradient Top Bar extension](https://extensions.gnome.org/extension/1264/gradient-top-bar/) by [Julien/jpec](https://peclu.net/).
