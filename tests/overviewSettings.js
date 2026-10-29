@@ -128,8 +128,8 @@ test('overview choices preserve their values and exclude do nothing from window 
     const { settings, page } = createOverviewFixture(t);
     const behavior = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'When overview is open');
     const windowBehavior = find(page, widget => widget instanceof Adw.ComboRow && widget.title === 'When triggered');
-    const values = ['keep-gradient', 'do-nothing', 'apply-style', 'keep-theme'];
-    const labels = ['Keep main gradient', 'Do nothing', 'Use custom gradient', 'Use original theme'];
+    const values = ['do-nothing', 'keep-gradient', 'apply-style', 'keep-theme'];
+    const labels = ['Do nothing', 'Keep main gradient', 'Use custom gradient', 'Use original theme'];
     assert(behavior.model.get_n_items() === 4, 'Overview has four choices');
     assert(windowBehavior.model.get_n_items() === 3, 'Window interaction keeps three choices');
     for (let index = 0; index < values.length; index++) {

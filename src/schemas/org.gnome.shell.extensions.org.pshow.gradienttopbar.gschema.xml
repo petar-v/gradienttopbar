@@ -23,7 +23,7 @@
     <key name="overview-behavior" enum="org.gnome.shell.extensions.org.pshow.gradienttopbar.OverviewBehavior">
       <default>'do-nothing'</default>
       <summary>Top bar appearance in overview</summary>
-      <description>Hold the current appearance, use the main gradient, use a custom gradient, or use the original Shell theme while overview is open. Window interaction resumes when overview is fully hidden.</description>
+      <description>Leave normal window and workspace interaction running, use the main gradient, use a custom gradient, or use the original Shell theme while overview is open. Do nothing applies no overview override. Other choices override window interaction until overview closes.</description>
     </key>
     <key name="overview-transition" type="b">
       <default>false</default>
