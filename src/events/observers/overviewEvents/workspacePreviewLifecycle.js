@@ -6,7 +6,7 @@ import SignalConnections from '../../signalConnections.js';
 export default class WorkspacePreviewLifecycle {
     constructor(callback) {
         this._callback = callback;
-        this._signals = new SignalConnections('Overview previews');
+        this._signals = new SignalConnections();
         this._views = new Set();
         this._workspaces = new Map();
         this._display = null;

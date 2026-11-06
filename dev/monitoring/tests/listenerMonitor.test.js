@@ -93,19 +93,3 @@ test('owned connections retire on explicit disconnect and owner destruction', as
     [...handlers.values()][0].callback();
     assert(monitor.snapshot().rows.every(row => row.active === 0));
 });
-
-test('release callbacks are connected unchanged without importing debug runtime', async () => {
-    const load = createModuleLoader();
-    const { connectSignal, measureWork, diagnostics } = (await load('diagnostics.js')).namespace;
-    const callback = () => false;
-    const target = {
-        connect: (signal, received) => {
-            assert.equal(signal, 'size-changed');
-            assert.equal(received, callback);
-            return 42;
-        }
-    };
-    assert.equal(diagnostics, null);
-    assert.equal(connectSignal(target, 'size-changed', callback, 'Windows'), 42);
-    assert.equal(measureWork('Work', 'Window scan', callback), callback);
-});

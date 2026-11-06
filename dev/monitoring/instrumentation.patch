@@ -1,0 +1,348 @@
+--- a/config.js
++++ b/config.js
+@@ -1,4 +1,5 @@
+ import Gio from 'gi://Gio';
++import { connectSignal, disconnectSignal } from './diagnostics.js';
+ 
+ import { normalizeColor } from './colors.js';
+ 
+@@ -168,7 +169,7 @@
+     keys.forEach(key => settings.reset(key));
+ };
+ 
+-export const attachSettingListener = (settings, key, listener) => settings.connect(`changed::${key}`, listener);
++export const attachSettingListener = (settings, key, listener) => connectSignal(settings, `changed::${key}`, listener, 'Settings');
+ 
+ /**
+  * Attaches listeners for the requested settings (all runtime settings by default).
+@@ -204,5 +205,5 @@
+  * @param {number[]} handlerIds - The signal handler IDs returned when attaching
+  */
+ export const detachSettingsListeners = (settings, handlerIds) => {
+-    handlerIds.forEach(id => settings.disconnect(id));
+-};
++    handlerIds.forEach(id => disconnectSignal(settings, id));
++};
+--- a/extension.js
++++ b/extension.js
+@@ -12,6 +12,7 @@
+ } from './config.js';
+ import EventManager from './events/eventManager.js';
+ import TopBarMenu from './topBarMenu.js';
++import { diagnostics, measureWork } from './diagnostics.js';
+ import WorkspaceBackgrounds from './overview/workspaceBackground.js';
+ 
+ const SETTINGS_DEBOUNCE_MS = 500;
+@@ -41,11 +42,11 @@
+         if (this.#configureTimeoutId)
+             GLib.Source.remove(this.#configureTimeoutId);
+ 
+-        this.#configureTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SETTINGS_DEBOUNCE_MS, () => {
++        this.#configureTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SETTINGS_DEBOUNCE_MS, measureWork('Work', 'Apply settings', () => {
+             this.#configureTimeoutId = null;
+             this.#configure(this.#settings);
+             return GLib.SOURCE_REMOVE;
+-        });
++        }));
+     }
+ 
+     #configure(settings) {
+@@ -62,6 +63,7 @@
+     }
+ 
+     enable() {
++        diagnostics?.start();
+         this.#settings = this.getSettings();
+         this.#topBarMenuHandlerId = attachSettingListener(
+             this.#settings, TOP_BAR_STYLE_SETTINGS, () => this.#updateTopBarMenu()
+@@ -70,14 +72,14 @@
+         this.#gradient = new Gradient(isOverviewCleanupNeeded => this.#events?.setOverviewCleanupNeeded(isOverviewCleanupNeeded));
+         this.#overviewZoom = new WorkspaceBackgrounds();
+         this.#events = new EventManager({
+-            onWindowChanged: (state, isWorkspaceChanged) => this.#gradient.updateWindow(state, isWorkspaceChanged),
+-            onWindowProgress: state => this.#gradient.followWindow(state),
+-            onWorkspaceProgress: transition => this.#gradient.updateWorkspaceProgress(transition),
+-            onWorkspaceCompleted: state => this.#gradient.completeWorkspace(state),
+-            onOverviewChanged: state => this.#gradient.updateOverview(state),
+-            onOverviewZoomChanged: isEnabled => this.#overviewZoom.configure(isEnabled),
+-            onOverviewWorkspaceAdded: workspace => this.#overviewZoom.addWorkspace(workspace),
+-            onOverviewWorkspaceRemoved: workspace => this.#overviewZoom.removeWorkspace(workspace)
++            onWindowChanged: measureWork('Renderer', 'Window changed', (state, isWorkspaceChanged) => this.#gradient.updateWindow(state, isWorkspaceChanged)),
++            onWindowProgress: measureWork('Renderer', 'Window progress', state => this.#gradient.followWindow(state)),
++            onWorkspaceProgress: measureWork('Renderer', 'Workspace progress', transition => this.#gradient.updateWorkspaceProgress(transition)),
++            onWorkspaceCompleted: measureWork('Renderer', 'Workspace completed', state => this.#gradient.completeWorkspace(state)),
++            onOverviewChanged: measureWork('Renderer', 'Overview changed', state => this.#gradient.updateOverview(state)),
++            onOverviewZoomChanged: measureWork('Overview wallpaper', 'Configure correction', isEnabled => this.#overviewZoom.configure(isEnabled)),
++            onOverviewWorkspaceAdded: measureWork('Overview wallpaper', 'Add workspace', workspace => this.#overviewZoom.addWorkspace(workspace)),
++            onOverviewWorkspaceRemoved: measureWork('Overview wallpaper', 'Remove workspace', workspace => this.#overviewZoom.removeWorkspace(workspace))
+         });
+ 
+         this.#overviewZoomHandlerId = attachSettingListener(
+@@ -119,5 +121,6 @@
+ 
+         this.#settingsHandlerIds = null;
+         this.#settings = null;
++        diagnostics?.stop();
+     }
+ }
+--- a/prefs.js
++++ b/prefs.js
+@@ -5,6 +5,7 @@
+ import ContentShadowsPage from './settings/contentShadowsPage.js';
+ import BehaviorPage from './settings/behavioursPage.js';
+ import AboutPage from './settings/aboutPage.js';
++import ListenersPage from './debug/listenersPage.js';
+ 
+ import {
+     ExtensionPreferences,
+@@ -32,6 +33,7 @@
+ 
+         const aboutPage = new AboutPage(this.metadata, `${this.path}/assets/`);
+         window.add(aboutPage);
++        window.add(new ListenersPage(window));
+     }
+ }
+ 
+--- a/topBarMenu.js
++++ b/topBarMenu.js
+@@ -3,12 +3,14 @@
+ import { gettext } from 'resource:///org/gnome/shell/extensions/extension.js';
+ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
++import { connectSignal, disconnectSignal } from './diagnostics.js';
+ 
+ export default class TopBarMenu {
+     #panel;
+     #menu;
+     #manager;
+     #gesture;
++    #gestureSignals;
+ 
+     constructor(openPreferences) {
+         this.#panel = Main.panel;
+@@ -25,14 +27,13 @@
+             required_button: Clutter.BUTTON_SECONDARY,
+             recognize_on_press: true
+         });
+-        this.#gesture.connect('may-recognize', () => {
++        this.#gestureSignals = [connectSignal(this.#gesture, 'may-recognize', () => {
+             const event = this.#gesture.get_point_event(0);
+             return this.#isContextMenuAllowed(global.stage.get_event_actor(event));
+-        });
+-        this.#gesture.connect('recognize', () => {
++        }, 'Panel menu'), connectSignal(this.#gesture, 'recognize', () => {
+             const { x, y } = this.#gesture.get_coords_abs();
+             this.#openAtPosition(x, y);
+-        });
++        }, 'Panel menu')];
+         // Claim right-click before the panel's native window-drag gesture.
+         this.#panel.add_action_full('top-bar-style-settings', Clutter.EventPhase.CAPTURE, this.#gesture);
+     }
+@@ -52,6 +53,7 @@
+     }
+ 
+     destroy() {
++        this.#gestureSignals.forEach(id => disconnectSignal(this.#gesture, id));
+         this.#panel.remove_action(this.#gesture);
+         this.#menu.destroy();
+         this.#manager = null;
+--- a/events/signalConnections.js
++++ b/events/signalConnections.js
+@@ -1,6 +1,9 @@
++import { connectSignal, disconnectSignal } from '../diagnostics.js';
++
+ export default class SignalConnections {
+-    constructor() {
++    constructor(group = 'Events') {
+         this._targets = new Map();
++        this._group = group;
+     }
+ 
+     connect(target, signal, callback) {
+@@ -9,7 +12,7 @@
+ 
+         const signals = this._targets.get(target);
+         if (!signals.has(signal))
+-            signals.set(signal, target.connect(signal, callback));
++            signals.set(signal, connectSignal(target, signal, callback, this._group));
+ 
+         return signals.get(signal);
+     }
+@@ -20,7 +23,7 @@
+             return;
+ 
+         this._targets.delete(target);
+-        signals.forEach(id => target.disconnect(id));
++        signals.forEach(id => disconnectSignal(target, id));
+     }
+ 
+     disconnectAll() {
+--- a/events/observers/workspaceEvents.js
++++ b/events/observers/workspaceEvents.js
+@@ -45,7 +45,7 @@
+     constructor(workspaceManager, callback) {
+         this._workspaceManager = workspaceManager;
+         this._callback = callback;
+-        this._signals = new SignalConnections();
++        this._signals = new SignalConnections('Workspace');
+         this._transitionGroup = null;
+         this._swipeTracker = null;
+         this.isEnabled = false;
+--- a/events/observers/windowsEvents/windowEvents.js
++++ b/events/observers/windowsEvents/windowEvents.js
+@@ -4,6 +4,7 @@
+ import MaximizedWindows from './windowsDetectors/maximizedWindows.js';
+ import ProximityWindows from './windowsDetectors/proximityWindows.js';
+ import { STYLE_TRIGGER } from '../../../topBar/appearance.js';
++import { measureWork } from '../../../diagnostics.js';
+ 
+ // Ignore Desktop Icons NG's synthetic windows.
+ // FIXME: this causes the overview to close on login.
+@@ -35,7 +36,8 @@
+         this.display = display;
+         this.windowManager = windowManager;
+         this.workspaceManager = workspaceManager;
+-        this._signals = new SignalConnections();
++        this._signals = new SignalConnections('Windows');
++        this.getEffectStrengthForWorkspace = measureWork('Work', 'Window scan', this.getEffectStrengthForWorkspace.bind(this));
+         this._updateLaterId = null;
+         this.isEnabled = false;
+ 
+@@ -70,11 +72,11 @@
+             return;
+         if (this._updateLaterId)
+             return;
+-        this._updateLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
++        this._updateLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, measureWork('Work', 'Batched geometry refresh', () => {
+             this._updateLaterId = null;
+             this.updateState(false, null, true);
+             return false;
+-        });
++        }));
+     }
+ 
+     #cancelUpdate() {
+--- a/events/observers/overviewEvents/overviewLifecycle.js
++++ b/events/observers/overviewEvents/overviewLifecycle.js
+@@ -13,7 +13,7 @@
+     constructor(callback) {
+         this._callback = callback;
+         this._isHidden = !overview.visible;
+-        this._signals = new SignalConnections();
++        this._signals = new SignalConnections('Overview');
+         this._adjustment = null;
+     }
+ 
+--- a/events/observers/overviewEvents/workspacePreviewLifecycle.js
++++ b/events/observers/overviewEvents/workspacePreviewLifecycle.js
+@@ -6,7 +6,7 @@
+ export default class WorkspacePreviewLifecycle {
+     constructor(callback) {
+         this._callback = callback;
+-        this._signals = new SignalConnections();
++        this._signals = new SignalConnections('Overview previews');
+         this._views = new Set();
+         this._workspaces = new Map();
+         this._display = null;
+--- a/events/observers/overviewEvents/wallpaperZoomAvailability.js
++++ b/events/observers/overviewEvents/wallpaperZoomAvailability.js
+@@ -5,7 +5,7 @@
+ const companionUuid = 'overview-seamless-zoom@jguece';
+ 
+ export default class WallpaperZoomAvailability {
+-    #signals = new SignalConnections();
++    #signals = new SignalConnections('Wallpaper availability');
+     #requested = false;
+     #lastEnabled = false;
+     #hasError = false;
+--- a/topBar/backgroundBlend.js
++++ b/topBar/backgroundBlend.js
+@@ -9,6 +9,7 @@
+ 
+ import { BLENDING_CLASS, RESTORING_CLASS } from './stylesheet.js';
+ import { TRANSITION_DURATION_MS } from './transitionTimings.js';
++import { connectSignal, disconnectSignal, connectObject, disconnectObject } from '../diagnostics.js';
+ 
+ /** Owns background endpoints and their animation; callers commit the final panel style. */
+ export default class BackgroundBlend {
+@@ -35,7 +36,7 @@
+             allocateBackground(this.#sourceBackground);
+             allocateBackground(this.#targetBackground);
+         };
+-        panel.connectObject('notify::allocation', this.#allocateBackgrounds, this.#sourceBackground);
++        connectObject(panel, 'notify::allocation', this.#allocateBackgrounds, this.#sourceBackground, 'Rendering');
+         watchBackgroundStyleChanges(this.#sourceBackground, () => this.refreshAppearance());
+         watchBackgroundStyleChanges(this.#targetBackground, () => this.refreshAppearance());
+         panel.add_style_class_name(BLENDING_CLASS);
+@@ -85,16 +86,16 @@
+         this.#timelineDuration = duration;
+         timeline.set_progress_mode(Clutter.AnimationMode.EASE_OUT_QUAD);
+         this.#timelineSignals = [
+-            timeline.connect('new-frame', () => {
++            connectSignal(timeline, 'new-frame', () => {
+                 const { start: from, target } = this.#animation;
+                 this.#renderProgress(from + (target - from) * timeline.get_progress());
+-            }),
+-            timeline.connect('completed', () => {
++            }, 'Rendering'),
++            connectSignal(timeline, 'completed', () => {
+                 const { target, complete: onComplete } = this.#animation;
+                 this.#animation = null;
+                 this.#renderProgress(target);
+                 onComplete();
+-            })
++            }, 'Rendering')
+         ];
+     }
+ 
+@@ -124,12 +125,12 @@
+             return;
+ 
+         const previous = this.#sourceBackground;
+-        panel.disconnectObject(previous);
++        disconnectObject(panel, previous);
+         this.#sourceStyle = style;
+         this.#sourceBackground = createPanelBackground(style);
+         panel.insert_child_at_index(this.#sourceBackground, 0);
+         previous.destroy();
+-        panel.connectObject('notify::allocation', this.#allocateBackgrounds, this.#sourceBackground);
++        connectObject(panel, 'notify::allocation', this.#allocateBackgrounds, this.#sourceBackground, 'Rendering');
+         watchBackgroundStyleChanges(this.#sourceBackground, () => this.refreshAppearance());
+     }
+ 
+@@ -167,7 +168,7 @@
+         this.stopAnimation();
+         if (this.#timeline) {
+             for (const id of this.#timelineSignals)
+-                this.#timeline.disconnect(id);
++                disconnectSignal(this.#timeline, id);
+             this.#timeline = null;
+         }
+         if (!this.#sourceBackground)
+@@ -176,7 +177,7 @@
+         const target = this.#targetBackground;
+         this.#sourceBackground = null;
+         this.#targetBackground = null;
+-        panel.disconnectObject(source);
++        disconnectObject(panel, source);
+ 
+         // Commit native styling before dropping the layers to avoid a transparent-theme flash.
+         panel.add_style_class_name(RESTORING_CLASS);
+--- a/topBar/panelBackground.js
++++ b/topBar/panelBackground.js
+@@ -3,6 +3,7 @@
+ import Clutter from 'gi://Clutter';
+ 
+ import { calculateBlendOpacities } from './blendMath.js';
++import { connectObject } from '../diagnostics.js';
+ import {
+     GRADIENT_CLASSES,
+     BLENDING_CLASS, RESTORING_CLASS, NATIVE_DURATION_CLASSES, CSS_OVERVIEW_CLASS
+@@ -120,6 +121,6 @@
+ 
+ export const watchBackgroundStyleChanges = (actor, onChange, owner = actor) => {
+     // Groups can be blend targets too; the endpoint owns the whole tree's listeners.
+-    actor.connectObject('style-changed', onChange, owner);
++    connectObject(actor, 'style-changed', onChange, owner, 'Rendering');
+     actor.get_children().forEach(child => watchBackgroundStyleChanges(child, onChange, owner));
+ };

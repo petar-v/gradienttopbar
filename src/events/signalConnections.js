@@ -1,9 +1,6 @@
-import { connectSignal, disconnectSignal } from '../diagnostics.js';
-
 export default class SignalConnections {
-    constructor(group = 'Events') {
+    constructor() {
         this._targets = new Map();
-        this._group = group;
     }
 
     connect(target, signal, callback) {
@@ -12,7 +9,7 @@ export default class SignalConnections {
 
         const signals = this._targets.get(target);
         if (!signals.has(signal))
-            signals.set(signal, connectSignal(target, signal, callback, this._group));
+            signals.set(signal, target.connect(signal, callback));
 
         return signals.get(signal);
     }
@@ -23,7 +20,7 @@ export default class SignalConnections {
             return;
 
         this._targets.delete(target);
-        signals.forEach(id => disconnectSignal(target, id));
+        signals.forEach(id => target.disconnect(id));
     }
 
     disconnectAll() {

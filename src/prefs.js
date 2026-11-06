@@ -5,9 +5,6 @@ import GradientsPage from './settings/gradientsPage.js';
 import ContentShadowsPage from './settings/contentShadowsPage.js';
 import BehaviorPage from './settings/behavioursPage.js';
 import AboutPage from './settings/aboutPage.js';
-import { DEBUG } from './buildConfig.js';
-
-const ListenersPage = DEBUG ? (await import('./debug/listenersPage.js')).default : null;
 
 import {
     ExtensionPreferences,
@@ -35,8 +32,6 @@ class GradientTopBarPreferences extends ExtensionPreferences {
 
         const aboutPage = new AboutPage(this.metadata, `${this.path}/assets/`);
         window.add(aboutPage);
-        if (ListenersPage)
-            window.add(new ListenersPage(window));
     }
 }
 

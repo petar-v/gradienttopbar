@@ -161,9 +161,9 @@ The project includes several scripts to help with development:
 ### Building and Installation
 
 - `yarn validate-schemas`: Validates the GSettings schemas.
-- `yarn zip` / `yarn zip-extension`: Creates the release archive with diagnostics disabled and debug modules excluded.
+- `yarn zip` / `yarn zip-extension`: Packages the production source without monitoring code, imports, or build flags.
 - `yarn local-install`: Compiles schemas, zips the extension, installs it locally, and enables it (all-in-one command for testing changes).
-- `yarn zip:debug`: Creates a separate `gradienttopbar@pshow.org.debug.shell-extension.zip` with the Debug preferences tab.
+- `yarn zip:debug`: Applies the development monitoring overlay in a temporary directory and creates `gradienttopbar@pshow.org.debug.shell-extension.zip` with the Debug preferences tab.
 - `yarn local-install:debug`: Builds and installs the debug archive locally.
 
 ### Listener monitoring
@@ -174,7 +174,9 @@ The monitor groups actual Shell-side connections by subsystem and signal, with P
 
 **Collect callbacks** pauses counting without affecting the extension or its live connection inventory. Collection continues while you visit other preferences tabs; polling runs only while Debug is visible. **Reset statistics** clears totals and timings while retaining current connections and their On/Off badges. **Measure callback duration** adds monotonic clock reads and reports average, maximum and total time for timed calls only. Durations are inclusive synchronous JavaScript time: nested rows overlap, and native CSS/GPU work is outside the measurement. Diagnostic polling and owner-cleanup hooks are excluded from the counts. Snapshots contain no window titles or event arguments and stay on the local session bus; no counters are written to settings or disk.
 
-The tracked build flag defaults to false. Packaging copies sources into a temporary directory and generates the selected flag there. Release callbacks stay unwrapped, debug modules are absent from the release archive, and `yarn upload` rebuilds and selects the release archive explicitly. To remove monitoring locally, run `yarn local-install` and start a new login session.
+The `--debug` flag is a packaging option. `src/` contains only production code: no monitoring wrappers, helpers, flags, D-Bus interface or debug page. Monitoring lives in [dev/monitoring](dev/monitoring/README.md). Debug packaging copies `src/` into a temporary directory, applies `instrumentation.patch`, then copies the monitoring modules into that temporary source tree. It never patches the checkout. An incompatible patch stops the build instead of producing a partially instrumented extension.
+
+`yarn test` checks release archives for leaked monitoring files/references, then runs shared Node tests against both prepared source trees and monitoring tests against the debug tree. `yarn test:gtk` also tests both variants, using an isolated session bus and the memory settings backend. The release JavaScript is checked byte for byte against `src/`. `yarn upload` rebuilds and selects the release archive explicitly. To remove monitoring locally, run `yarn local-install` and start a new login session.
 
 ### Code Quality
 

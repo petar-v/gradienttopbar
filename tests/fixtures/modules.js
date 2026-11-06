@@ -4,6 +4,16 @@ import { URL } from 'node:url';
 
 const src = new URL('../../src/', import.meta.url);
 
+// Component tests replace the native D-Bus boundary; monitor tests inject real counters.
+const nativeDiagnostics = {
+    diagnostics: null,
+    connectSignal: (target, signal, callback) => target.connect(signal, callback),
+    disconnectSignal: (target, id) => target.disconnect(id),
+    connectObject: (target, signal, callback, owner) => target.connectObject(signal, callback, owner),
+    disconnectObject: (target, owner) => target.disconnectObject(owner),
+    measureWork: (_group, _name, callback) => callback
+};
+
 export const createModuleLoader = (stubs = {}, globals = {}) => {
     const context = createContext(globals);
     runInContext(`
@@ -14,7 +24,8 @@ export const createModuleLoader = (stubs = {}, globals = {}) => {
     const get = url => {
         if (!modules.has(url)) {
             modules.set(url, (async () => {
-                const values = stubs[url] ?? stubs[url.replace(src.href, '')];
+                const relative = url.replace(src.href, '');
+                const values = stubs[url] ?? stubs[relative] ?? (relative === 'diagnostics.js' ? nativeDiagnostics : null);
                 if (values) {
                     return new SyntheticModule(Object.keys(values), function () {
                         for (const [key, value] of Object.entries(values))

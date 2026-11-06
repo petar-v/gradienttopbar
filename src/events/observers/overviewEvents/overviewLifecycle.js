@@ -13,7 +13,7 @@ export default class OverviewLifecycle {
     constructor(callback) {
         this._callback = callback;
         this._isHidden = !overview.visible;
-        this._signals = new SignalConnections('Overview');
+        this._signals = new SignalConnections();
         this._adjustment = null;
     }
 

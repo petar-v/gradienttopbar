@@ -1,5 +1,4 @@
 import Gio from 'gi://Gio';
-import { connectSignal, disconnectSignal } from './diagnostics.js';
 
 import { normalizeColor } from './colors.js';
 
@@ -169,7 +168,7 @@ export const resetSettings = (settings, keys) => {
     keys.forEach(key => settings.reset(key));
 };
 
-export const attachSettingListener = (settings, key, listener) => connectSignal(settings, `changed::${key}`, listener, 'Settings');
+export const attachSettingListener = (settings, key, listener) => settings.connect(`changed::${key}`, listener);
 
 /**
  * Attaches listeners for the requested settings (all runtime settings by default).
@@ -205,5 +204,5 @@ export const attachSettingsListeners = (settings, listener, keys = [
  * @param {number[]} handlerIds - The signal handler IDs returned when attaching
  */
 export const detachSettingsListeners = (settings, handlerIds) => {
-    handlerIds.forEach(id => disconnectSignal(settings, id));
+    handlerIds.forEach(id => settings.disconnect(id));
 };
