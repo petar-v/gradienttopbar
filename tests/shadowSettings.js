@@ -241,12 +241,18 @@ test('menu switch binds both ways and remains usable when interaction is disable
 });
 
 const sections = [
+    ['Reset top bar settings?', 'behavior', {
+        'top-bar-style-settings': new GLib.Variant('b', true)
+    }],
+    ['Reset overview wallpaper jump fix?', 'behavior', {
+        'overview-smooth-zoom': new GLib.Variant('b', true)
+    }],
     ['Reset main gradient?', 'gradients', {
         colors: new GLib.Variant('as', ['rgb(255,0,0)', 'rgb(0,0,255)']),
         'gradient-direction': new GLib.Variant('s', 'horizontal')
     }],
     ['Reset window interaction?', 'gradients', {
-        'maximized-behavior': new GLib.Variant('s', 'keep-theme'),
+        'maximized-behavior': new GLib.Variant('s', 'apply-style'),
         'maximized-colors': new GLib.Variant('as', ['rgb(0,128,0)', 'rgb(255,255,255)']),
         'maximized-gradient-direction': new GLib.Variant('s', 'vertical')
     }],
@@ -270,6 +276,11 @@ for (const [title, pageName, changes] of sections) {
         sectionsWindow.add(behavior);
         sectionsWindow.present();
         const root = pageName === 'gradients' ? gradients : behavior;
+        settings.set_boolean('top-bar-style-settings', true);
+        settings.set_boolean('overview-smooth-zoom', true);
+        settings.set_boolean('overview-transition', true);
+        settings.set_boolean('content-shadows', true);
+        settings.set_string('overview-behavior', 'apply-style');
         for (const [key, value] of Object.entries(changes))
             settings.set_value(key, value);
         const before = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));

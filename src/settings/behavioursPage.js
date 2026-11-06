@@ -44,7 +44,16 @@ class Behavior extends Adw.PreferencesPage {
             name: 'Behavior'
         });
 
-        const panelGroup = new Adw.PreferencesGroup({ title: gettext('Top bar') });
+        const panelGroup = new Adw.PreferencesGroup({
+            title: gettext('Top bar'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset top bar settings?'),
+                gettext('Restore the default top bar settings menu preference.'),
+                settings,
+                [TOP_BAR_STYLE_SETTINGS]
+            )
+        });
         const styleSettingsRow = new Adw.SwitchRow({
             title: gettext('Top Bar Style Settings'),
             subtitle: gettext('Show settings when right-clicking empty space on the top bar. Replaces right-click window dragging; left-click dragging remains available.')
@@ -140,7 +149,16 @@ class Behavior extends Adw.PreferencesPage {
         transitionsGroup.add(workspaceTransitionRow);
         this.add(transitionsGroup);
 
-        const overviewZoomGroup = new Adw.PreferencesGroup({ title: gettext('Overview wallpaper') });
+        const overviewZoomGroup = new Adw.PreferencesGroup({
+            title: gettext('Overview Wallpaper Jump Fix'),
+            header_suffix: createResetButton(
+                window,
+                gettext('Reset overview wallpaper jump fix?'),
+                gettext('Restore the default overview wallpaper zoom preference.'),
+                settings,
+                [OVERVIEW_SMOOTH_ZOOM]
+            )
+        });
         const overviewZoomRow = new Adw.SwitchRow({
             title: gettext('Smooth overview wallpaper zoom'),
             subtitle: gettext('Animate the wallpaper behind the top bar. <a href="https://extensions.gnome.org/extension/10794/overview-seamless-zoom/">Overview Seamless Zoom</a> takes precedence when enabled.'),

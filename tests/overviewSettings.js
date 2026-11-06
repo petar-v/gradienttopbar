@@ -51,7 +51,7 @@ test('overview defaults and transition controls remain independent', t => {
 
 test('smooth overview wallpaper zoom defaults off and binds independently', t => {
     const { settings, behaviorPage } = createOverviewFixture(t);
-    const group = find(behaviorPage, widget => widget instanceof Adw.PreferencesGroup && widget.title === 'Overview wallpaper');
+    const group = find(behaviorPage, widget => widget instanceof Adw.PreferencesGroup && widget.title === 'Overview Wallpaper Jump Fix');
     assert(group, 'Wallpaper zoom has its own section');
     const row = find(group, widget => widget instanceof Adw.SwitchRow && widget.title === 'Smooth overview wallpaper zoom');
     assert(row && !row.active && !settings.get_boolean('overview-smooth-zoom'), 'Wallpaper zoom defaults off');
