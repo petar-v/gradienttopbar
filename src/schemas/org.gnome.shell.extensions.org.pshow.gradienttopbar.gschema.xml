@@ -30,6 +30,11 @@
       <summary>Blend with overview gestures</summary>
       <description>Follow overview gesture and animation progress when changing the panel background.</description>
     </key>
+    <key name="overview-smooth-zoom" type="b">
+      <default>false</default>
+      <summary>Smooth overview wallpaper zoom</summary>
+      <description>Animate the wallpaper behind the top bar. Overview Seamless Zoom takes precedence when enabled.</description>
+    </key>
     <key name="workspace-gesture-blending" type="b">
       <default>true</default>
       <summary>Blend with workspace gestures</summary>

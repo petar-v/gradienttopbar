@@ -15,6 +15,7 @@ import {
     PROXIMITY_DISTANCE,
     PROXIMITY_TRANSITION,
     OVERVIEW_TRANSITION,
+    OVERVIEW_SMOOTH_ZOOM,
     WORKSPACE_GESTURE_BLENDING,
     COLORS,
     GRADIENT_DIRECTION_KEY,
@@ -138,6 +139,16 @@ class Behavior extends Adw.PreferencesPage {
         bindSetting(settings, WORKSPACE_GESTURE_BLENDING, workspaceTransitionRow, 'active');
         transitionsGroup.add(workspaceTransitionRow);
         this.add(transitionsGroup);
+
+        const overviewZoomGroup = new Adw.PreferencesGroup({ title: gettext('Overview wallpaper') });
+        const overviewZoomRow = new Adw.SwitchRow({
+            title: gettext('Smooth overview wallpaper zoom'),
+            subtitle: gettext('Animate the wallpaper behind the top bar. <a href="https://extensions.gnome.org/extension/10794/overview-seamless-zoom/">Overview Seamless Zoom</a> takes precedence when enabled.'),
+            use_markup: true
+        });
+        bindSetting(settings, OVERVIEW_SMOOTH_ZOOM, overviewZoomRow, 'active');
+        overviewZoomGroup.add(overviewZoomRow);
+        this.add(overviewZoomGroup);
 
         const onSettingsChanged = (s, key) => {
             const config = getConfig(s);

@@ -164,7 +164,10 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
     };
     const stubs = {
         'topBar/transitionTimings.js': transitionTimings && { ...defaultTransitionTimings, ...transitionTimings },
-        'resource:///org/gnome/shell/ui/main.js': { overview, panel },
+        'resource:///org/gnome/shell/ui/main.js': { overview, panel, extensionManager: { lookup: () => null } },
+        'resource:///org/gnome/shell/misc/extensionUtils.js': {
+            ExtensionState: { ACTIVE: 1, INACTIVE: 2, ERROR: 3, OUT_OF_DATE: 4, INITIALIZED: 6, DEACTIVATING: 7, ACTIVATING: 8, UNINSTALLED: 99 }
+        },
         'resource:///org/gnome/shell/extensions/extension.js': { Extension: class {} },
         'gi://GLib': {
             default: {
@@ -198,6 +201,7 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
         },
         'config.js': {
             TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
+            OVERVIEW_SMOOTH_ZOOM: 'overview-smooth-zoom',
             isTopBarSettingsMenuEnabled: settings => settings.get_boolean('top-bar-style-settings'),
             attachSettingListener: (settings, key, callback) => settings.connect(`changed::${key}`, callback),
             getConfig: settings => ({ ...settings }),
@@ -205,8 +209,10 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
             detachSettingsListeners: (settings, ids) => ids.forEach(id => settings.disconnect(id))
         },
         'topBarMenu.js': { default: class {} },
+        'overview/workspaceBackground.js': { default: class { configure() {} destroy() {} } },
         'events/observers/windowsEvents/windowEvents.js': { default: WindowEvents },
-        'events/observers/workspaceEvents.js': { default: WorkspaceEvents }
+        'events/observers/workspaceEvents.js': { default: WorkspaceEvents },
+        'events/observers/overviewEvents/workspacePreviewLifecycle.js': { default: class { configure() {} destroy() {} } }
     };
     const load = createModuleLoader(stubs, { get_workspace_manager: () => ({}) });
     const settings = {

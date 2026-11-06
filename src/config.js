@@ -22,6 +22,7 @@ export const SHADOW_OFFSET_Y = 'shadow-offset-y';
 export const ALTERNATE_COLORS_KEY = 'maximized-colors';
 export const OVERVIEW_BEHAVIOR_KEY = 'overview-behavior';
 export const OVERVIEW_TRANSITION = 'overview-transition';
+export const OVERVIEW_SMOOTH_ZOOM = 'overview-smooth-zoom';
 export const WORKSPACE_GESTURE_BLENDING = 'workspace-gesture-blending';
 export const OVERVIEW_COLORS = 'overview-colors';
 export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';

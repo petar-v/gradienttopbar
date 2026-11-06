@@ -6,7 +6,7 @@ test('configuration exposes lifecycle operations and returns one final snapshot'
     const fixture = await createEventsFixture(t);
     const { windowStates, overviewStates, workspaceA, EventManager, config } = fixture;
     assert.deepEqual(Object.getOwnPropertyNames(EventManager.prototype).sort(),
-        ['configure', 'constructor', 'destroy', 'setOverviewCleanupNeeded'], 'Only lifecycle operations and the narrow cleanup requirement are public');
+        ['configure', 'configureOverviewZoom', 'constructor', 'destroy', 'setOverviewCleanupNeeded'], 'Only lifecycle operations and the narrow cleanup requirement are public');
     const events = fixture.createEvents();
     assert.equal(typeof events.configure, 'function', 'EventManager configures its observers');
     const initial = events.configure(config);
