@@ -1,7 +1,9 @@
 import WindowEvents from './observers/windowsEvents/windowEvents.js';
 import WorkspaceEvents from './observers/workspaceEvents.js';
-import OverviewEvents from './observers/overviewEvents.js';
-import { getObservationNeeds, isProgressiveProximity, isShellOverviewPassive } from '../gradient/appearance.js';
+import OverviewLifecycle from './observers/overviewEvents/overviewLifecycle.js';
+import WallpaperZoomAvailability from './observers/overviewEvents/wallpaperZoomAvailability.js';
+import WorkspacePreviewLifecycle from './observers/overviewEvents/workspacePreviewLifecycle.js';
+import { getObservationNeeds, isProgressiveProximity, isShellOverviewPassive } from '../topBar/appearance.js';
 
 const isWindowStateEqual = (state1, state2) => {
     if ([state1, state2].includes(null))
@@ -20,6 +22,12 @@ export default class EventManager {
     #windows;
     #workspaces;
     #overview;
+    #overviewZoom;
+    #overviewWorkspaces;
+    #isOverviewZoomRequested = false;
+    #isOverviewZoomFailed = false;
+    #isOverviewZoomPending = false;
+    #overviewAppearanceSignals = [];
     #lastWindowState;
     #isLastWindowUpdateImmediate;
     #isOverviewCleanupNeeded = false;
@@ -32,7 +40,10 @@ export default class EventManager {
         onWindowProgress,
         onWorkspaceProgress,
         onWorkspaceCompleted,
-        onOverviewChanged
+        onOverviewChanged,
+        onOverviewZoomChanged = () => {},
+        onOverviewWorkspaceAdded = () => {},
+        onOverviewWorkspaceRemoved = () => {}
     }) {
         this._onWindowChanged = onWindowChanged;
         this._onWindowProgress = onWindowProgress;
@@ -51,7 +62,39 @@ export default class EventManager {
                 this.#emitWindowState(state, isForced, isGeometryChanged);
         });
         this.#workspaces = new WorkspaceEvents(workspaceManager, state => this.#handleWorkspaceEvent(state));
-        this.#overview = new OverviewEvents(signal => this.#handleOverviewEvent(signal));
+        this.#overview = new OverviewLifecycle(signal => this.#handleOverviewEvent(signal));
+        this.#overviewWorkspaces = new WorkspacePreviewLifecycle(({ type, workspace }) => {
+            if (type === 'added') {
+                if (!this.#isOverviewZoomFailed && onOverviewWorkspaceAdded(workspace) === false)
+                    this.#isOverviewZoomFailed = true;
+            } else {
+                onOverviewWorkspaceRemoved(workspace);
+            }
+        });
+        this.#overviewZoom = new WallpaperZoomAvailability(({ isEnabled, isPending }) => {
+            this.#isOverviewZoomPending = isPending;
+            if (isEnabled && this.#isOverviewZoomFailed) {
+                this.#configureOverviewObserver();
+                return;
+            }
+            if (isEnabled !== this.#isOverviewZoomRequested) {
+                this.#isOverviewZoomRequested = isEnabled;
+                if (!isEnabled)
+                    this.#overviewWorkspaces.configure(false);
+                if (onOverviewZoomChanged(isEnabled) === false)
+                    this.#isOverviewZoomFailed = true;
+
+                if (isEnabled && !this.#isOverviewZoomFailed)
+                    this.#overviewWorkspaces.configure(true);
+            }
+            this.#configureOverviewObserver();
+        }, () => this.#overview.isClosed);
+    }
+
+    configureOverviewZoom(isEnabled) {
+        if (!isEnabled)
+            this.#isOverviewZoomFailed = false;
+        this.#overviewZoom.configure(isEnabled);
     }
 
     configure(config) {
@@ -93,7 +136,7 @@ export default class EventManager {
         });
     }
 
-    #configureOverviewObserver(config, needs) {
+    #configureOverviewObserver(config = this.#config, needs = config ? getObservationNeeds(config) : {}) {
         this.#isOverviewLifecycleNeeded = needs.isOverviewObservationNeeded && !isShellOverviewPassive(config);
         let signals = [];
         if (this.#isOverviewLifecycleNeeded) {
@@ -103,7 +146,10 @@ export default class EventManager {
         }
         if (needs.isOverviewObservationNeeded && this.#isOverviewCleanupNeeded)
             signals = ['showing', 'hiding', 'hidden'];
-        this.#overview.configure({ signals, isFollowingProgress: needs.isOverviewProgressNeeded });
+        this.#overviewAppearanceSignals = signals;
+        if (this.#isOverviewZoomPending && !signals.includes('hidden'))
+            signals = [...signals, 'hidden'];
+        this.#overview.configure({ signals, isFollowingProgress: needs.isOverviewProgressNeeded ?? false });
     }
 
     #emitWindowState(state, isForced = false, isGeometryChanged = false) {
@@ -150,17 +196,24 @@ export default class EventManager {
     }
 
     #handleOverviewEvent(signal) {
+        const isAppearanceEvent = signal === 'progress' || this.#overviewAppearanceSignals.includes(signal);
+        if (signal === 'hidden')
+            this.#overviewZoom.updateState();
+        if (!isAppearanceEvent)
+            return;
         // Overview takes ownership of rendering until it is fully hidden again.
         this.#workspaces.stopObservingWorkspaceSwipe();
         const { progress, isHidden, isTargetVisible } = this.#overview;
         if (signal === 'hiding' || signal === 'hidden')
             this.#lastWindowState = this.#windows.getCurrentState();
         this._onOverviewChanged({ progress, isHidden, isTargetVisible, effectStrength: this.#lastWindowState.effectStrength });
-        if (isHidden && !this.#isOverviewLifecycleNeeded && !this.#isOverviewCleanupNeeded)
+        if (isHidden && !this.#isOverviewLifecycleNeeded && !this.#isOverviewCleanupNeeded && !this.#isOverviewZoomPending)
             this.#overview.configure({});
     }
 
     destroy() {
+        this.#overviewZoom.destroy();
+        this.#overviewWorkspaces.destroy();
         this.#overview.destroy();
         this.#workspaces.disable();
         this.#windows.disable();

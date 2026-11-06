@@ -25,7 +25,7 @@ import {
 import { createGradientEditor } from './components/gradientEditor.js';
 import { createResetButton } from './components/resetButton.js';
 import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
-import { APPEARANCE_BEHAVIOR, GRADIENT_DIRECTION } from '../gradient/appearance.js';
+import { APPEARANCE_BEHAVIOR, GRADIENT_DIRECTION } from '../topBar/appearance.js';
 
 class Gradients extends Adw.PreferencesPage {
     _init(window, settings) {

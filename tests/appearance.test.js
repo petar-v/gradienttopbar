@@ -1,7 +1,7 @@
 // Run with: node tests/appearance.test.js
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { APPEARANCE_STATE, getAppearance } from '../src/gradient/appearance.js';
+import { APPEARANCE_STATE, getAppearance } from '../src/topBar/appearance.js';
 
 const main = { colors: { start: 'main-start', end: 'main-end' }, direction: 'vertical' };
 const alternate = { colors: { start: 'alternate-start', end: 'alternate-end' }, direction: 'horizontal' };

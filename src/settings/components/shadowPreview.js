@@ -2,7 +2,7 @@ import Gtk from 'gi://Gtk';
 import GLib from 'gi://GLib';
 
 import { getConfig } from '../../config.js';
-import { APPEARANCE_STATE, STYLE_TRIGGER, getAppearance } from '../../gradient/appearance.js';
+import { APPEARANCE_STATE, STYLE_TRIGGER, getAppearance } from '../../topBar/appearance.js';
 import { createGradientPreview } from './gradientEditor.js';
 import { gettext } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 

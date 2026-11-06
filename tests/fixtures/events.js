@@ -54,6 +54,20 @@ export const createEventsFixture = async t => {
         is_screen_sized() { return false; }
         get_maximize_flags() { return 0; }
     }
+    class OverviewActor extends SignalTarget {
+        children = [];
+        get_children() { return this.children; }
+        add_child(child) { this.children.push(child); this.emit('child-added', child); }
+        destroy() {
+            this.emit('destroy');
+            this.children.forEach(child => child.destroy());
+            this.handlers.clear();
+        }
+    }
+    class OverviewWorkspace extends OverviewActor {}
+    class OverviewWorkspaceView extends OverviewActor {
+        constructor(monitorIndex = 0) { super(); this._monitorIndex = monitorIndex; }
+    }
     const first = new Window(1, 52);
     const second = new Window(2, 32);
     const listWindows = workspace => {
@@ -74,18 +88,27 @@ export const createEventsFixture = async t => {
     const swipeTracker = new SignalTarget();
     const controller = { _swipeTracker: swipeTracker, _switchData: {} };
     const overview = new SignalTarget();
-    Object.assign(overview, { visible: false, visibleTarget: false });
+    Object.assign(overview, { visible: false, visibleTarget: false, _shown: false });
+    const extensionManager = new SignalTarget();
+    const extensions = new Map();
+    extensionManager.lookup = uuid => extensions.get(uuid);
+    const ExtensionState = { ACTIVE: 1, INACTIVE: 2, ERROR: 3, OUT_OF_DATE: 4, INITIALIZED: 6, DEACTIVATING: 7, ACTIVATING: 8, UNINSTALLED: 99 };
     const adjustment = new SignalTarget();
     adjustment.value = 0;
-    overview._overview = { controls: { _stateAdjustment: adjustment } };
+    const overviewDisplay = new OverviewActor();
+    overview._overview = { controls: { _stateAdjustment: adjustment, _workspacesDisplay: overviewDisplay } };
     const screenShield = new SignalTarget();
     const layoutManager = new SignalTarget();
     layoutManager.primaryMonitor = { y: 0 };
+    layoutManager.primaryIndex = 0;
     const stubs = {
         'resource:///org/gnome/shell/ui/main.js': {
-            overview, screenShield, layoutManager,
+            overview, screenShield, layoutManager, extensionManager,
             panel: { get_height: () => 32 }, wm: { _workspaceAnimation: controller }
         },
+        'resource:///org/gnome/shell/misc/extensionUtils.js': { ExtensionState },
+        'resource:///org/gnome/shell/ui/workspace.js': { Workspace: OverviewWorkspace },
+        'resource:///org/gnome/shell/ui/workspacesView.js': { WorkspacesView: OverviewWorkspaceView },
         'gi://Meta': { default: { WindowType: { DESKTOP: 1 }, MaximizeFlags: { VERTICAL: 2, BOTH: 3 }, LaterType: { BEFORE_REDRAW: 4 } } }
     };
 
@@ -125,7 +148,8 @@ export const createEventsFixture = async t => {
         first, second, workspaceA, workspaceB, state, shell, workspaceManager, swipeTracker,
         controller, overview, adjustment, screenShield, layoutManager, windowStates, overviewStates,
         EventManager, WindowEvents, SignalTarget, Window, startSwipe,
-        reads, pending, flush, targets,
+        reads, pending, flush, targets, extensionManager, extensions, ExtensionState,
+        overviewDisplay, OverviewWorkspace, OverviewWorkspaceView,
         config: {
             styleTrigger: 'proximity', windowBehavior: 'apply-style', proximityDistance: 40, proximityTransition: true,
             overviewBehavior: 'apply-style', overviewTransition: true, workspaceGestureBlending: true,
@@ -140,7 +164,10 @@ export const createEventsFixture = async t => {
             onWindowProgress: snapshot => { windowStates.push(snapshot); callbacks.onWindowProgress?.(snapshot); },
             onWorkspaceProgress: snapshot => { windowStates.push({ ...snapshot, type: 'progress' }); callbacks.onWorkspaceProgress?.(snapshot); },
             onWorkspaceCompleted: snapshot => { windowStates.push({ ...snapshot, type: 'complete' }); callbacks.onWorkspaceCompleted?.(snapshot); },
-            onOverviewChanged: snapshot => { overviewStates.push(snapshot); callbacks.onOverviewChanged?.(snapshot); }
+            onOverviewChanged: snapshot => { overviewStates.push(snapshot); callbacks.onOverviewChanged?.(snapshot); },
+            onOverviewZoomChanged: callbacks.onOverviewZoomChanged,
+            onOverviewWorkspaceAdded: callbacks.onOverviewWorkspaceAdded,
+            onOverviewWorkspaceRemoved: callbacks.onOverviewWorkspaceRemoved
         }), 'destroy'),
         createObserver: (targetDisplay, manager, workspaces) => track(new WindowEvents(targetDisplay, manager, workspaces), 'disable'),
         createConnections: () => track(new SignalConnections(), 'disconnectAll')

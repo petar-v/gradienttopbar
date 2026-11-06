@@ -91,5 +91,22 @@ test('scoped settings subscriptions detach independently and runtime subscriptio
     const allIds = config.attachSettingsListeners(scopedSettings, state.onChange);
     assert.equal(allIds.length, 18, 'Runtime subscriptions still cover all rendering and behavior settings');
     assert([...subscriptions.values()].some(({ signal }) => signal === 'changed::workspace-gesture-blending'), 'Workspace blending changes reconfigure runtime');
+    assert(![...subscriptions.values()].some(({ signal }) => signal === 'changed::overview-smooth-zoom'), 'Zoom changes have an immediate independent subscription');
     config.detachSettingsListeners(scopedSettings, allIds);
+});
+
+test('overview zoom applies initially and immediately without gradient reconfiguration and cleans up', async t => {
+    const { extension, settings, state, pending } = await createExtensionFixture(t);
+    settings.smoothZoom = true;
+    extension.enable();
+    assert.deepEqual(state.zoomConfigured, [true]);
+    settings.smoothZoom = false;
+    state.onZoomChange();
+    assert.deepEqual(state.zoomConfigured, [true, false]);
+    assert.equal(state.configurations.length, 1);
+    assert.equal(pending.size, 0);
+    extension.disable();
+    assert.equal(state.onZoomChange, null);
+    assert.equal(state.eventsDestroyed, 1);
+    assert.equal(state.zoomDestroyed, 1);
 });

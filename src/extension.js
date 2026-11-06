@@ -1,16 +1,18 @@
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import GLib from 'gi://GLib';
-import Gradient from './gradient/gradient.js';
+import Gradient from './topBar/gradient.js';
 import {
     getConfig,
     isTopBarSettingsMenuEnabled,
     attachSettingListener,
     TOP_BAR_STYLE_SETTINGS,
+    OVERVIEW_SMOOTH_ZOOM,
     attachSettingsListeners,
     detachSettingsListeners
 } from './config.js';
 import EventManager from './events/eventManager.js';
 import TopBarMenu from './topBarMenu.js';
+import WorkspaceBackgrounds from './overview/workspaceBackground.js';
 
 const SETTINGS_DEBOUNCE_MS = 500;
 
@@ -21,6 +23,8 @@ export default class GradientTopBar extends Extension {
     #topBarMenuHandlerId;
     #settingsHandlerIds;
     #events;
+    #overviewZoom;
+    #overviewZoomHandlerId;
     #gradient;
     #config;
 
@@ -64,14 +68,23 @@ export default class GradientTopBar extends Extension {
         );
         this.#updateTopBarMenu();
         this.#gradient = new Gradient(isOverviewCleanupNeeded => this.#events?.setOverviewCleanupNeeded(isOverviewCleanupNeeded));
+        this.#overviewZoom = new WorkspaceBackgrounds();
         this.#events = new EventManager({
             onWindowChanged: (state, isWorkspaceChanged) => this.#gradient.updateWindow(state, isWorkspaceChanged),
             onWindowProgress: state => this.#gradient.followWindow(state),
             onWorkspaceProgress: transition => this.#gradient.updateWorkspaceProgress(transition),
             onWorkspaceCompleted: state => this.#gradient.completeWorkspace(state),
-            onOverviewChanged: state => this.#gradient.updateOverview(state)
+            onOverviewChanged: state => this.#gradient.updateOverview(state),
+            onOverviewZoomChanged: isEnabled => this.#overviewZoom.configure(isEnabled),
+            onOverviewWorkspaceAdded: workspace => this.#overviewZoom.addWorkspace(workspace),
+            onOverviewWorkspaceRemoved: workspace => this.#overviewZoom.removeWorkspace(workspace)
         });
 
+        this.#overviewZoomHandlerId = attachSettingListener(
+            this.#settings, OVERVIEW_SMOOTH_ZOOM,
+            () => this.#events.configureOverviewZoom(this.#settings.get_boolean(OVERVIEW_SMOOTH_ZOOM))
+        );
+        this.#events.configureOverviewZoom(this.#settings.get_boolean(OVERVIEW_SMOOTH_ZOOM));
         this.#settingsHandlerIds = attachSettingsListeners(
             this.#settings,
             this.#scheduleConfigure.bind(this)
@@ -80,8 +93,12 @@ export default class GradientTopBar extends Extension {
     }
 
     disable() {
+        detachSettingsListeners(this.#settings, [this.#overviewZoomHandlerId]);
+        this.#overviewZoomHandlerId = null;
         this.#events.destroy();
         this.#events = null;
+        this.#overviewZoom.destroy();
+        this.#overviewZoom = null;
 
         this.#gradient.destroy();
         this.#gradient = null;

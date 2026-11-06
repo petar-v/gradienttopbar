@@ -1,7 +1,7 @@
 // Run with: node tests/blendMath.test.js
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { calculateBlendOpacities } from '../src/gradient/blendMath.js';
+import { calculateBlendOpacities } from '../src/topBar/blendMath.js';
 
 for (const [a, b] of [[1, 1], [0.1, 0.6], [0, 0], [1, 0]]) {
     for (const p of [0, 0.25, 0.5, 0.75, 1]) {

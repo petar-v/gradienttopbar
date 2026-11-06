@@ -49,6 +49,26 @@ test('overview defaults and transition controls remain independent', t => {
     assert(!proximityBlend.is_sensitive(), 'Window blending is unavailable with maximized interaction');
 });
 
+test('smooth overview wallpaper zoom defaults off and binds independently', t => {
+    const { settings, behaviorPage } = createOverviewFixture(t);
+    const group = find(behaviorPage, widget => widget instanceof Adw.PreferencesGroup && widget.title === 'Overview Wallpaper Jump Fix');
+    assert(group, 'Wallpaper zoom has its own section');
+    const row = find(group, widget => widget instanceof Adw.SwitchRow && widget.title === 'Smooth overview wallpaper zoom');
+    assert(row && !row.active && !settings.get_boolean('overview-smooth-zoom'), 'Wallpaper zoom defaults off');
+    const description = find(row, widget => widget instanceof Gtk.Label && widget.get_label().includes('Overview Seamless Zoom'));
+    assert(description?.use_markup && description.get_label().includes('<a href="https://extensions.gnome.org/extension/10794/overview-seamless-zoom/">Overview Seamless Zoom</a>'), 'The companion name links to its extension page');
+    assert(!description.get_text().includes('<a '), 'The description renders the link as markup');
+    assert(row.is_sensitive(), 'Do nothing leaves wallpaper zoom usable');
+    row.active = true;
+    assert(settings.get_boolean('overview-smooth-zoom'), 'The row writes its setting');
+    for (const blend of [false, true]) {
+        settings.set_boolean('overview-transition', blend);
+        assert(row.active && row.is_sensitive(), 'Wallpaper zoom remains independent of overview blending');
+    }
+    settings.set_boolean('overview-smooth-zoom', false);
+    assert(!row.active, 'External settings refresh the row');
+});
+
 test('workspace gesture blending defaults, binds independently and resets with transitions', t => {
     const { settings, window, behaviorPage } = createOverviewFixture(t);
     const row = find(behaviorPage, widget => widget instanceof Adw.SwitchRow && widget.title === 'Blend with workspace gestures');
@@ -75,6 +95,7 @@ test('workspace gesture blending defaults, binds independently and resets with t
     settings.set_boolean('workspace-gesture-blending', false);
     settings.set_boolean('overview-transition', true);
     settings.set_boolean('proximity-transition', false);
+    settings.set_boolean('overview-smooth-zoom', true);
     const before = new Map(settings.settings_schema.list_keys().map(key => [key, settings.get_value(key)]));
     const reset = find(behaviorPage, widget => widget instanceof Gtk.Button && widget.tooltip_text === 'Reset transitions?');
     reset.emit('clicked');
@@ -221,6 +242,7 @@ test('overview reset requires confirmation and resets only its own appearance', 
     settings.set_string('overview-behavior', 'apply-style');
     settings.set_strv('overview-colors', ['rgba(255,0,0,0.4)', 'rgba(0,0,255,0.2)']);
     settings.set_string('overview-gradient-direction', 'horizontal');
+    settings.set_boolean('overview-smooth-zoom', true);
     const before = new Map(schema.list_keys().map(key => [key, settings.get_value(key)]));
     const reset = find(page, widget => widget instanceof Gtk.Button && widget.tooltip_text === 'Reset overview appearance?');
     assert(reset, 'Overview has the same reset affordance as other appearance groups');
@@ -236,7 +258,7 @@ test('overview reset requires confirmation and resets only its own appearance', 
     dialog.force_close();
     assert(settings.get_string('overview-behavior') === 'do-nothing', 'Reset restores do nothing');
     for (const [key, value] of before) {
-        const expected = key.startsWith('overview-') && key !== 'overview-transition' ? settings.get_default_value(key) : value;
+        const expected = ['overview-behavior', 'overview-colors', 'overview-gradient-direction'].includes(key) ? settings.get_default_value(key) : value;
         assert(settings.get_value(key).equal(expected), `Overview reset changed the wrong setting: ${key}`);
     }
 });

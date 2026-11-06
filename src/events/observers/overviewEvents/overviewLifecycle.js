@@ -1,5 +1,5 @@
 import { overview } from 'resource:///org/gnome/shell/ui/main.js';
-import SignalConnections from '../signalConnections.js';
+import SignalConnections from '../../signalConnections.js';
 
 // Shell has no public overview-progress API. Without this adjustment,
 // keep the existing timed CSS transition instead of guessing progress.
@@ -9,7 +9,7 @@ const getOverviewProgressAdjustment = shellOverview => {
         ? adjustment : null;
 };
 
-export default class OverviewEvents {
+export default class OverviewLifecycle {
     constructor(callback) {
         this._callback = callback;
         this._isHidden = !overview.visible;
@@ -67,6 +67,11 @@ export default class OverviewEvents {
 
     get isTargetVisible() {
         return overview.visibleTarget;
+    }
+
+    get isClosed() {
+        // An interrupted hide emits hidden while Shell still intends to reopen.
+        return !overview.visible && !overview._shown;
     }
 
     destroy() {

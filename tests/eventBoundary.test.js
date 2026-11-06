@@ -6,13 +6,18 @@ import { createModuleLoader } from './fixtures/modules.js';
 
 test('event classes expose only their collaboration and lifecycle methods', async () => {
     const load = createModuleLoader({
-        'resource:///org/gnome/shell/ui/main.js': { overview: {}, wm: {}, layoutManager: {}, screenShield: {}, panel: {} },
+        'resource:///org/gnome/shell/ui/main.js': { overview: {}, extensionManager: {}, wm: {}, layoutManager: {}, screenShield: {}, panel: {} },
+        'resource:///org/gnome/shell/misc/extensionUtils.js': { ExtensionState: {} },
+        'resource:///org/gnome/shell/ui/workspace.js': { Workspace: class {} },
+        'resource:///org/gnome/shell/ui/workspacesView.js': { WorkspacesView: class {} },
         'gi://Meta': { default: { MaximizeFlags: { VERTICAL: 2, BOTH: 3 } } }
     });
     const surfaces = [
-        ['events/eventManager.js', ['configure', 'destroy', 'setOverviewCleanupNeeded']],
+        ['events/eventManager.js', ['configure', 'configureOverviewZoom', 'destroy', 'setOverviewCleanupNeeded']],
+        ['events/observers/overviewEvents/wallpaperZoomAvailability.js', ['configure', 'destroy', 'updateState']],
+        ['events/observers/overviewEvents/workspacePreviewLifecycle.js', ['configure', 'destroy']],
         ['events/signalConnections.js', ['connect', 'disconnect', 'disconnectAll']],
-        ['events/observers/overviewEvents.js', ['configure', 'destroy', 'isHidden', 'isTargetVisible', 'progress']],
+        ['events/observers/overviewEvents/overviewLifecycle.js', ['configure', 'destroy', 'isClosed', 'isHidden', 'isTargetVisible', 'progress']],
         ['events/observers/workspaceEvents.js', ['configure', 'disable', 'stopObservingWorkspaceSwipe', 'transition', 'isTransitioning']],
         ['events/observers/windowsEvents/windowEvents.js', [
             'configure', 'disable', 'getCurrentState', 'getEffectStrengthForWorkspace', 'setStateChangeCallback', 'updateState'
@@ -30,7 +35,7 @@ test('event classes expose only their collaboration and lifecycle methods', asyn
 const cases = [
     ['src/extension.js', "import Events from './events/eventManager.js';", false],
     ['src/extension.js', "import Windows from './events/observers/windowsEvents/windowEvents.js';", true],
-    ['src/settings/page.js', "import Overview from '../events/observers/overviewEvents.js';", true],
+    ['src/settings/page.js', "import Overview from '../events/observers/overviewEvents/overviewLifecycle.js';", true],
     ['src/extension.js', "import Signals from './events/signalConnections.js';", true],
     ['src/extension.js', "export * from './events/observers/workspaceEvents.js';", true],
     ['src/events/eventManager.js', "import Windows from './observers/windowsEvents/windowEvents.js';", false]

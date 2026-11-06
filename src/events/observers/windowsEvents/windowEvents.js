@@ -3,7 +3,7 @@ import { layoutManager, screenShield } from 'resource:///org/gnome/shell/ui/main
 import SignalConnections from '../../signalConnections.js';
 import MaximizedWindows from './windowsDetectors/maximizedWindows.js';
 import ProximityWindows from './windowsDetectors/proximityWindows.js';
-import { STYLE_TRIGGER } from '../../../gradient/appearance.js';
+import { STYLE_TRIGGER } from '../../../topBar/appearance.js';
 
 // Ignore Desktop Icons NG's synthetic windows.
 // FIXME: this causes the overview to close on login.

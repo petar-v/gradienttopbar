@@ -2,7 +2,7 @@ import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 import Cairo from 'cairo';
 
-import { GRADIENT_DIRECTION } from '../../gradient/appearance.js';
+import { GRADIENT_DIRECTION } from '../../topBar/appearance.js';
 import { createColorPickerButton } from './colorDialog.js';
 import { drawCheckerboard } from './checkerboard.js';
 

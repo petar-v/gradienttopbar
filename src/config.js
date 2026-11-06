@@ -22,6 +22,7 @@ export const SHADOW_OFFSET_Y = 'shadow-offset-y';
 export const ALTERNATE_COLORS_KEY = 'maximized-colors';
 export const OVERVIEW_BEHAVIOR_KEY = 'overview-behavior';
 export const OVERVIEW_TRANSITION = 'overview-transition';
+export const OVERVIEW_SMOOTH_ZOOM = 'overview-smooth-zoom';
 export const WORKSPACE_GESTURE_BLENDING = 'workspace-gesture-blending';
 export const OVERVIEW_COLORS = 'overview-colors';
 export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
@@ -30,8 +31,8 @@ export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
  * @param {Gio.Settings} settings
  * @param {string} colorsKey
  * @param {string} directionKey
- * @param {import('./gradient/appearance.js').GradientDefinition|null} fallback
- * @returns {import('./gradient/appearance.js').GradientDefinition}
+ * @param {import('./topBar/appearance.js').GradientDefinition|null} fallback
+ * @returns {import('./topBar/appearance.js').GradientDefinition}
  */
 const readGradient = (settings, colorsKey, directionKey, fallback = null) => {
     let colors = settings.get_strv(colorsKey).map(normalizeColor);

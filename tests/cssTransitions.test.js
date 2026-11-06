@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import * as appearance from '../src/gradient/appearance.js';
+import * as appearance from '../src/topBar/appearance.js';
 import { createRendererFixture } from './fixtures/renderer.js';
 
 const hidden = { progress: null, isHidden: true, isTargetVisible: false };

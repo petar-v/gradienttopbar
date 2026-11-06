@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createModuleLoader } from './modules.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
-import * as defaultTransitionTimings from '../../src/gradient/transitionTimings.js';
+import * as defaultTransitionTimings from '../../src/topBar/transitionTimings.js';
 
 export const createRendererFixture = async (t, transitionTimings = null) => {
     const state = { styleCommits: [], classUpdates: 0, widgetCreations: 0, animationsEnabled: false, nativeAlpha: 153, strength: 0, css: '', writes: 0, loads: 0 };
@@ -163,8 +163,11 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
         unload_stylesheet(file) { assert.equal(file.path, stylesheetPath); }
     };
     const stubs = {
-        'gradient/transitionTimings.js': transitionTimings && { ...defaultTransitionTimings, ...transitionTimings },
-        'resource:///org/gnome/shell/ui/main.js': { overview, panel },
+        'topBar/transitionTimings.js': transitionTimings && { ...defaultTransitionTimings, ...transitionTimings },
+        'resource:///org/gnome/shell/ui/main.js': { overview, panel, extensionManager: { lookup: () => null } },
+        'resource:///org/gnome/shell/misc/extensionUtils.js': {
+            ExtensionState: { ACTIVE: 1, INACTIVE: 2, ERROR: 3, OUT_OF_DATE: 4, INITIALIZED: 6, DEACTIVATING: 7, ACTIVATING: 8, UNINSTALLED: 99 }
+        },
         'resource:///org/gnome/shell/extensions/extension.js': { Extension: class {} },
         'gi://GLib': {
             default: {
@@ -198,6 +201,7 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
         },
         'config.js': {
             TOP_BAR_STYLE_SETTINGS: 'top-bar-style-settings',
+            OVERVIEW_SMOOTH_ZOOM: 'overview-smooth-zoom',
             isTopBarSettingsMenuEnabled: settings => settings.get_boolean('top-bar-style-settings'),
             attachSettingListener: (settings, key, callback) => settings.connect(`changed::${key}`, callback),
             getConfig: settings => ({ ...settings }),
@@ -205,8 +209,10 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
             detachSettingsListeners: (settings, ids) => ids.forEach(id => settings.disconnect(id))
         },
         'topBarMenu.js': { default: class {} },
+        'overview/workspaceBackground.js': { default: class { configure() {} destroy() {} } },
         'events/observers/windowsEvents/windowEvents.js': { default: WindowEvents },
-        'events/observers/workspaceEvents.js': { default: WorkspaceEvents }
+        'events/observers/workspaceEvents.js': { default: WorkspaceEvents },
+        'events/observers/overviewEvents/workspacePreviewLifecycle.js': { default: class { configure() {} destroy() {} } }
     };
     const load = createModuleLoader(stubs, { get_workspace_manager: () => ({}) });
     const settings = {
@@ -257,9 +263,9 @@ export const createRendererFixture = async (t, transitionTimings = null) => {
             throw new AggregateError(errors, 'Renderer fixture teardown failed');
     });
     const module = await load('extension.js');
-    const { default: Gradient } = (await load('gradient/gradient.js')).namespace;
-    const { createPanelBackground } = (await load('gradient/panelBackground.js')).namespace;
-    const { default: BackgroundBlend } = (await load('gradient/backgroundBlend.js')).namespace;
+    const { default: Gradient } = (await load('topBar/gradient.js')).namespace;
+    const { createPanelBackground } = (await load('topBar/panelBackground.js')).namespace;
+    const { default: BackgroundBlend } = (await load('topBar/backgroundBlend.js')).namespace;
     const track = resource => {
         resources.push(() => resource.destroy());
         return resource;
