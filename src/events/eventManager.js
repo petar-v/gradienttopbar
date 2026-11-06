@@ -1,7 +1,7 @@
 import WindowEvents from './observers/windowsEvents/windowEvents.js';
 import WorkspaceEvents from './observers/workspaceEvents.js';
 import OverviewEvents from './observers/overviewEvents.js';
-import { getObservationNeeds, isProgressiveProximity, isShellOverviewPassive } from '../gradient/appearance.js';
+import { getObservationNeeds, isProgressiveProximity, isShellOverviewPassive } from '../topBar/appearance.js';
 
 const isWindowStateEqual = (state1, state2) => {
     if ([state1, state2].includes(null))

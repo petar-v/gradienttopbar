@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { getObservationNeeds } from '../src/gradient/appearance.js';
+import { getObservationNeeds } from '../src/topBar/appearance.js';
 import { createEventsFixture } from './fixtures/events.js';
 import { createRendererFixture } from './fixtures/renderer.js';
 

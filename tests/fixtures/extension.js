@@ -38,7 +38,7 @@ export const createExtensionFixture = async t => {
                 destroy() { state.menusDestroyed++; }
             }
         },
-        'gradient/gradient.js': {
+        'topBar/gradient.js': {
             default: class {
                 configure(config, windowState) {
                     state.configurations.push(config);

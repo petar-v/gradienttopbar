@@ -33,7 +33,7 @@ import { createResetButton } from './components/resetButton.js';
 import { createProximityDistanceEditor } from './components/proximityDistanceEditor.js';
 import { ChoiceOption, selectRowValue } from './components/choiceOption.js';
 
-import { APPEARANCE_BEHAVIOR, STYLE_TRIGGER, getObservationNeeds } from '../gradient/appearance.js';
+import { APPEARANCE_BEHAVIOR, STYLE_TRIGGER, getObservationNeeds } from '../topBar/appearance.js';
 
 class Behavior extends Adw.PreferencesPage {
     _init(window, settings) {

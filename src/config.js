@@ -30,8 +30,8 @@ export const OVERVIEW_GRADIENT_DIRECTION = 'overview-gradient-direction';
  * @param {Gio.Settings} settings
  * @param {string} colorsKey
  * @param {string} directionKey
- * @param {import('./gradient/appearance.js').GradientDefinition|null} fallback
- * @returns {import('./gradient/appearance.js').GradientDefinition}
+ * @param {import('./topBar/appearance.js').GradientDefinition|null} fallback
+ * @returns {import('./topBar/appearance.js').GradientDefinition}
  */
 const readGradient = (settings, colorsKey, directionKey, fallback = null) => {
     let colors = settings.get_strv(colorsKey).map(normalizeColor);

@@ -1,6 +1,6 @@
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import GLib from 'gi://GLib';
-import Gradient from './gradient/gradient.js';
+import Gradient from './topBar/gradient.js';
 import {
     getConfig,
     isTopBarSettingsMenuEnabled,

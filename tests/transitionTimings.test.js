@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createRendererFixture } from './fixtures/renderer.js';
 import { createEventsFixture } from './fixtures/events.js';
-import * as defaultTimings from '../src/gradient/transitionTimings.js';
+import * as defaultTimings from '../src/topBar/transitionTimings.js';
 
 const timings = {
     WINDOW_ENTER_DURATION_MS: 181,
