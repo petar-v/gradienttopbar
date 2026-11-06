@@ -77,9 +77,9 @@ export default class GradientTopBar extends Extension {
             onWorkspaceProgress: measureWork('Renderer', 'Workspace progress', transition => this.#gradient.updateWorkspaceProgress(transition)),
             onWorkspaceCompleted: measureWork('Renderer', 'Workspace completed', state => this.#gradient.completeWorkspace(state)),
             onOverviewChanged: measureWork('Renderer', 'Overview changed', state => this.#gradient.updateOverview(state)),
-            onOverviewZoomChanged: isEnabled => this.#overviewZoom.configure(isEnabled),
-            onOverviewWorkspaceAdded: workspace => this.#overviewZoom.addWorkspace(workspace),
-            onOverviewWorkspaceRemoved: workspace => this.#overviewZoom.removeWorkspace(workspace)
+            onOverviewZoomChanged: measureWork('Overview wallpaper', 'Configure correction', isEnabled => this.#overviewZoom.configure(isEnabled)),
+            onOverviewWorkspaceAdded: measureWork('Overview wallpaper', 'Add workspace', workspace => this.#overviewZoom.addWorkspace(workspace)),
+            onOverviewWorkspaceRemoved: measureWork('Overview wallpaper', 'Remove workspace', workspace => this.#overviewZoom.removeWorkspace(workspace))
         });
 
         this.#overviewZoomHandlerId = attachSettingListener(

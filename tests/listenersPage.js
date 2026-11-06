@@ -25,6 +25,7 @@ const main = async () => {
     const render = monitor.work('Renderer', 'Window changed', () => {});
     render();
     monitor.work('Work', 'Window scan', () => {})();
+    monitor.work('Overview wallpaper', 'Configure correction', () => {})();
     const actionStats = () => monitor.snapshot().rows.find(item => item.group === 'Test');
     action.activate(null);
     window.present();
@@ -46,10 +47,14 @@ const main = async () => {
         });
         assert(groupTitles.at(-1) === 'Settings', 'Settings stay last even when other groups appear later');
         assert(groupTitles.at(-2) === 'Panel menu', 'Panel listeners stay directly above Settings');
-        for (const title of ['Renderer functions', 'Work functions']) {
+        for (const title of ['Renderer functions', 'Overview wallpaper functions', 'Work functions']) {
             const group = find(page, widget => widget instanceof Adw.PreferencesGroup && widget.title === title);
             assert(group && group.description.length > 0, 'Function groups have explanatory descriptions');
         }
+        const wallpaperRow = find(page, widget => widget instanceof Adw.ActionRow && widget.title === 'Configure wallpaper correction');
+        assert(wallpaperRow && wallpaperRow.subtitle.includes('WorkspaceBackgrounds.configure()'), 'Wallpaper function counters show their purpose and method');
+        for (const title of ['Overview previews', 'Wallpaper availability'])
+            assert(find(page, widget => widget instanceof Adw.PreferencesGroup && widget.title === title), 'New overview listener groups are visible before attachment');
         const functionRow = find(page, widget => widget instanceof Adw.ActionRow && widget.title === 'Update appearance after window changes');
         const functionBadge = find(functionRow, widget => widget instanceof Gtk.Label && widget.has_css_class('callback-count'));
         assert(functionRow.subtitle.startsWith('Requests an appearance update') && functionRow.subtitle.includes('\nFunction') && functionBadge.label === '1', 'Functions show descriptions, live statistics and callback totals in a badge');

@@ -28,5 +28,6 @@ test('settings inventory covers exactly the real runtime subscriptions', async (
     const settings = { connect: signal => observed.push(signal) };
     config.attachSettingsListeners(settings, () => {});
     config.attachSettingListener(settings, config.TOP_BAR_STYLE_SETTINGS, () => {});
+    config.attachSettingListener(settings, config.OVERVIEW_SMOOTH_ZOOM, () => {});
     assert.deepEqual([...listenerSignals.Settings].sort(), observed.sort());
 });

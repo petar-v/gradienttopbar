@@ -6,6 +6,23 @@ import GObject from 'gi://GObject';
 import { BUS_NAME, OBJECT_PATH } from './protocol.js';
 
 const functionDetails = {
+    'Overview wallpaper': {
+        'Configure correction': {
+            title: 'Configure wallpaper correction',
+            description: 'Enables or releases wallpaper geometry correction when availability changes.',
+            method: 'WorkspaceBackgrounds.configure()'
+        },
+        'Add workspace': {
+            title: 'Correct a workspace background',
+            description: 'Applies wallpaper geometry correction to an added workspace preview.',
+            method: 'WorkspaceBackgrounds.addWorkspace()'
+        },
+        'Remove workspace': {
+            title: 'Forget a removed workspace',
+            description: 'Forgets a destroyed workspace preview without restoring its actors.',
+            method: 'WorkspaceBackgrounds.removeWorkspace()'
+        }
+    },
     Renderer: {
         'Window changed': {
             title: 'Update appearance after window changes',
@@ -214,7 +231,7 @@ export default GObject.registerClass(class ListenersPage extends Adw.Preferences
             const key = `${row.group}:${row.signal}:${row.kind}`;
             const details = row.kind === 'work' ? functionDetails[row.group]?.[row.signal] : null;
             if (!this._groups.has(row.group)) {
-                const isFunctionGroup = row.group === 'Renderer' || row.group === 'Work';
+                const isFunctionGroup = row.kind === 'work';
                 const group = new Adw.PreferencesGroup({
                     title: isFunctionGroup ? `${row.group} functions` : row.group,
                     description: row.group === 'Renderer'
@@ -223,9 +240,11 @@ export default GObject.registerClass(class ListenersPage extends Adw.Preferences
                 });
                 if (row.group === 'Work')
                     group.description = 'Functions that scan windows, batch movement and resize events, and apply queued settings changes.';
+                if (row.group === 'Overview wallpaper')
+                    group.description = 'Functions that configure wallpaper correction and track workspace backgrounds. Native allocation and geometry calls are outside these counters.';
                 this._groups.set(row.group, group);
                 this.add(group);
-                for (const name of ['Renderer', 'Work', 'Panel menu', 'Settings']) {
+                for (const name of ['Renderer', 'Overview wallpaper', 'Work', 'Panel menu', 'Settings']) {
                     const bottomGroup = this._groups.get(name);
                     if (bottomGroup) {
                         this.remove(bottomGroup);

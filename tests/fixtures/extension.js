@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createModuleLoader } from './modules.js';
 
-export const createExtensionFixture = async t => {
+export const createExtensionFixture = async (t, extraStubs = {}) => {
     const state = { menusCreated: 0, menusDestroyed: 0, onChange: null, onMenuChange: null, openMenuPreferences: null, onZoomChange: null, zoomConfigured: [], zoomDestroyed: 0, eventsDestroyed: 0 };
     state.configurations = [];
     state.reconciled = [];
@@ -69,7 +69,7 @@ export const createExtensionFixture = async t => {
         },
         'events/eventManager.js': {
             default: class {
-                constructor({ onOverviewZoomChanged }) { this.onOverviewZoomChanged = onOverviewZoomChanged; }
+                constructor(callbacks) { state.eventCallbacks = callbacks; this.onOverviewZoomChanged = callbacks.onOverviewZoomChanged; }
                 configureOverviewZoom(enabled) { this.onOverviewZoomChanged(enabled); }
                 configure(config) { state.reconciled.push(config); return state.windowState; }
                 destroy() { state.eventsDestroyed++; }
@@ -83,7 +83,8 @@ export const createExtensionFixture = async t => {
             attachSettingListener: (target, key, callback) => target.connect(`changed::${key}`, callback),
             attachSettingsListeners(_settings, callback) { state.onChange = callback; return []; },
             detachSettingsListeners(target, ids) { ids.forEach(id => target.disconnect(id)); }
-        }
+        },
+        ...extraStubs
     });
     const module = await load('extension.js');
     const extension = new module.namespace.default();

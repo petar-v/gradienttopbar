@@ -64,6 +64,9 @@ test('listener states and function counts have separate badges, with panel and s
     assert.equal(workRow.badge.label, '0');
     assert.deepEqual(page.children.slice(-4).map(group => group.title), ['Renderer functions', 'Work functions', 'Panel menu', 'Settings']);
     const descriptions = [
+        ['Overview wallpaper', 'Configure correction', 'availability changes', 'Configure wallpaper correction', 'WorkspaceBackgrounds.configure()'],
+        ['Overview wallpaper', 'Add workspace', 'added workspace preview', 'Correct a workspace background', 'WorkspaceBackgrounds.addWorkspace()'],
+        ['Overview wallpaper', 'Remove workspace', 'without restoring its actors', 'Forget a removed workspace', 'WorkspaceBackgrounds.removeWorkspace()'],
         ['Renderer', 'Window changed', 'discrete window-state change', 'Update appearance after window changes', 'Gradient.updateWindow()'],
         ['Renderer', 'Window progress', 'approaches or moves away', 'Blend as windows approach', 'Gradient.followWindow()'],
         ['Renderer', 'Workspace progress', 'workspace swipe', 'Blend during workspace swipes', 'Gradient.updateWorkspaceProgress()'],
@@ -83,4 +86,6 @@ test('listener states and function counts have separate badges, with panel and s
         assert(widget.subtitle.includes('\nFunction · '), `${signal} retains its live statistics below the description`);
         assert.equal(widget.badge.label, '7');
     }
+    assert(page._groups.get('Overview wallpaper').description.includes('Native allocation'));
+    assert.deepEqual(page.children.slice(-5).map(group => group.title), ['Renderer functions', 'Overview wallpaper functions', 'Work functions', 'Panel menu', 'Settings']);
 });

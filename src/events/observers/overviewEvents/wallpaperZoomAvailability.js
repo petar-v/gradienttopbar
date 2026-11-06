@@ -5,7 +5,7 @@ import SignalConnections from '../../signalConnections.js';
 const companionUuid = 'overview-seamless-zoom@jguece';
 
 export default class WallpaperZoomAvailability {
-    #signals = new SignalConnections();
+    #signals = new SignalConnections('Wallpaper availability');
     #requested = false;
     #lastEnabled = false;
     #hasError = false;
